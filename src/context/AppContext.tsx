@@ -7,14 +7,26 @@ import {
   PublicWorkerReport, 
   TelemetryVitals, 
   WaterfallHop,
-  DoctorOnDuty
+  DoctorOnDuty,
+  PatientRecord
 } from '../types';
 import { evaluateAmbulanceTelemetry, checkHospitalCapabilities } from '../utils/mlTriage';
+
+export type HospitalResourceType = 
+  | 'general' 
+  | 'icu' 
+  | 'maternity' 
+  | 'ventilator' 
+  | 'dialysis' 
+  | 'ecg' 
+  | 'ctScanner' 
+  | 'defibrillator' 
+  | 'mri';
 
 interface AppContextType {
   // Hospitals
   hospitals: Hospital[];
-  updateHospitalBeds: (hospitalId: string, bedType: 'general' | 'icu' | 'maternity' | 'ventilator', delta: number) => void;
+  updateHospitalBeds: (hospitalId: string, bedType: HospitalResourceType, delta: number) => void;
   selectedHospitalId: string;
   setSelectedHospitalId: (id: string) => void;
 
@@ -26,11 +38,12 @@ interface AppContextType {
   updateDoctorStatus: (hospitalId: string, doctorId: string, status: { available: boolean; statusDetail: DoctorOnDuty['statusDetail'] }) => void;
   removeDoctorFromHospital: (hospitalId: string, doctorId: string) => void;
 
-  // Citizen Bio-Data
+  // Citizen Bio-Data & Digital Health Records
   user: UserBioData;
   isLoggedIn: boolean;
   setIsLoggedIn: (status: boolean) => void;
   loginUser: (identifier: string) => boolean;
+  addPatientPrescription: (record: Omit<PatientRecord, 'id'>) => void;
 
   // Ambulances
   ambulances: Ambulance[];
@@ -81,6 +94,11 @@ const INITIAL_HOSPITALS: Hospital[] = [
     maternityBedsAvail: 2,
     oxygenBedsAvail: 2,
     ventilatorsAvail: 0,
+    dialysisAvail: 0,
+    ecgAvail: 1,
+    ctScannerAvail: 0,
+    defibrillatorAvail: 1,
+    mriAvail: 0,
     capabilities: ['MATERNITY_SURGICAL'],
     doctorsOnDuty: [
       { id: 'doc-1', name: 'Dr. Kavita Sharma', designation: 'Medical Officer (MBBS)', department: 'General OPD & Emergency', shift: 'Day Shift (08:00 - 16:00)', available: true, statusDetail: 'AVAILABLE', roomNumber: 'Room 102' },
@@ -112,10 +130,15 @@ const INITIAL_HOSPITALS: Hospital[] = [
     maternityBedsAvail: 3,
     oxygenBedsAvail: 8,
     ventilatorsAvail: 1,
+    dialysisAvail: 2,
+    ecgAvail: 3,
+    ctScannerAvail: 0,
+    defibrillatorAvail: 2,
+    mriAvail: 0,
     capabilities: ['TRAUMA_OT', 'BLOOD_BANK_O_NEG', 'MATERNITY_SURGICAL', 'MECHANICAL_VENTILATOR'],
     doctorsOnDuty: [
       { id: 'doc-3', name: 'Dr. Rajesh Mehta', designation: 'Senior Emergency Physician', department: '24x7 Emergency & Trauma', shift: '24x7 Trauma Shift', available: true, statusDetail: 'AVAILABLE', roomNumber: 'ER Bay 1' },
-      { id: 'doc-4', name: 'Dr. Sneha Patil', designation: 'Anesthetist & Critical Care', department: 'Anesthesia & Surgery', shift: 'Night On-Duty', available: false, statusDetail: 'BUSY_SURGERY', roomNumber: 'Operation Theater 2' }
+      { id: 'doc-4', name: 'Dr. Sneha Patil', designation: 'Anesthetist & Critical Care', department: 'Anesthesia & Surgery', shift: 'Night On-Duty', available: false, statusDetail: 'BUSY', roomNumber: 'Operation Theater 2' }
     ],
     visitingSpecialists: [
       { id: 'spec-3', name: 'Dr. S. K. Roy', specialty: 'Cardiologist', visitingDays: ['Wednesday', 'Saturday'], timing: '09:30 AM - 01:30 PM', isVisitingToday: false },
@@ -143,10 +166,15 @@ const INITIAL_HOSPITALS: Hospital[] = [
     maternityBedsAvail: 6,
     oxygenBedsAvail: 25,
     ventilatorsAvail: 4,
+    dialysisAvail: 8,
+    ecgAvail: 10,
+    ctScannerAvail: 2,
+    defibrillatorAvail: 6,
+    mriAvail: 1,
     capabilities: ['TRAUMA_OT', 'BLOOD_BANK_O_NEG', 'MATERNITY_SURGICAL', 'MECHANICAL_VENTILATOR', 'PEDIATRIC_ICU'],
     doctorsOnDuty: [
       { id: 'doc-5', name: 'Dr. Vivek Saxena', designation: 'Chief Medical Superintendent', department: 'Civil Administration & Medicine', shift: 'Full Time', available: true, statusDetail: 'AVAILABLE', roomNumber: 'Admin Block C' },
-      { id: 'doc-6', name: 'Dr. Priya Nambiar', designation: 'General Surgeon', department: 'General Surgery & Trauma', shift: 'Night On-Call', available: false, statusDetail: 'ON_ROUNDS', roomNumber: 'Ward 4' }
+      { id: 'doc-6', name: 'Dr. Priya Nambiar', designation: 'General Surgeon', department: 'General Surgery & Trauma', shift: 'Night On-Call', available: false, statusDetail: 'BUSY', roomNumber: 'Ward 4' }
     ],
     visitingSpecialists: [
       { id: 'spec-5', name: 'Dr. D. P. Singh', specialty: 'Neurologist', visitingDays: ['Saturday'], timing: '11:00 AM - 04:00 PM', isVisitingToday: false }
@@ -173,6 +201,11 @@ const INITIAL_HOSPITALS: Hospital[] = [
     maternityBedsAvail: 12,
     oxygenBedsAvail: 85,
     ventilatorsAvail: 18,
+    dialysisAvail: 24,
+    ecgAvail: 20,
+    ctScannerAvail: 4,
+    defibrillatorAvail: 14,
+    mriAvail: 3,
     capabilities: [
       'CATH_LAB_24X7',
       'NEURO_SURGERY_ICU',
@@ -351,11 +384,39 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [hospitals, setHospitals] = useState<Hospital[]>(() => {
     const saved = localStorage.getItem('medcatalyst_hospitals') || localStorage.getItem('sanjeevani_hospitals');
-    return saved ? JSON.parse(saved) : INITIAL_HOSPITALS;
+    if (saved) {
+      try {
+        const parsed: Hospital[] = JSON.parse(saved);
+        return parsed.map(h => {
+          const initMatch = INITIAL_HOSPITALS.find(ih => ih.id === h.id);
+          return {
+            ...h,
+            dialysisAvail: h.dialysisAvail ?? (initMatch?.dialysisAvail ?? 0),
+            ecgAvail: h.ecgAvail ?? (initMatch?.ecgAvail ?? 0),
+            ctScannerAvail: h.ctScannerAvail ?? (initMatch?.ctScannerAvail ?? 0),
+            defibrillatorAvail: h.defibrillatorAvail ?? (initMatch?.defibrillatorAvail ?? 0),
+            mriAvail: h.mriAvail ?? (initMatch?.mriAvail ?? 0),
+          };
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return INITIAL_HOSPITALS;
   });
 
   const [selectedHospitalId, setSelectedHospitalId] = useState<string>('hosp-rampur-phc');
-  const [user] = useState<UserBioData>(INITIAL_USER);
+  const [user, setUser] = useState<UserBioData>(() => {
+    const saved = localStorage.getItem('medcatalyst_user') || localStorage.getItem('sanjeevani_user');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return INITIAL_USER;
+  });
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(true); // Pre-authenticated for seamless hackathon testing
 
   // Hospital Authentication State (for /hospital portal)
@@ -368,7 +429,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return null;
   });
 
-  // Cross-tab real-time sync for hospitals & doctors
+  // Cross-tab real-time sync for hospitals, doctors, and user medical records
   useEffect(() => {
     const handleStorage = (e: StorageEvent) => {
       if ((e.key === 'medcatalyst_hospitals' || e.key === 'sanjeevani_hospitals') && e.newValue) {
@@ -379,6 +440,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const updatedSelf = parsed.find(h => h.id === hospitalUser.id);
             if (updatedSelf) setHospitalUser(updatedSelf);
           }
+        } catch (err) {
+          console.error(err);
+        }
+      }
+      if ((e.key === 'medcatalyst_user' || e.key === 'sanjeevani_user') && e.newValue) {
+        try {
+          setUser(JSON.parse(e.newValue));
         } catch (err) {
           console.error(err);
         }
@@ -511,27 +579,74 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => clearInterval(timer);
   }, [activeDispatch, hospitals]);
 
-  const updateHospitalBeds = (hospitalId: string, bedType: 'general' | 'icu' | 'maternity' | 'ventilator', delta: number) => {
-    setHospitals(prev => prev.map(h => {
-      if (h.id !== hospitalId) return h;
+  const updateHospitalBeds = (hospitalId: string, bedType: HospitalResourceType, delta: number) => {
+    setHospitals(prev => {
+      const updated = prev.map(h => {
+        if (h.id !== hospitalId) return h;
+        if (bedType === 'general') {
+          return { ...h, generalBedsAvail: Math.max(0, (h.generalBedsAvail || 0) + delta) };
+        }
+        if (bedType === 'icu') {
+          return { ...h, icuBedsAvail: Math.max(0, (h.icuBedsAvail || 0) + delta) };
+        }
+        if (bedType === 'maternity') {
+          return { ...h, maternityBedsAvail: Math.max(0, (h.maternityBedsAvail || 0) + delta) };
+        }
+        if (bedType === 'ventilator') {
+          return { ...h, ventilatorsAvail: Math.max(0, (h.ventilatorsAvail || 0) + delta) };
+        }
+        if (bedType === 'dialysis') {
+          return { ...h, dialysisAvail: Math.max(0, (h.dialysisAvail || 0) + delta) };
+        }
+        if (bedType === 'ecg') {
+          return { ...h, ecgAvail: Math.max(0, (h.ecgAvail || 0) + delta) };
+        }
+        if (bedType === 'ctScanner') {
+          return { ...h, ctScannerAvail: Math.max(0, (h.ctScannerAvail || 0) + delta) };
+        }
+        if (bedType === 'defibrillator') {
+          return { ...h, defibrillatorAvail: Math.max(0, (h.defibrillatorAvail || 0) + delta) };
+        }
+        if (bedType === 'mri') {
+          return { ...h, mriAvail: Math.max(0, (h.mriAvail || 0) + delta) };
+        }
+        return h;
+      });
+      localStorage.setItem('medcatalyst_hospitals', JSON.stringify(updated));
+      return updated;
+    });
+
+    setHospitalUser(prev => {
+      if (!prev || prev.id !== hospitalId) return prev;
       if (bedType === 'general') {
-        const next = Math.max(0, Math.min(h.generalBedsTotal, h.generalBedsAvail + delta));
-        return { ...h, generalBedsAvail: next };
+        return { ...prev, generalBedsAvail: Math.max(0, (prev.generalBedsAvail || 0) + delta) };
       }
       if (bedType === 'icu') {
-        const next = Math.max(0, Math.min(h.icuBedsTotal, h.icuBedsAvail + delta));
-        return { ...h, icuBedsAvail: next };
+        return { ...prev, icuBedsAvail: Math.max(0, (prev.icuBedsAvail || 0) + delta) };
       }
       if (bedType === 'maternity') {
-        const next = Math.max(0, Math.min(h.maternityBedsTotal, h.maternityBedsAvail + delta));
-        return { ...h, maternityBedsAvail: next };
+        return { ...prev, maternityBedsAvail: Math.max(0, (prev.maternityBedsAvail || 0) + delta) };
       }
       if (bedType === 'ventilator') {
-        const next = Math.max(0, h.ventilatorsAvail + delta);
-        return { ...h, ventilatorsAvail: next };
+        return { ...prev, ventilatorsAvail: Math.max(0, (prev.ventilatorsAvail || 0) + delta) };
       }
-      return h;
-    }));
+      if (bedType === 'dialysis') {
+        return { ...prev, dialysisAvail: Math.max(0, (prev.dialysisAvail || 0) + delta) };
+      }
+      if (bedType === 'ecg') {
+        return { ...prev, ecgAvail: Math.max(0, (prev.ecgAvail || 0) + delta) };
+      }
+      if (bedType === 'ctScanner') {
+        return { ...prev, ctScannerAvail: Math.max(0, (prev.ctScannerAvail || 0) + delta) };
+      }
+      if (bedType === 'defibrillator') {
+        return { ...prev, defibrillatorAvail: Math.max(0, (prev.defibrillatorAvail || 0) + delta) };
+      }
+      if (bedType === 'mri') {
+        return { ...prev, mriAvail: Math.max(0, (prev.mriAvail || 0) + delta) };
+      }
+      return prev;
+    });
   };
 
   const loginUser = (identifier: string): boolean => {
@@ -540,6 +655,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return true;
     }
     return false;
+  };
+
+  const addPatientPrescription = (record: Omit<PatientRecord, 'id'>) => {
+    const newRecord: PatientRecord = {
+      ...record,
+      id: `rx-${Date.now()}`
+    };
+
+    setUser(prev => {
+      const updated: UserBioData = {
+        ...prev,
+        pastRecords: [newRecord, ...(prev.pastRecords || [])]
+      };
+      localStorage.setItem('medcatalyst_user', JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const loginHospital = (identifier: string): boolean => {
@@ -929,6 +1060,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isLoggedIn,
       setIsLoggedIn,
       loginUser,
+      addPatientPrescription,
       ambulances,
       updateAmbulanceStatus,
       activeDispatch,

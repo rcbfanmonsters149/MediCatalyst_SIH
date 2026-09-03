@@ -10,7 +10,12 @@ import {
   Bed, 
   AlertTriangle,
   HeartPulse,
-  Navigation
+  Navigation,
+  Activity,
+  Droplets,
+  Zap,
+  Scan,
+  Disc
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { LeafletMap } from '../components/LeafletMap';
@@ -263,8 +268,8 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
                       <span>General Beds</span>
                     </div>
                     <div className="text-sm font-bold text-slate-800 mt-0.5">
-                      <span className="text-emerald-600">{hosp.generalBedsAvail}</span>
-                      <span className="text-slate-400 text-xs"> / {hosp.generalBedsTotal}</span>
+                      <span className="text-emerald-600">{hosp.generalBedsAvail ?? 0}</span>
+                      <span className="text-slate-500 text-xs font-normal"> Avail</span>
                     </div>
                   </div>
 
@@ -274,10 +279,10 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
                       <span>ICU Beds</span>
                     </div>
                     <div className="text-sm font-bold text-slate-800 mt-0.5">
-                      <span className={hosp.icuBedsAvail > 0 ? 'text-rose-600' : 'text-slate-400'}>
-                        {hosp.icuBedsAvail}
+                      <span className={(hosp.icuBedsAvail ?? 0) > 0 ? 'text-rose-600' : 'text-slate-400'}>
+                        {hosp.icuBedsAvail ?? 0}
                       </span>
-                      <span className="text-slate-400 text-xs"> / {hosp.icuBedsTotal}</span>
+                      <span className="text-slate-500 text-xs font-normal"> Avail</span>
                     </div>
                   </div>
 
@@ -287,8 +292,8 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
                       <span>Maternity Beds</span>
                     </div>
                     <div className="text-sm font-bold text-slate-800 mt-0.5">
-                      <span className="text-indigo-600">{hosp.maternityBedsAvail}</span>
-                      <span className="text-slate-400 text-xs"> / {hosp.maternityBedsTotal}</span>
+                      <span className="text-indigo-600">{hosp.maternityBedsAvail ?? 0}</span>
+                      <span className="text-slate-500 text-xs font-normal"> Avail</span>
                     </div>
                   </div>
 
@@ -298,11 +303,50 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
                       <span>Ventilators</span>
                     </div>
                     <div className="text-sm font-bold text-slate-800 mt-0.5">
-                      <span className={hosp.ventilatorsAvail > 0 ? 'text-sky-600' : 'text-slate-400'}>
-                        {hosp.ventilatorsAvail} Free
+                      <span className={(hosp.ventilatorsAvail ?? 0) > 0 ? 'text-sky-600' : 'text-slate-400'}>
+                        {hosp.ventilatorsAvail ?? 0} Units
                       </span>
                     </div>
                   </div>
+                </div>
+
+                {/* Critical Diagnostic & Life-Support Equipment Status */}
+                <div className="flex flex-wrap items-center gap-1.5 mt-2.5 pt-2 border-t border-dashed border-slate-100 text-[11px]">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 mr-1">Equipment:</span>
+                  <span className={`px-2 py-0.5 rounded-md font-semibold flex items-center gap-1 ${
+                    (hosp.dialysisAvail ?? 0) > 0 ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-slate-100 text-slate-400'
+                  }`}>
+                    <Droplets className="w-3 h-3" />
+                    <span>Dialysis: {hosp.dialysisAvail ?? 0}</span>
+                  </span>
+
+                  <span className={`px-2 py-0.5 rounded-md font-semibold flex items-center gap-1 ${
+                    (hosp.ecgAvail ?? 0) > 0 ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-slate-100 text-slate-400'
+                  }`}>
+                    <Activity className="w-3 h-3" />
+                    <span>ECG: {hosp.ecgAvail ?? 0}</span>
+                  </span>
+
+                  <span className={`px-2 py-0.5 rounded-md font-semibold flex items-center gap-1 ${
+                    (hosp.ctScannerAvail ?? 0) > 0 ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-slate-100 text-slate-400'
+                  }`}>
+                    <Scan className="w-3 h-3" />
+                    <span>CT Scan: {hosp.ctScannerAvail ?? 0}</span>
+                  </span>
+
+                  <span className={`px-2 py-0.5 rounded-md font-semibold flex items-center gap-1 ${
+                    (hosp.defibrillatorAvail ?? 0) > 0 ? 'bg-orange-50 text-orange-700 border border-orange-200' : 'bg-slate-100 text-slate-400'
+                  }`}>
+                    <Zap className="w-3 h-3" />
+                    <span>Defibrillator: {hosp.defibrillatorAvail ?? 0}</span>
+                  </span>
+
+                  <span className={`px-2 py-0.5 rounded-md font-semibold flex items-center gap-1 ${
+                    (hosp.mriAvail ?? 0) > 0 ? 'bg-teal-50 text-teal-700 border border-teal-200' : 'bg-slate-100 text-slate-400'
+                  }`}>
+                    <Disc className="w-3 h-3" />
+                    <span>MRI: {hosp.mriAvail ?? 0}</span>
+                  </span>
                 </div>
 
                 {/* Interactive On-Duty Doctors & Medical Staff Roster */}
@@ -349,43 +393,31 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                         {hosp.doctorsOnDuty.map(doc => {
-                          const status = doc.statusDetail || (doc.available ? 'AVAILABLE' : 'OFF_DUTY');
+                          const isAvailable = doc.statusDetail === 'AVAILABLE';
+                          const isBusy = doc.statusDetail === 'BUSY';
+
                           return (
                             <div 
                               key={doc.id}
                               className={`p-2.5 rounded-xl border text-xs flex flex-col justify-between gap-1.5 ${
-                                status === 'AVAILABLE' 
-                                  ? 'bg-emerald-50/60 border-emerald-200' 
-                                  : (status === 'BUSY_SURGERY' 
-                                      ? 'bg-amber-50/60 border-amber-200' 
-                                      : (status === 'BUSY_EMERGENCY' ? 'bg-rose-50/60 border-rose-200' : 'bg-slate-50 border-slate-200'))
+                                isAvailable 
+                                  ? 'bg-emerald-50/70 border-emerald-200' 
+                                  : (isBusy ? 'bg-rose-50/70 border-rose-200' : 'bg-slate-50 border-slate-200')
                               }`}
                             >
                               <div>
                                 <div className="flex items-center justify-between gap-1">
                                   <span className="font-bold text-slate-900">{doc.name}</span>
-                                  {status === 'AVAILABLE' && (
-                                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
+                                  {isAvailable ? (
+                                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0">
                                       🟢 Available
                                     </span>
-                                  )}
-                                  {status === 'BUSY_SURGERY' && (
-                                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 shrink-0">
-                                      🟡 In Surgery
+                                  ) : isBusy ? (
+                                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300 shrink-0">
+                                      🔴 Busy
                                     </span>
-                                  )}
-                                  {status === 'BUSY_EMERGENCY' && (
-                                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-rose-100 text-rose-900 border border-rose-300 shrink-0">
-                                      🔴 Emergency OT
-                                    </span>
-                                  )}
-                                  {status === 'ON_ROUNDS' && (
-                                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-blue-100 text-blue-900 border border-blue-200 shrink-0">
-                                      🟠 On Rounds
-                                    </span>
-                                  )}
-                                  {status === 'OFF_DUTY' && (
-                                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 shrink-0">
+                                  ) : (
+                                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 border border-slate-300 shrink-0">
                                       ⚪ Off Duty
                                     </span>
                                   )}

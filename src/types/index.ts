@@ -25,9 +25,7 @@ export interface VisitingSpecialist {
 
 export type DoctorStatusType = 
   | 'AVAILABLE'
-  | 'BUSY_SURGERY'
-  | 'BUSY_EMERGENCY'
-  | 'ON_ROUNDS'
+  | 'BUSY'
   | 'OFF_DUTY';
 
 export interface DoctorOnDuty {
@@ -66,6 +64,13 @@ export interface Hospital {
   oxygenBedsAvail: number;
   ventilatorsAvail: number;
 
+  // Medical Equipment & Diagnostic Machines
+  dialysisAvail: number;
+  ecgAvail: number;
+  ctScannerAvail: number;
+  defibrillatorAvail: number;
+  mriAvail: number;
+
   // Facilities & capabilities
   capabilities: CapabilityType[];
   
@@ -101,14 +106,29 @@ export interface UserBioData {
     frequency: string;
     purpose: string;
   }[];
-  pastRecords: {
-    id: string;
-    date: string;
-    hospitalName: string;
-    diagnosis: string;
-    doctorName: string;
-    prescriptionSummary: string;
-  }[];
+  pastRecords: PatientRecord[];
+}
+
+export interface PrescriptionMedication {
+  name: string;
+  dosage: string;
+  frequency: string;
+  duration: string;
+  instructions?: string;
+}
+
+export interface PatientRecord {
+  id: string;
+  date: string;
+  hospitalName: string;
+  hospitalId?: string;
+  doctorName: string;
+  doctorSpecialty?: string;
+  diagnosis: string;
+  prescriptionSummary: string;
+  medications?: PrescriptionMedication[];
+  clinicalAdvice?: string;
+  abhaId?: string;
 }
 
 export type AmbulanceStatus = 
