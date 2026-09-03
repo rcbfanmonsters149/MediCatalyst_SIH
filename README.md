@@ -33,24 +33,6 @@ MedCatalyst bridges the information gap between rural citizens, government healt
 
 ---
 
-## 🛠️ Quick Start
-
-```bash
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-
-# Build for production
-npm run build
-```
-
-* **Citizen Portal**: `http://localhost:5173/`
-* **Hospital Portal**: `http://localhost:5173/hospital`
-
----
-
 ## 💻 Tech Stack
 
 * **Frontend**: React 19, TypeScript, Vite, TailwindCSS v4, React Router DOM v7, Lucide Icons, Leaflet
