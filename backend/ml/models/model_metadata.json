@@ -1,0 +1,44 @@
+{
+  "model_name": "EmergencyTriageClassifier_v1",
+  "algorithm": "RandomForestClassifier_MultiOutput",
+  "training_samples": 6000,
+  "features": [
+    "age",
+    "is_pediatric",
+    "heart_rate",
+    "systolic_bp",
+    "diastolic_bp",
+    "spo2",
+    "resp_rate",
+    "gcs",
+    "body_temp",
+    "ecg_stemi",
+    "trauma",
+    "fast_score",
+    "blood_glucose"
+  ],
+  "capability_targets": [
+    "req_cath_lab",
+    "req_neuro_icu",
+    "req_trauma_ot",
+    "req_ventilator",
+    "req_pediatric_icu"
+  ],
+  "acuity_accuracy": 0.9116666666666666,
+  "capability_accuracy": 0.9966666666666667,
+  "feature_importances": {
+    "age": 0.00656035734153496,
+    "is_pediatric": 0.0007823632194877203,
+    "heart_rate": 0.06926265716329448,
+    "systolic_bp": 0.11372499018605856,
+    "diastolic_bp": 0.08094394593440411,
+    "spo2": 0.1326968598603152,
+    "resp_rate": 0.08019508243406985,
+    "gcs": 0.20442554954544154,
+    "body_temp": 0.02992453884558225,
+    "ecg_stemi": 0.15601515571818356,
+    "trauma": 0.019786915961928227,
+    "fast_score": 0.09174138311300781,
+    "blood_glucose": 0.013940200676691748
+  }
+}
