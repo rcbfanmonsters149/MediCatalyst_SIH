@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { TollFreeBanner } from '../components/TollFreeBanner';
+import { EmergencyTrackerCard } from '../components/EmergencyTrackerCard';
 
 interface EmergencyPageProps {
   onNavigateToAmbulance?: () => void;
@@ -29,11 +30,13 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
   const { 
     hospitals, 
     activeDispatch, 
+    ambulances,
     createEmergencyDispatch, 
     declineOrTimeoutDispatch, 
     cancelDispatch, 
     sendDispatchMessage,
     acceptDispatchByHospital,
+    updateDispatchStep,
     user
   } = useApp();
 
@@ -133,9 +136,10 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
           </span>
         </div>
 
-        {/* If NO active dispatch: Show Request Form */}
+        {/* If NO active dispatch: Show Request Form + Incident Lifecycle Preview */}
         {!activeDispatch ? (
-          <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-lg border border-red-200 overflow-hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            <div className="lg:col-span-7 bg-white rounded-2xl shadow-lg border border-red-200 overflow-hidden">
             
             <div className="bg-gradient-to-r from-red-600 to-rose-700 text-white p-6 sm:p-8">
               <div className="flex items-center gap-3">
@@ -281,10 +285,87 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
 
             </form>
 
+            </div>
+
+            {/* Clean Live Incident Progress Stepper Column */}
+            <div className="lg:col-span-5 space-y-3">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Incident Response Protocol
+                </span>
+                <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                  10-Stage Lifecycle
+                </span>
+              </div>
+              <EmergencyTrackerCard
+                incidentId="E-9727"
+                title="Road Accident"
+                urgency="Critical"
+                patientCount={1}
+                initialStep={3}
+                className="w-full shadow-md"
+              />
+            </div>
+
           </div>
         ) : (
-          /* If ACTIVE dispatch exists: Show Live Waterfall SLA Tracker & Bi-directional Communication */
+          /* If ACTIVE dispatch exists: Show Clean Tracker Card + Waterfall SLA Tracker & Bi-directional Communication */
           <div className="space-y-6">
+
+            {/* Clean 10-Stage Incident Progress Stepper Card */}
+            <div className="flex justify-center">
+              <EmergencyTrackerCard
+                incidentId={activeDispatch.id}
+                title={activeDispatch.callerIssue}
+                urgency={activeDispatch.urgencyLevel === 'CRITICAL' ? 'Critical' : (activeDispatch.urgencyLevel === 'HIGH' ? 'High' : 'Moderate')}
+                patientCount={activeDispatch.patientCount || 1}
+                currentStep={activeDispatch.currentStep || 4}
+                onStepChange={(step) => updateDispatchStep(step)}
+                className="w-full shadow-md"
+              />
+            </div>
+
+            {/* Nearest Ambulance Live Response Banner */}
+            {(() => {
+              const assignedAmb = ambulances.find(a => a.id === activeDispatch.assignedAmbulanceId) || ambulances[0];
+              return (
+                <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white rounded-2xl p-5 border border-slate-700 shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+                      <Truck className="w-6 h-6 animate-pulse" />
+                    </div>
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-base font-extrabold text-white tracking-wide font-mono">
+                          {assignedAmb.vehicleNumber}
+                        </span>
+                        <span className="text-[10px] uppercase font-black tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                          ⚡ Closest GPS Ambulance Assigned First
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-300 mt-1">
+                        {assignedAmb.type} • Home Depot: <strong className="text-slate-100">{assignedAmb.hospitalName}</strong>
+                      </p>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Paramedic/Driver: <span className="text-slate-200 font-semibold">{assignedAmb.driverName}</span> • Phone: <a href={`tel:${assignedAmb.driverPhone}`} className="text-emerald-400 underline font-mono">{assignedAmb.driverPhone}</a>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 self-end md:self-center">
+                    <div className="text-right bg-slate-950/60 border border-slate-700 px-4 py-2.5 rounded-xl">
+                      <div className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
+                        Pickup ETA to Coordinates
+                      </div>
+                      <div className="text-xl font-mono font-black text-emerald-400">
+                        ~{assignedAmb.etaMinutes || 2} mins
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
             
             {/* Top Status Alert Bar */}
             <div className={`p-5 rounded-2xl border text-white shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ${

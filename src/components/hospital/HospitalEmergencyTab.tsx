@@ -20,6 +20,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import { Hospital } from '../../types';
 import { LeafletMap } from '../LeafletMap';
+import { EmergencyTrackerCard } from '../EmergencyTrackerCard';
 
 interface HospitalEmergencyTabProps {
   hospital: Hospital;
@@ -34,6 +35,7 @@ export const HospitalEmergencyTab: React.FC<HospitalEmergencyTabProps> = ({ hosp
     ambulances, 
     vitals, 
     sendDispatchMessage,
+    updateDispatchStep,
     hospitals
   } = useApp();
 
@@ -172,6 +174,24 @@ export const HospitalEmergencyTab: React.FC<HospitalEmergencyTabProps> = ({ hosp
           <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
             🟢 Ready for Inbound SOS
           </span>
+        </div>
+      )}
+
+      {/* 10-Stage Incident Progress Tracker Card */}
+      {activeDispatch && (
+        <div className="flex justify-center">
+          <EmergencyTrackerCard
+            incidentId={activeDispatch.id}
+            title={activeDispatch.callerIssue}
+            urgency={activeDispatch.urgencyLevel === 'CRITICAL' ? 'Critical' : (activeDispatch.urgencyLevel === 'HIGH' ? 'High' : 'Moderate')}
+            patientCount={activeDispatch.patientCount || 1}
+            currentStep={activeDispatch.currentStep || 3}
+            onStepChange={(step) => {
+              updateDispatchStep(step);
+              onNotify(`Incident stage updated to Step ${step}. Synchronized across grid!`);
+            }}
+            className="w-full shadow-md"
+          />
         </div>
       )}
 
