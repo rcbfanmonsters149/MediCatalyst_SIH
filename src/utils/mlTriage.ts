@@ -1,4 +1,4 @@
-import { CapabilityType, Hospital, TelemetryVitals } from '../types';
+import { CapabilityType, Hospital, AmbulanceAssessmentForm, TelemetryVitals } from '../types';
 
 export interface TriagePrediction {
   acuity: 'ESI-1' | 'ESI-2' | 'ESI-3' | 'ESI-4';
@@ -17,9 +17,9 @@ export interface CapabilityMatchResult {
 
 /**
  * High-precision In-Ambulance Clinical Triage Evaluator
- * Mirroring the Random Forest Emergency Severity Index trained model.
+ * Evaluates vital signs and clinical assessment from the ambulance form.
  */
-export function evaluateAmbulanceTelemetry(vitals: TelemetryVitals): TriagePrediction {
+export function evaluateAmbulanceAssessment(vitals: AmbulanceAssessmentForm): TriagePrediction {
   const risks: string[] = [];
   const requiredCaps: CapabilityType[] = [];
 
@@ -165,3 +165,5 @@ export function getCapabilityFriendlyName(cap: CapabilityType): string {
       return cap;
   }
 }
+
+export const evaluateAmbulanceTelemetry = evaluateAmbulanceAssessment;

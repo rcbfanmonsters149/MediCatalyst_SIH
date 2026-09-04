@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 import { 
-  Search, 
   MapPin, 
   Clock, 
   Phone, 
-  Calendar, 
   UserCheck, 
   ShieldCheck, 
   Bed, 
@@ -28,60 +26,29 @@ interface CitizenPageProps {
 
 export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => {
   const { hospitals, selectedHospitalId, setSelectedHospitalId } = useApp();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filter24x7, setFilter24x7] = useState(false);
-  const [filterIcuOnly, setFilterIcuOnly] = useState(false);
-  const [filterDoctorPresent, setFilterDoctorPresent] = useState(false);
-  const [filterType, setFilterType] = useState<string>('ALL');
   const [expandedDoctorHospId, setExpandedDoctorHospId] = useState<string | null>('hosp-rampur-phc');
 
-  const filteredHospitals = hospitals.filter(hosp => {
-    const matchesSearch = hosp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          hosp.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          hosp.type.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matches24x7 = !filter24x7 || hosp.is24x7Emergency;
-    const matchesIcu = !filterIcuOnly || hosp.icuBedsAvail > 0;
-    const matchesDoc = !filterDoctorPresent || hosp.doctorsOnDuty.some(d => d.available);
-    const matchesType = filterType === 'ALL' || hosp.type.includes(filterType);
-
-    return matchesSearch && matches24x7 && matchesIcu && matchesDoc && matchesType;
-  });
+  // Sorted nearest hospitals
+  const sortedHospitals = [...hospitals].sort((a, b) => a.distanceKm - b.distanceKm);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
       
-      {/* Hero Quick Emergency Card */}
+      {/* 1. Hero Emergency Card with SOS Button */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-red-600 via-rose-600 to-red-700 text-white p-6 sm:p-8 shadow-xl">
         <div className="relative z-10 max-w-3xl space-y-4">
-          <div className="inline-flex items-center gap-2 bg-black/20 backdrop-blur-md px-3 py-1 rounded-full text-xs font-semibold text-rose-100 border border-white/10">
-            <HeartPulse className="w-4 h-4 text-rose-300 animate-pulse" />
-            <span>Golden Hour Emergency Rapid Response</span>
-          </div>
-
           <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight font-heading">
             Rural Healthcare & Immediate Ambulance Network
           </h1>
 
-          <p className="text-sm sm:text-base text-rose-100/90 leading-relaxed">
-            Find nearby government health centers, verify real-time bed availability & on-shift doctors, or trigger a 2-minute auto-escalating emergency ambulance dispatch.
-          </p>
-
-          <div className="flex flex-wrap gap-3 pt-2">
+          <div className="flex flex-wrap gap-3 pt-1">
             <button
               onClick={onOpenEmergency}
-              className="flex items-center gap-2 bg-white text-red-700 hover:bg-red-50 px-5 py-3 rounded-xl font-bold text-sm sm:text-base shadow-lg hover:shadow-xl transition transform hover:-translate-y-0.5 active:translate-y-0 animate-emergency-beacon"
+              className="flex items-center gap-2 bg-white text-red-700 hover:bg-red-50 px-6 py-3.5 rounded-xl font-black text-sm sm:text-base shadow-lg hover:shadow-xl transition transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
             >
               <AlertTriangle className="w-5 h-5 text-red-600" />
               <span>Request Immediate Ambulance (SOS)</span>
             </button>
-            <a
-              href="tel:108"
-              className="flex items-center gap-2 bg-red-900/40 hover:bg-red-900/60 border border-white/30 text-white px-5 py-3 rounded-xl font-bold text-sm sm:text-base transition"
-            >
-              <Phone className="w-4 h-4" />
-              <span>Dial 108 Directly</span>
-            </a>
           </div>
         </div>
 
@@ -91,128 +58,42 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
         </div>
       </div>
 
-      {/* Search & Filter Bar */}
-      <div className="bg-white rounded-xl p-4 sm:p-5 shadow-xs border border-slate-200 space-y-4">
-        <div className="flex flex-col md:flex-row gap-3">
-          
-          {/* Search Input */}
-          <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by hospital name, village, or specialization (e.g., Rampur, CHC, ICU)..."
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 hover:bg-slate-100/80 focus:bg-white border border-slate-200 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-emerald-500 transition"
-            />
-          </div>
-
-          {/* Facility Type Selector */}
+      {/* 2. Map Section (Directly after Emergency Button at the Top) */}
+      <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-xs border border-slate-200 space-y-3">
+        <div className="flex items-center justify-between pb-2 border-b border-slate-100">
           <div className="flex items-center gap-2">
-            <select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-              className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
-            >
-              <option value="ALL">All Facility Types</option>
-              <option value="Primary Health">Primary Health Centers (PHC)</option>
-              <option value="Community Health">Community Health Centers (CHC)</option>
-              <option value="District">District Civil Hospitals</option>
-              <option value="Apex Multi-Specialty">Apex Multi-Specialty</option>
-            </select>
+            <MapPin className="w-4 h-4 text-blue-600" />
+            <h3 className="font-bold text-slate-800 text-sm">
+              Nearby Hospitals & Healthcare Centers Radar
+            </h3>
           </div>
         </div>
-
-        {/* Filter Quick Chips */}
-        <div className="flex flex-wrap items-center gap-2 pt-1">
-          <button
-            onClick={() => setFilter24x7(!filter24x7)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition border ${
-              filter24x7 
-                ? 'bg-red-50 text-red-700 border-red-300' 
-                : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
-            }`}
-          >
-            🚨 24x7 Emergency Certified Only
-          </button>
-
-          <button
-            onClick={() => setFilterIcuOnly(!filterIcuOnly)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition border ${
-              filterIcuOnly 
-                ? 'bg-emerald-50 text-emerald-700 border-emerald-300' 
-                : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
-            }`}
-          >
-            🛏️ ICU Beds Available
-          </button>
-
-          <button
-            onClick={() => setFilterDoctorPresent(!filterDoctorPresent)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition border ${
-              filterDoctorPresent 
-                ? 'bg-blue-50 text-blue-700 border-blue-300' 
-                : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
-            }`}
-          >
-            👨‍⚕️ Doctor On-Duty Right Now
-          </button>
-
-          {(filter24x7 || filterIcuOnly || filterDoctorPresent || filterType !== 'ALL' || searchQuery) && (
-            <button
-              onClick={() => {
-                setFilter24x7(false);
-                setFilterIcuOnly(false);
-                setFilterDoctorPresent(false);
-                setFilterType('ALL');
-                setSearchQuery('');
-              }}
-              className="text-xs text-rose-600 hover:text-rose-800 font-semibold px-2 py-1 underline ml-auto"
-            >
-              Reset Filters
-            </button>
-          )}
-        </div>
+        
+        <LeafletMap
+          hospitals={hospitals}
+          pickupLocation={{
+            lat: 28.6920,
+            lng: 77.1150,
+            label: 'Your Current Location (Village Rampur)'
+          }}
+          selectedHospitalId={selectedHospitalId}
+          onSelectHospital={(id) => setSelectedHospitalId(id)}
+          height="450px"
+          showRouteLine={false}
+        />
       </div>
 
-      {/* Main Grid: Interactive Map + Hospital Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        {/* Left Column: Interactive Map */}
-        <div className="lg:col-span-5 space-y-4">
-          <div className="bg-white p-4 rounded-xl shadow-xs border border-slate-200">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
-                <MapPin className="w-4 h-4 text-emerald-600" />
-                <span>Geographic Hospital & Ambulance Radar</span>
-              </h3>
-              <span className="text-[11px] text-slate-500 font-mono">Live GPS Coordinates</span>
-            </div>
-            
-            <LeafletMap
-              hospitals={hospitals}
-              selectedHospitalId={selectedHospitalId}
-              onSelectHospital={(id) => setSelectedHospitalId(id)}
-              height="460px"
-            />
-
-            <div className="mt-3 p-3 bg-emerald-50 rounded-lg border border-emerald-100 text-xs text-emerald-800">
-              💡 <strong>Tip for rural patients:</strong> Click any pin on the map to view real-time bed numbers and doctor duty hours before traveling.
-            </div>
-          </div>
+      {/* 3. Hospitals Section (At the Bottom) */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
+          <span>Available Healthcare Centers ({sortedHospitals.length})</span>
+          <span>Sorted by nearest distance</span>
         </div>
 
-        {/* Right Column: Hospital Cards */}
-        <div className="lg:col-span-7 space-y-4">
-          <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
-            <span>Showing <strong>{filteredHospitals.length}</strong> hospitals matching criteria</span>
-            <span>Sorted by nearest distance</span>
-          </div>
-
-          {filteredHospitals.map(hosp => {
+        <div className="grid grid-cols-1 gap-4">
+          {sortedHospitals.map(hosp => {
             const isSelected = hosp.id === selectedHospitalId;
             const availableDoctors = hosp.doctorsOnDuty.filter(d => d.available);
-            const todaySpecialists = hosp.visitingSpecialists.filter(s => s.isVisitingToday);
 
             return (
               <div
@@ -386,7 +267,7 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
                       <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center justify-between">
                         <span>Staff On-Duty at {hosp.name}:</span>
                         <span className="text-[10px] text-emerald-600 font-mono flex items-center gap-1">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block"></span>
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
                           Hospital Sync Active
                         </span>
                       </div>
@@ -437,26 +318,6 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
                             </div>
                           );
                         })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Visiting Specialists Calendar (Critical for rural patients!) */}
-                  {hosp.visitingSpecialists.length > 0 && (
-                    <div className="text-xs bg-amber-50/70 text-amber-900 px-3 py-2 rounded-lg border border-amber-100 space-y-1">
-                      <div className="flex items-center gap-1.5 font-bold text-amber-800">
-                        <Calendar className="w-3.5 h-3.5 text-amber-600" />
-                        <span>Visiting Specialist Roster:</span>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-[11px]">
-                        {hosp.visitingSpecialists.map(spec => (
-                          <div key={spec.id} className="flex items-center justify-between bg-white/70 px-2 py-1 rounded">
-                            <span>{spec.specialty}: <strong>{spec.name}</strong></span>
-                            <span className={spec.isVisitingToday ? 'text-emerald-700 font-bold' : 'text-slate-500'}>
-                              {spec.isVisitingToday ? `TODAY (${spec.timing})` : spec.visitingDays.join(', ')}
-                            </span>
-                          </div>
-                        ))}
                       </div>
                     </div>
                   )}

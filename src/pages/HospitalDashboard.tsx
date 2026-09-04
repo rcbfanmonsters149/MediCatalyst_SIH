@@ -8,14 +8,16 @@ import {
   CheckCircle2,
   Stethoscope,
   Radio,
-  MapPin
+  MapPin,
+  Truck
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { HospitalManagementTab } from '../components/hospital/HospitalManagementTab';
 import { HospitalEmergencyTab } from '../components/hospital/HospitalEmergencyTab';
+import { HospitalAmbulancePortalTab } from '../components/hospital/HospitalAmbulancePortalTab';
 
-export type HospitalSubTab = 'management' | 'emergency';
+export type HospitalSubTab = 'management' | 'emergency' | 'ambulance';
 
 export const HospitalDashboard: React.FC = () => {
   const { 
@@ -27,7 +29,11 @@ export const HospitalDashboard: React.FC = () => {
     activeDispatch
   } = useApp();
 
-  const [activeSubTab, setActiveSubTab] = useState<HospitalSubTab>('management');
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const initialTab = (searchParams.get('tab') as HospitalSubTab) || 'management';
+
+  const [activeSubTab, setActiveSubTab] = useState<HospitalSubTab>(initialTab);
   const [notification, setNotification] = useState<string | null>(null);
 
   // Always retrieve the latest hospital state from hospitals array for live reactivity
@@ -42,7 +48,7 @@ export const HospitalDashboard: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-800 pb-16 font-sans">
+    <div className="min-h-screen bg-white text-slate-800 pb-16 font-sans">
       
       {/* Top Operations Navigation */}
       <header className="sticky top-0 z-40 bg-slate-900 text-white border-b border-slate-800 shadow-md">
@@ -140,8 +146,8 @@ export const HospitalDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* TWO SUB-PAGES NAVIGATION TABS */}
-        <div className="bg-white p-1.5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-2">
+        {/* THREE SUB-PAGES NAVIGATION TABS */}
+        <div className="bg-white p-1.5 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap items-center gap-2">
           
           {/* Tab 1: Staff & Resource Management */}
           <button
@@ -166,7 +172,7 @@ export const HospitalDashboard: React.FC = () => {
             }`}
           >
             <Radio className="w-4 h-4" />
-            <span>Emergency Cases & Ambulance Tracking</span>
+            <span>Emergency Cases & Inbound Tracking</span>
 
             {/* Pulsing Active Emergency Notification Badge */}
             {hasActiveEmergency && (
@@ -177,13 +183,34 @@ export const HospitalDashboard: React.FC = () => {
             )}
           </button>
 
+          {/* Tab 3: Ambulance Operations & Form Upload Desk */}
+          <button
+            onClick={() => setActiveSubTab('ambulance')}
+            className={`flex-1 py-3 px-4 rounded-xl font-bold text-xs sm:text-sm transition flex items-center justify-center gap-2 cursor-pointer ${
+              activeSubTab === 'ambulance'
+                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-500/20'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+            }`}
+          >
+            <Truck className="w-4 h-4" />
+            <span>Ambulance Portal (Crew Desk)</span>
+          </button>
+
         </div>
 
         {/* RENDER THE ACTIVE SUB-PAGE */}
-        {activeSubTab === 'management' ? (
+        {activeSubTab === 'management' && (
           <HospitalManagementTab hospital={hospital} onNotify={triggerNotify} />
-        ) : (
-          <HospitalEmergencyTab hospital={hospital} onNotify={triggerNotify} />
+        )}
+        {activeSubTab === 'emergency' && (
+          <HospitalEmergencyTab 
+            hospital={hospital} 
+            onNotify={triggerNotify} 
+            onSwitchToAmbulancePortal={() => setActiveSubTab('ambulance')}
+          />
+        )}
+        {activeSubTab === 'ambulance' && (
+          <HospitalAmbulancePortalTab hospital={hospital} onNotify={triggerNotify} />
         )}
 
       </div>

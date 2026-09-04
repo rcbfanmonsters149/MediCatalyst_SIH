@@ -8,9 +8,7 @@ import {
   Phone, 
   AlertCircle, 
   CheckCircle, 
-  QrCode, 
   Download, 
-  Share2, 
   LogOut,
   Building,
   Printer,
@@ -28,9 +26,7 @@ export const BioDataPage: React.FC = () => {
   const { user, isLoggedIn, setIsLoggedIn, loginUser } = useApp();
   const [loginInput, setLoginInput] = useState('');
   const [authError, setAuthError] = useState('');
-  const [showQrModal, setShowQrModal] = useState(false);
   const [selectedRecordForPreview, setSelectedRecordForPreview] = useState<PatientRecord | null>(null);
-  const [shareSuccess, setShareSuccess] = useState(false);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -290,25 +286,6 @@ export const BioDataPage: React.FC = () => {
         {/* Action Buttons */}
         <div className="flex items-center flex-wrap gap-2 w-full md:w-auto justify-end">
           <button
-            onClick={() => setShowQrModal(true)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition"
-          >
-            <QrCode className="w-4 h-4" />
-            <span>Digital QR</span>
-          </button>
-
-          <button
-            onClick={() => {
-              setShareSuccess(true);
-              setTimeout(() => setShareSuccess(false), 3000);
-            }}
-            className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl text-xs font-bold border border-emerald-200 transition"
-          >
-            <Share2 className="w-4 h-4" />
-            <span>{shareSuccess ? 'Synced with 108 Dispatch!' : 'Share with Ambulance'}</span>
-          </button>
-
-          <button
             onClick={() => setIsLoggedIn(false)}
             className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-semibold transition"
           >
@@ -317,44 +294,6 @@ export const BioDataPage: React.FC = () => {
           </button>
         </div>
 
-      </div>
-
-      {/* Critical Allergy Alert Banner */}
-      <div className="bg-rose-50 border-2 border-rose-400/80 rounded-2xl p-5 shadow-xs">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-sm">
-            <AlertCircle className="w-6 h-6" />
-          </div>
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <h3 className="text-base font-extrabold text-rose-900">
-                CRITICAL CLINICAL ALLERGIES (Life-Threatening Warning)
-              </h3>
-              <span className="text-[11px] font-black uppercase bg-rose-600 text-white px-2 py-0.5 rounded">
-                High Priority
-              </span>
-            </div>
-            <p className="text-xs text-rose-800 mt-1">
-              The following substances MUST NEVER be administered by emergency paramedics or hospital staff:
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-              {user.allergies.map((alg, idx) => (
-                <div key={idx} className="bg-white p-3.5 rounded-xl border border-rose-200 shadow-2xs">
-                  <div className="flex items-center justify-between">
-                    <span className="font-extrabold text-sm text-rose-700">{alg.allergen}</span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-100 text-rose-800 uppercase">
-                      {alg.severity}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-600 mt-1">
-                    <strong>Known Reaction:</strong> {alg.reaction}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Two Column Layout: Current Conditions & Active Medications */}
@@ -519,32 +458,7 @@ export const BioDataPage: React.FC = () => {
         </div>
       </div>
 
-      {/* QR Modal */}
-      {showQrModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-6 text-center space-y-4 animate-in fade-in zoom-in-95 shadow-2xl">
-            <h3 className="font-bold text-lg text-slate-900">Ayushman Digital Health QR</h3>
-            <p className="text-xs text-slate-500">
-              Scan this QR at any rural Primary Health Center (PHC) counter for instantaneous OPD registration and allergy check.
-            </p>
 
-            <div className="w-48 h-48 mx-auto bg-slate-100 border-2 border-dashed border-emerald-400 rounded-xl flex items-center justify-center p-4">
-              <QrCode className="w-36 h-36 text-slate-800" />
-            </div>
-
-            <p className="font-mono text-xs font-bold text-emerald-800">
-              ABHA: {user.healthId}
-            </p>
-
-            <button
-              onClick={() => setShowQrModal(false)}
-              className="w-full py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl transition"
-            >
-              Close QR Code
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Full Prescription Preview Modal */}
       {selectedRecordForPreview && (
