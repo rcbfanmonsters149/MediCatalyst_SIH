@@ -20,6 +20,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import { Hospital } from '../../types';
 import { EmergencyTrackerCard } from '../EmergencyTrackerCard';
+import { LeafletMap } from '../LeafletMap';
 import { evaluateAmbulanceAssessment } from '../../utils/mlTriage';
 
 interface HospitalEmergencyTabProps {
