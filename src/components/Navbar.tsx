@@ -4,7 +4,8 @@ import {
   Activity, 
   AlertOctagon, 
   User,
-  Building2
+  Building2,
+  Truck
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
@@ -80,8 +81,17 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
             </button>
           </nav>
 
-          {/* Right Action: Hospital Link & User Profile Pill */}
+          {/* Right Action: Ambulance & Hospital Portals & User Profile Pill */}
           <div className="flex items-center gap-3">
+            <Link
+              to="/ambulance"
+              className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50 text-slate-600 hover:text-emerald-700 text-xs font-bold transition shadow-2xs"
+              title="Ambulance Driver Cockpit Login"
+            >
+              <Truck className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Ambulance Portal</span>
+            </Link>
+
             <Link
               to="/hospital"
               className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 hover:border-blue-300 hover:bg-blue-50/50 text-slate-600 hover:text-blue-700 text-xs font-bold transition shadow-2xs"

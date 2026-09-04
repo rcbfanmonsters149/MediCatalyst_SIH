@@ -45,8 +45,11 @@ interface AppContextType {
   loginUser: (identifier: string) => boolean;
   addPatientPrescription: (record: Omit<PatientRecord, 'id'>) => void;
 
-  // Ambulances
+  // Ambulances & Fleet Driver Authentication
   ambulances: Ambulance[];
+  ambulanceUser: Ambulance | null;
+  loginAmbulance: (vehicleNumber: string) => boolean;
+  logoutAmbulance: () => void;
   updateAmbulanceStatus: (ambulanceId: string, status: Ambulance['status']) => void;
 
   // Emergency Dispatch Engine
@@ -461,6 +464,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const saved = localStorage.getItem('medcatalyst_ambulances') || localStorage.getItem('sanjeevani_ambulances');
     return saved ? JSON.parse(saved) : INITIAL_AMBULANCES;
   });
+
+  const [ambulanceUser, setAmbulanceUser] = useState<Ambulance | null>(() => {
+    const saved = localStorage.getItem('medcatalyst_ambulance_user');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  const loginAmbulance = (vehicleNumber: string): boolean => {
+    const cleanNum = vehicleNumber.trim().toUpperCase().replace(/\s+/g, '-');
+    const matched = ambulances.find(a => 
+      a.vehicleNumber.toUpperCase() === cleanNum ||
+      a.id.toUpperCase() === cleanNum ||
+      a.vehicleNumber.toUpperCase().replace(/[^A-Z0-9]/g, '') === cleanNum.replace(/[^A-Z0-9]/g, '')
+    );
+
+    if (matched) {
+      setAmbulanceUser(matched);
+      localStorage.setItem('medcatalyst_ambulance_user', JSON.stringify(matched));
+      return true;
+    }
+    return false;
+  };
+
+  const logoutAmbulance = () => {
+    setAmbulanceUser(null);
+    localStorage.removeItem('medcatalyst_ambulance_user');
+  };
+
+  useEffect(() => {
+    if (ambulanceUser) {
+      const updated = ambulances.find(a => a.id === ambulanceUser.id);
+      if (updated) {
+        setAmbulanceUser(updated);
+        localStorage.setItem('medcatalyst_ambulance_user', JSON.stringify(updated));
+      }
+    }
+  }, [ambulances]);
 
   const [activeDispatch, setActiveDispatch] = useState<EmergencyDispatch | null>(() => {
     const saved = localStorage.getItem('medcatalyst_active_dispatch') || localStorage.getItem('sanjeevani_active_dispatch');
@@ -1122,6 +1161,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       loginUser,
       addPatientPrescription,
       ambulances,
+      ambulanceUser,
+      loginAmbulance,
+      logoutAmbulance,
       updateAmbulanceStatus,
       activeDispatch,
       createEmergencyDispatch,
