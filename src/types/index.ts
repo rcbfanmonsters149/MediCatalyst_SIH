@@ -193,6 +193,8 @@ export interface EmergencyDispatch {
   status: 'PENDING_HOSPITAL_ACCEPT' | 'ACCEPTED' | 'AMBULANCE_EN_ROUTE' | 'PATIENT_ONBOARD' | 'REROUTED' | 'ARRIVED';
   currentHospitalId: string;
   assignedAmbulanceId?: string;
+  currentStep?: number; // 1 to 10 incident lifecycle stage
+  patientCount?: number;
   timeoutSecondsRemaining: number; // 120s down to 0
   waterfallHistory: WaterfallHop[];
   

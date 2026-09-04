@@ -55,6 +55,7 @@ interface AppContextType {
   acceptDispatchByHospital: (hospitalId: string) => void;
   declineOrTimeoutDispatch: (hospitalId: string, reason: string) => void;
   cancelDispatch: () => void;
+  updateDispatchStep: (step: number) => void;
   sendDispatchMessage: (sender: 'CITIZEN' | 'HOSPITAL' | 'PARAMEDIC', text: string) => void;
   
   // In-Ambulance Telemetry & Dynamic Reroute
@@ -465,19 +466,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const saved = localStorage.getItem('medcatalyst_active_dispatch') || localStorage.getItem('sanjeevani_active_dispatch');
     if (saved) return JSON.parse(saved);
     
-    // Default active dispatch for instantaneous demo presentation!
+    // Default active dispatch matching incident tracker:
     return {
-      id: 'disp-2026-9041',
+      id: 'E-9727',
       callerName: 'Rameshwar Singh (Self / Citizen SOS)',
       callerPhone: '+91 98765 43210',
-      callerVoiceTranscript: 'Bike se gir gaye the, sir par chot lagi hai aur behosh ho rahe hain...',
-      callerIssue: 'Road bike accident, head impact with helmet cracked, patient groaning with low consciousness',
+      callerVoiceTranscript: 'Road accident on highway, two-wheeler collision with head injury...',
+      callerIssue: 'Road Accident',
       urgencyLevel: 'CRITICAL',
+      patientCount: 1,
+      currentStep: 4,
       pickupAddress: 'Near Milestone 34, Old GT Road, Rampur Outskirts',
       pickupLat: 28.7080,
       pickupLng: 77.0980,
       createdAt: new Date().toLocaleTimeString(),
-      status: 'PATIENT_ONBOARD',
+      status: 'ACCEPTED',
       currentHospitalId: 'hosp-rampur-phc',
       assignedAmbulanceId: 'amb-01',
       timeoutSecondsRemaining: 92,
@@ -488,7 +491,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           sentAt: '01:31 AM',
           status: 'ACCEPTED',
           responseTimeSeconds: 28,
-          note: 'BLS Ambulance Unit 01 dispatched to pickup location'
+          note: 'Nearest Ambulance HR-10-EM-1081 (0.4 km away) dispatched first; Rampur PHC confirmed trauma intake'
         }
       ],
       vitals: INITIAL_VITALS,
@@ -496,8 +499,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       mlRequiredCapabilities: ['NEURO_SURGERY_ICU', 'TRAUMA_OT', 'MECHANICAL_VENTILATOR'],
       messages: [
         { sender: 'CITIZEN', text: 'Please send ambulance fast, bleeding from forehead and ear!', timestamp: '01:31 AM', type: 'VOICE' },
-        { sender: 'HOSPITAL', text: 'Ambulance HR-10-EM-1081 dispatched with Paramedic Jagdish. ETA 7 mins.', timestamp: '01:32 AM', type: 'TEXT' },
-        { sender: 'PARAMEDIC', text: 'Patient onboard. Vitals recorded: GCS 8, SpO2 89%. Connecting telemetry to MedCatalyst model.', timestamp: '01:35 AM', type: 'TEXT' }
+        { sender: 'PARAMEDIC', text: '🚨 Nearest Ambulance HR-10-EM-1081 (0.4 km away, ETA 2 mins) dispatched immediately to your coordinates! Driver: Jagdish Kumar.', timestamp: '01:31 AM', type: 'TEXT' },
+        { sender: 'HOSPITAL', text: 'Rampur PHC confirmed bed readiness. Trauma OT and Dr. Kavita Sharma alerted.', timestamp: '01:32 AM', type: 'TEXT' },
+        { sender: 'PARAMEDIC', text: 'Patient onboard. Vitals recorded: GCS 8, SpO2 89%. Telemetry active.', timestamp: '01:35 AM', type: 'TEXT' }
       ]
     };
   });
@@ -791,30 +795,62 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const createEmergencyDispatch = (issueText: string, voiceTranscript?: string, urgency: 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL' = 'CRITICAL') => {
-    // Pick nearest emergency capable hospital (Rampur PHC or Bilaspur CHC)
+    const pickupLat = 28.7080;
+    const pickupLng = 77.0980;
+
+    // 1. NEAREST AMBULANCE FIRST ARCHITECTURE:
+    // Compute spherical distance (Haversine) from patient's GPS coordinates to ALL available fleet ambulances
+    const availablePool = ambulances.filter(a => a.status === 'AVAILABLE');
+    const fleet = availablePool.length > 0 ? availablePool : ambulances;
+
+    const rankedAmbulances = fleet.map(amb => {
+      // Haversine distance in kilometers
+      const R = 6371;
+      const dLat = (amb.currentLat - pickupLat) * (Math.PI / 180);
+      const dLon = (amb.currentLng - pickupLng) * (Math.PI / 180);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(pickupLat * (Math.PI / 180)) * Math.cos(amb.currentLat * (Math.PI / 180)) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      const dist = Math.round(R * c * 10) / 10;
+      const calculatedEta = Math.max(2, Math.round(dist * 2.2));
+      return { ...amb, distanceKm: dist, calculatedEta };
+    }).sort((a, b) => a.distanceKm - b.distanceKm);
+
+    // Physically closest vehicle to the patient
+    const nearestAmb = rankedAmbulances[0];
+
+    // Immediately dispatch the closest ambulance to minimize critical pickup wait time
+    updateAmbulanceStatus(nearestAmb.id, 'DISPATCHED');
+
+    // 2. Nearest hospital contacted in parallel for emergency bed reservation
     const nearestHosp = hospitals[0];
 
     const newDispatch: EmergencyDispatch = {
-      id: `disp-${Date.now().toString().slice(-4)}`,
+      id: `E-${Math.floor(1000 + Math.random() * 9000)}`,
       callerName: user.fullName,
       callerPhone: user.phone,
       callerVoiceTranscript: voiceTranscript || issueText,
       callerIssue: issueText,
       urgencyLevel: urgency,
       pickupAddress: user.address,
-      pickupLat: 28.7080,
-      pickupLng: 77.0980,
+      pickupLat,
+      pickupLng,
       createdAt: new Date().toLocaleTimeString(),
-      status: 'PENDING_HOSPITAL_ACCEPT',
+      status: 'AMBULANCE_EN_ROUTE',
       currentHospitalId: nearestHosp.id,
-      timeoutSecondsRemaining: 120, // 2 minutes SLA
+      assignedAmbulanceId: nearestAmb.id,
+      currentStep: 2, // Step 2: Ambulance Assigned & En Route immediately!
+      patientCount: 1,
+      timeoutSecondsRemaining: 120, // 2 minutes SLA for hospital bed confirmation
       waterfallHistory: [
         {
           hospitalId: nearestHosp.id,
           hospitalName: nearestHosp.name,
           sentAt: new Date().toLocaleTimeString(),
           status: 'WAITING',
-          note: 'Request dispatched to closest medical facility'
+          note: `Nearest Ambulance ${nearestAmb.vehicleNumber} (${nearestAmb.distanceKm} km away, ETA ~${nearestAmb.calculatedEta}m) dispatched from ${nearestAmb.hospitalName}. Awaiting bed confirmation.`
         }
       ],
       vitals,
@@ -824,6 +860,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           text: voiceTranscript ? `Voice SOS: "${voiceTranscript}"` : issueText,
           timestamp: new Date().toLocaleTimeString(),
           type: voiceTranscript ? 'VOICE' : 'TEXT'
+        },
+        {
+          sender: 'PARAMEDIC',
+          text: `🚨 Closest Ambulance ${nearestAmb.vehicleNumber} (${nearestAmb.type}) dispatched immediately! Current distance: ${nearestAmb.distanceKm} km, ETA: ~${nearestAmb.calculatedEta} mins. Driver: ${nearestAmb.driverName} (${nearestAmb.driverPhone}). Heading to pickup point now.`,
+          timestamp: new Date().toLocaleTimeString(),
+          type: 'TEXT'
         }
       ]
     };
@@ -834,15 +876,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const acceptDispatchByHospital = (hospitalId: string) => {
     if (!activeDispatch) return;
 
-    // Find ambulance belonging to this hospital or nearby
-    const matchedAmb = ambulances.find(a => a.hospitalId === hospitalId && a.status === 'AVAILABLE') || ambulances[0];
+    // Retain the already dispatched nearest ambulance
+    const assignedAmb = ambulances.find(a => a.id === activeDispatch.assignedAmbulanceId) || ambulances[0];
+    const hospital = hospitals.find(h => h.id === hospitalId);
 
     setActiveDispatch(prev => {
       if (!prev) return null;
       return {
         ...prev,
         status: 'ACCEPTED',
-        assignedAmbulanceId: matchedAmb.id,
+        currentStep: 4, // Step 4: Hospital Accepted
         waterfallHistory: prev.waterfallHistory.map(hop => 
           hop.hospitalId === hospitalId ? { ...hop, status: 'ACCEPTED', responseTimeSeconds: 120 - prev.timeoutSecondsRemaining } : hop
         ),
@@ -850,14 +893,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ...prev.messages,
           {
             sender: 'HOSPITAL',
-            text: `Dispatch Accepted by ${hospitals.find(h => h.id === hospitalId)?.name}. Ambulance ${matchedAmb.vehicleNumber} dispatched!`,
+            text: `Intake confirmed by ${hospital?.name}! Emergency trauma bay & on-duty doctors primed for arriving ambulance ${assignedAmb.vehicleNumber}.`,
             timestamp: new Date().toLocaleTimeString()
           }
         ]
       };
     });
-
-    updateAmbulanceStatus(matchedAmb.id, 'DISPATCHED');
   };
 
   const declineOrTimeoutDispatch = (hospitalId: string, reason: string) => {
@@ -898,6 +939,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const cancelDispatch = () => {
     setActiveDispatch(null);
+  };
+
+  const updateDispatchStep = (step: number) => {
+    setActiveDispatch(prev => {
+      if (!prev) return null;
+      let newStatus: EmergencyDispatch['status'] = prev.status;
+      if (step === 1) newStatus = 'PENDING_HOSPITAL_ACCEPT';
+      else if (step === 2) newStatus = 'AMBULANCE_EN_ROUTE'; // Nearest Ambulance Assigned & Dispatched
+      else if (step === 3) newStatus = 'PENDING_HOSPITAL_ACCEPT'; // Hospitals Contacted
+      else if (step === 4) newStatus = 'ACCEPTED'; // Hospital Accepted
+      else if (step >= 5 && step <= 7) newStatus = 'PATIENT_ONBOARD';
+      else if (step >= 8) newStatus = 'ARRIVED';
+
+      return {
+        ...prev,
+        currentStep: step,
+        status: newStatus
+      };
+    });
   };
 
   const sendDispatchMessage = (sender: 'CITIZEN' | 'HOSPITAL' | 'PARAMEDIC', text: string) => {
@@ -1068,6 +1128,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       acceptDispatchByHospital,
       declineOrTimeoutDispatch,
       cancelDispatch,
+      updateDispatchStep,
       sendDispatchMessage,
       vitals,
       updateVitals,
