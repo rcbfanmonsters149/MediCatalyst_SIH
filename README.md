@@ -1,4 +1,4 @@
-# MediCatalyst 🏥🚨
+# MedCatalyst 🏥🚨
 > Connected Healthcare & Real-Time Emergency Response Network (SIH Prototype)
 
 MedCatalyst bridges the information gap between rural citizens, government healthcare facilities (PHCs, CHCs, District Hospitals), and emergency medical responders during the critical **Golden Hour**.
