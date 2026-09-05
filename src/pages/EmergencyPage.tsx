@@ -21,6 +21,7 @@ import { TollFreeBanner } from '../components/TollFreeBanner';
 import { EmergencyTrackerCard } from '../components/EmergencyTrackerCard';
 import { VoiceSOSRecognitionModal } from '../components/VoiceSOSRecognitionModal';
 import { LeafletMap } from '../components/LeafletMap';
+import { LiveAmbulanceTrackerCard } from '../components/LiveAmbulanceTrackerCard';
 import { Link } from 'react-router-dom';
 
 interface EmergencyPageProps {
@@ -229,8 +230,11 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
               selectedHospitalId={dispatch.currentHospitalId}
               pickupLocation={memoizedPickup}
               height="460px"
-              showRideHUD={true}
+              showRouteLine={true}
             />
+
+            {/* DEDICATED SEPARATE LIVE AMBULANCE TELEMETRY & ROUTE TRACKER CARD */}
+            <LiveAmbulanceTrackerCard />
           </div>
 
           {/* TWO-COLUMN LIVE COORDINATION & AUDIT GRID */}

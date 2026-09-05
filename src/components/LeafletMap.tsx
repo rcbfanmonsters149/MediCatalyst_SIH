@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import L from 'leaflet';
 import { Hospital, Ambulance, TrafficSignal } from '../types';
-import { Navigation, Locate, ExternalLink, MapPin, Compass, AlertCircle, Phone, Activity, Zap, ChevronUp, ChevronDown, Clock, ShieldCheck } from 'lucide-react';
+import { Navigation, Locate, ExternalLink, MapPin, Compass, AlertCircle, Phone, Activity, Zap, ChevronUp, ChevronDown, Clock, ShieldCheck, Plus, Minus } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 interface LeafletMapProps {
@@ -70,7 +70,6 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
   showRouteLine = false
 }) => {
   const { userLocation: contextUserLocation, relocateToUserLocation, liveAmbulance } = useApp();
-  const [isHudCollapsed, setIsHudCollapsed] = useState<boolean>(false);
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -258,6 +257,7 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
         zoomDelta: 0.2,
         scrollWheelZoom: false, // Disables jerky default wheel zoom; handled smoothly via custom listener below
         zoomControl: false,
+        attributionControl: false,
         doubleClickZoom: true,
         dragging: true,
         touchZoom: true
@@ -270,8 +270,8 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors'
       }).addTo(map);
 
-      // Add zoom control in bottom-right
-      L.control.zoom({ position: 'bottomright' }).addTo(map);
+      // Add attribution in bottom-left to prevent overlap with live tracker card in bottom-right
+      L.control.attribution({ position: 'bottomleft' }).addTo(map);
 
       markersGroupRef.current = L.layerGroup().addTo(map);
       userMarkerGroupRef.current = L.layerGroup().addTo(map);
@@ -1056,13 +1056,13 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
   }, [liveAmbulance]);
 
   return (
-    <div className="relative w-full rounded-2xl overflow-hidden border border-slate-200 shadow-sm" style={{ height }}>
+    <div className="relative isolate z-0 w-full rounded-2xl overflow-hidden border border-slate-200 shadow-sm" style={{ height }}>
       
       {/* Map Container */}
-      <div ref={mapContainerRef} className="w-full h-full z-0" />
+      <div ref={mapContainerRef} className="relative isolate z-0 w-full h-full" />
 
       {/* TOP FLOATING CONTROLS BAR: OpenStreetMap Controls + Focus Route + Locate Me */}
-      <div className="absolute top-3 right-3 z-[1000] flex items-center gap-2">
+      <div className="absolute top-3 right-3 z-30 flex items-center gap-2">
         
         {/* Open in OpenStreetMap Button */}
         <a
@@ -1131,8 +1131,31 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
 
       </div>
 
+      {/* MODERN ZOOM IN / OUT CONTROLS (Vertical stack on right side, safely positioned away from bottom tracker card) */}
+      <div className="absolute top-16 right-3 z-30 flex flex-col items-center bg-white/95 hover:bg-white backdrop-blur-sm rounded-xl shadow-md border border-slate-200 overflow-hidden">
+        <button
+          type="button"
+          onClick={() => mapInstanceRef.current?.zoomIn(1)}
+          className="w-8 h-8 flex items-center justify-center text-slate-700 hover:text-emerald-700 hover:bg-slate-50 transition cursor-pointer"
+          title="Zoom In"
+          aria-label="Zoom In"
+        >
+          <Plus className="w-4 h-4" />
+        </button>
+        <div className="w-5 h-[1px] bg-slate-200" />
+        <button
+          type="button"
+          onClick={() => mapInstanceRef.current?.zoomOut(1)}
+          className="w-8 h-8 flex items-center justify-center text-slate-700 hover:text-emerald-700 hover:bg-slate-50 transition cursor-pointer"
+          title="Zoom Out"
+          aria-label="Zoom Out"
+        >
+          <Minus className="w-4 h-4" />
+        </button>
+      </div>
+
       {/* TOP LEFT: Real-time User Location & Facilities Count Badge */}
-      <div className="absolute top-3 left-3 z-[1000] bg-white/95 backdrop-blur-sm px-3.5 py-2 rounded-xl shadow-md border border-slate-200 text-xs max-w-sm">
+      <div className="absolute top-3 left-3 z-30 bg-white/95 backdrop-blur-sm px-3.5 py-2 rounded-xl shadow-md border border-slate-200 text-xs max-w-sm">
         <div className="flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-ping shrink-0"></span>
           <div className="truncate">
@@ -1148,142 +1171,15 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
 
       {/* Location Error Toast (if any) */}
       {locationError && (
-        <div className="absolute top-16 left-3 z-[1000] bg-amber-50 border border-amber-200 text-amber-800 px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 shadow-sm">
+        <div className="absolute top-16 left-3 z-30 bg-amber-50 border border-amber-200 text-amber-800 px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 shadow-sm">
           <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
           <span>{locationError}</span>
         </div>
       )}
 
-      {/* UBER / RAPIDO STYLE LIVE MOVING AMBULANCE HUD OVERLAY */}
-      {showRideHUD && liveAmbulance && (
-        <div className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 z-[1000] w-full max-w-[340px] sm:max-w-[380px] px-2 pointer-events-none">
-          <div className="bg-slate-900/95 backdrop-blur-md text-white rounded-2xl shadow-2xl border border-slate-700/80 p-3 pointer-events-auto transition-all">
-            
-            {/* Header / Banner */}
-            <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-800">
-              <div className="flex items-center gap-2">
-                <span className="relative flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                </span>
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-black text-xs text-white tracking-wide">LIVE AMBULANCE TRACKER</span>
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-red-950 text-red-300 border border-red-700/60 font-mono">
-                      {liveAmbulance.vehicleNumber}
-                    </span>
-                  </div>
-                  <span className="text-[10px] text-slate-400 font-medium block">
-                    {liveAmbulance.phase === 'EN_ROUTE_TO_PATIENT' ? '⚡ Phase 1: Approaching Patient Pickup' : '🚨 Phase 2: Rapid Transit to Apex Hospital'}
-                  </span>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setIsHudCollapsed(!isHudCollapsed)}
-                className="p-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition cursor-pointer"
-                title={isHudCollapsed ? 'Expand Tracker' : 'Collapse Tracker'}
-              >
-                {isHudCollapsed ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              </button>
-            </div>
-
-            {!isHudCollapsed ? (
-              <>
-                {/* 2 Distance & ETA Metric Cards (Uber / Rapido Style Live Countdowns) */}
-                <div className="grid grid-cols-2 gap-2 my-2.5">
-                  {/* Distance to Patient Pickup */}
-                  <div className={`p-2.5 rounded-xl border transition ${liveAmbulance.phase === 'EN_ROUTE_TO_PATIENT' ? 'bg-amber-950/40 border-amber-600/70 shadow-sm shadow-amber-950/50' : 'bg-slate-800/60 border-slate-700/50'}`}>
-                    <div className="flex items-center justify-between text-[10px] text-amber-300 font-bold mb-0.5">
-                      <span>📍 TO PICKUP</span>
-                      <span className="text-[9px] bg-amber-900/70 px-1.5 py-0.5 rounded-full text-amber-200 font-mono">~{liveAmbulance.etaToPatientMinutes}m ETA</span>
-                    </div>
-                    <div className="flex items-baseline gap-1 my-0.5">
-                      <span className="text-2xl font-black text-amber-400 tracking-tight font-mono">{liveAmbulance.distanceToPatientKm}</span>
-                      <span className="text-xs font-bold text-amber-300">km</span>
-                    </div>
-                    <span className="text-[9.5px] text-slate-400 truncate block">
-                      {liveAmbulance.phase === 'EN_ROUTE_TO_PATIENT' ? 'Ambulance is arriving' : 'Patient Picked Up ✓'}
-                    </span>
-                  </div>
-
-                  {/* Distance from Patient to Destination Hospital */}
-                  <div className={`p-2.5 rounded-xl border transition ${liveAmbulance.phase === 'TRANSPORTING_TO_HOSPITAL' ? 'bg-emerald-950/40 border-emerald-600/70 shadow-sm shadow-emerald-950/50' : 'bg-slate-800/60 border-slate-700/50'}`}>
-                    <div className="flex items-center justify-between text-[10px] text-emerald-300 font-bold mb-0.5">
-                      <span>🏥 TO HOSPITAL</span>
-                      <span className="text-[9px] bg-emerald-900/70 px-1.5 py-0.5 rounded-full text-emerald-200 font-mono">~{liveAmbulance.etaToHospitalMinutes}m ETA</span>
-                    </div>
-                    <div className="flex items-baseline gap-1 my-0.5">
-                      <span className="text-2xl font-black text-emerald-400 tracking-tight font-mono">{liveAmbulance.distancePatientToHospitalKm}</span>
-                      <span className="text-xs font-bold text-emerald-300">km</span>
-                    </div>
-                    <span className="text-[9.5px] text-slate-400 truncate block">
-                      Apex Trauma Center
-                    </span>
-                  </div>
-                </div>
-
-                {/* Linear Route Progress Indicator */}
-                <div className="mb-2 px-0.5">
-                  <div className="flex justify-between text-[9.5px] text-slate-400 font-bold mb-1">
-                    <span>Depot</span>
-                    <span className={liveAmbulance.progress >= 0.45 ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>
-                      {liveAmbulance.progress < 0.45 ? '● Approaching Patient' : '● In Transit to Apex ER'}
-                    </span>
-                    <span>Hospital</span>
-                  </div>
-                  <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-amber-500 via-rose-500 to-emerald-500 transition-all duration-700 ease-linear rounded-full"
-                      style={{ width: `${Math.min(100, Math.max(5, Math.round(liveAmbulance.progress * 100)))}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Driver Card & Telemetry Strip */}
-                <div className="pt-2 border-t border-slate-800 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-black text-xs text-slate-200 shrink-0">
-                      JK
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-bold text-slate-100 truncate">{liveAmbulance.driverName}</span>
-                        <span className="text-[10px] text-amber-400 font-semibold shrink-0">★ 4.9</span>
-                      </div>
-                      <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
-                        <Zap className="w-2.5 h-2.5 text-amber-400 shrink-0" />
-                        Speed: <b className="text-slate-200 font-mono">{liveAmbulance.speedKmH} km/h</b>
-                      </span>
-                    </div>
-                  </div>
-
-                  <a
-                    href={`tel:${liveAmbulance.driverPhone}`}
-                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-950/40 transition active:scale-95 shrink-0"
-                  >
-                    <Phone className="w-3.5 h-3.5" />
-                    <span>Call Driver</span>
-                  </a>
-                </div>
-              </>
-            ) : (
-              <div className="pt-1.5 flex items-center justify-between text-xs">
-                <span className="text-slate-300 font-bold text-[11px]">
-                  Pickup: <b className="text-amber-400">{liveAmbulance.distanceToPatientKm}km</b> (~{liveAmbulance.etaToPatientMinutes}m) • Hosp: <b className="text-emerald-400">{liveAmbulance.distancePatientToHospitalKm}km</b>
-                </span>
-                <span className="text-[10px] text-slate-400 font-mono">{liveAmbulance.speedKmH} km/h</span>
-              </div>
-            )}
-
-          </div>
-        </div>
-      )}
-
       {/* Map Legend Overlay */}
       {showLegend && (
-        <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-sm px-3.5 py-2 rounded-xl shadow-md border border-slate-200 text-xs flex flex-wrap items-center gap-3 z-[1000] max-w-[calc(100%-360px)] hidden sm:flex">
+        <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-sm px-3.5 py-2 rounded-xl shadow-md border border-slate-200 text-xs flex flex-wrap items-center gap-3 z-30 hidden sm:flex">
           <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-full bg-blue-600 inline-block"></span>
             <span className="text-slate-700 font-medium">My Location</span>

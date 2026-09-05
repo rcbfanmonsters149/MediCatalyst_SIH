@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useApp, calculateHaversineKm } from '../context/AppContext';
 import { LeafletMap } from '../components/LeafletMap';
+import { LiveAmbulanceTrackerCard } from '../components/LiveAmbulanceTrackerCard';
 import { getCapabilityFriendlyName } from '../utils/mlTriage';
 import { VoiceSOSRecognitionModal } from '../components/VoiceSOSRecognitionModal';
 
@@ -27,7 +28,7 @@ interface CitizenPageProps {
 }
 
 export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => {
-  const { hospitals, selectedHospitalId, setSelectedHospitalId, userLocation } = useApp();
+  const { hospitals, selectedHospitalId, setSelectedHospitalId, userLocation, activeDispatch } = useApp();
   const [expandedDoctorHospId, setExpandedDoctorHospId] = useState<string | null>('hosp-rampur-phc');
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
 
@@ -448,6 +449,13 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
           showRideHUD={false}
           showRouteLine={false}
         />
+
+        {/* Dedicated Separate Live Ambulance Telemetry & Route Tracker Card */}
+        {activeDispatch && (
+          <div className="pt-2">
+            <LiveAmbulanceTrackerCard />
+          </div>
+        )}
       </div>
 
       {/* 3-Language Elderly Speech Recognition Voice SOS Modal */}

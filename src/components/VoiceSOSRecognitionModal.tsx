@@ -252,9 +252,9 @@ export const VoiceSOSRecognitionModal: React.FC<VoiceSOSRecognitionModalProps> =
   const currentLangObj = SUPPORTED_LANGUAGES.find(l => l.code === selectedLang) || SUPPORTED_LANGUAGES[0];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in">
       <div 
-        className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-slate-100 relative space-y-6 animate-in zoom-in-95"
+        className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-slate-100 relative z-10 space-y-6 animate-in zoom-in-95 max-h-[92vh] overflow-y-auto"
         role="dialog"
         aria-modal="true"
         aria-labelledby="voice-sos-title"
