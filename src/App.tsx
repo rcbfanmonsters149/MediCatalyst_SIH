@@ -11,7 +11,8 @@ import { AmbulanceDashboard } from './pages/AmbulanceDashboard';
 import { AmbulanceLoginPage } from './pages/AmbulanceLoginPage';
 import { TrafficPoliceDashboard } from './pages/TrafficPoliceDashboard';
 import { TrafficPoliceLoginPage } from './pages/TrafficPoliceLoginPage';
-import { Building2, ArrowRight, Truck } from 'lucide-react';
+import { PublicWorkersPage } from './pages/PublicWorkersPage';
+import { Building2, ArrowRight, Truck, ShieldCheck } from 'lucide-react';
 
 /**
  * Public Citizen Healthcare Portal (Route: /)
@@ -83,6 +84,15 @@ const CitizenPortal: React.FC = () => {
             <span>Ambulance Portal (Paramedic Crew Desk)</span>
             <ArrowRight className="w-3 h-3" />
           </Link>
+
+          <Link
+            to="/workers"
+            className="text-purple-400/90 hover:text-purple-300 transition inline-flex items-center gap-1.5 py-1 px-3 rounded-lg border border-purple-900/50 hover:border-purple-600 bg-purple-950/30"
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-purple-400" />
+            <span>ASHA & Frontline Healthcare Portal</span>
+            <ArrowRight className="w-3 h-3" />
+          </Link>
         </div>
       </footer>
     </div>
@@ -146,6 +156,11 @@ export default function App() {
           {/* Traffic Police Signal Post Dashboard */}
           <Route path="/police" element={<TrafficPolicePortal />} />
           <Route path="/traffic" element={<Navigate to="/police" replace />} />
+
+          {/* Frontline Healthcare Workers & ASHA Portal */}
+          <Route path="/workers" element={<PublicWorkersPage />} />
+          <Route path="/asha" element={<Navigate to="/workers" replace />} />
+          <Route path="/frontline" element={<Navigate to="/workers" replace />} />
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />

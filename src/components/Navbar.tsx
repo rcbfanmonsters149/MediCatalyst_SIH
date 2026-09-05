@@ -1,11 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Heart, 
   Activity, 
   AlertOctagon, 
   User,
   Building2,
-  Truck
+  Truck,
+  ShieldCheck,
+  ChevronDown
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
@@ -19,6 +21,7 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
   const { activeDispatch, user, liveAmbulance } = useApp();
+  const [showPortalsMenu, setShowPortalsMenu] = useState(false);
 
   return (
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs">
@@ -105,7 +108,83 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
           </nav>
 
           {/* Right Action: Traffic Police, Ambulance & Hospital Portals & User Profile Pill */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            {/* Quick Portals Dropdown Button */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowPortalsMenu(!showPortalsMenu)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 hover:border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition shadow-2xs cursor-pointer"
+                title="Open other stakeholder portals"
+              >
+                <Building2 className="w-3.5 h-3.5 text-slate-600" />
+                <span className="hidden sm:inline">Role Portals</span>
+                <ChevronDown className={`w-3 h-3 text-slate-500 transition-transform ${showPortalsMenu ? 'rotate-180' : ''}`} />
+              </button>
+
+              {showPortalsMenu && (
+                <div 
+                  className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 z-50"
+                  onClick={() => setShowPortalsMenu(false)}
+                >
+                  <div className="px-3.5 py-1.5 border-b border-slate-100 text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
+                    Switch Stakeholder Portal
+                  </div>
+                  <Link
+                    to="/ambulance"
+                    className="flex items-center gap-2.5 px-3.5 py-2 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 text-xs font-semibold transition"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                      <Truck className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <span className="block font-bold">Ambulance Cockpit</span>
+                      <span className="block text-[10px] text-slate-500">108 Driver & Paramedics</span>
+                    </div>
+                  </Link>
+
+                  <Link
+                    to="/hospital"
+                    className="flex items-center gap-2.5 px-3.5 py-2 hover:bg-blue-50 text-slate-700 hover:text-blue-800 text-xs font-semibold transition"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
+                      <Building2 className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <span className="block font-bold">Hospital Operations</span>
+                      <span className="block text-[10px] text-slate-500">ER Doctors & Bed Registry</span>
+                    </div>
+                  </Link>
+
+                  <Link
+                    to="/police"
+                    className="flex items-center gap-2.5 px-3.5 py-2 hover:bg-amber-50 text-slate-700 hover:text-amber-800 text-xs font-semibold transition"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <span className="block font-bold">Traffic Police Post</span>
+                      <span className="block text-[10px] text-slate-500">Signal Green Corridor</span>
+                    </div>
+                  </Link>
+
+                  <Link
+                    to="/workers"
+                    className="flex items-center gap-2.5 px-3.5 py-2 hover:bg-purple-50 text-slate-700 hover:text-purple-800 text-xs font-semibold transition"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center">
+                      <Heart className="w-3.5 h-3.5 text-purple-600" />
+                    </div>
+                    <div>
+                      <span className="block font-bold">ASHA & Frontline</span>
+                      <span className="block text-[10px] text-slate-500">Maternal Health & Police SOS</span>
+                    </div>
+                  </Link>
+                </div>
+              )}
+            </div>
+
             <Link
               to="/police"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-amber-300/80 bg-amber-50 hover:bg-amber-100 text-amber-950 text-xs font-extrabold transition shadow-2xs"
@@ -117,25 +196,25 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
 
             <Link
               to="/ambulance"
-              className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50 text-slate-600 hover:text-emerald-700 text-xs font-bold transition shadow-2xs"
+              className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50 text-slate-600 hover:text-emerald-700 text-xs font-bold transition shadow-2xs"
               title="Ambulance Driver Cockpit Login"
             >
               <Truck className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Ambulance Portal</span>
+              <span>Ambulance</span>
             </Link>
 
             <Link
               to="/hospital"
-              className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 hover:border-blue-300 hover:bg-blue-50/50 text-slate-600 hover:text-blue-700 text-xs font-bold transition shadow-2xs"
+              className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 hover:border-blue-300 hover:bg-blue-50/50 text-slate-600 hover:text-blue-700 text-xs font-bold transition shadow-2xs"
               title="Hospital Staff Operations Portal Login"
             >
               <Building2 className="w-3.5 h-3.5 text-blue-600" />
-              <span>Hospital Portal</span>
+              <span>Hospital</span>
             </Link>
 
             <button 
               onClick={() => setActiveTab('profile')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition select-none text-xs text-left ${
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition select-none text-xs text-left cursor-pointer ${
                 activeTab === 'profile'
                   ? 'bg-emerald-50 border-emerald-400 text-emerald-900 ring-2 ring-emerald-500/20'
                   : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
@@ -183,6 +262,14 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
             }`}
           >
             SOS
+          </button>
+          <button
+            onClick={() => setShowPortalsMenu(!showPortalsMenu)}
+            className={`flex-1 py-1.5 text-center font-bold rounded-lg transition ${
+              showPortalsMenu ? 'bg-slate-900 text-white' : 'text-slate-700 bg-slate-100'
+            }`}
+          >
+            Portals ▾
           </button>
           <button
             onClick={() => setActiveTab('profile')}
