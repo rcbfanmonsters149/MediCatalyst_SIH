@@ -272,6 +272,7 @@ export const AmbulanceDashboard: React.FC = () => {
                 patientCount={activeDispatch.patientCount || 1}
                 currentStep={activeDispatch.currentStep || 4}
                 onStepChange={(step) => updateDispatchStep(step)}
+                showControls={false}
                 className="w-full shadow-xs text-slate-800"
               />
             </div>
@@ -332,7 +333,7 @@ export const AmbulanceDashboard: React.FC = () => {
         {/* Preset Evaluation Scenarios Bar */}
         <div className="p-4 bg-white border border-slate-200 rounded-2xl shadow-2xs flex flex-wrap items-center justify-between gap-3 text-xs">
           <span className="text-slate-500 font-bold uppercase tracking-wider text-[11px]">
-            Simulate Patient Telemetry & Vitals:
+            Patient Telemetry & Vitals Presets:
           </span>
           <div className="flex items-center flex-wrap gap-2">
             <button

@@ -43,7 +43,7 @@ export const EmergencyTrackerCard: React.FC<EmergencyTrackerCardProps> = ({
   currentStep: controlledStep,
   onStepChange,
   interactive = true,
-  showControls = true,
+  showControls = false,
   className = '',
 }) => {
   const [internalStep, setInternalStep] = useState<number>(initialStep);

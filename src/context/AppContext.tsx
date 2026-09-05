@@ -506,14 +506,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (parsed) {
-          // If stored dispatch is old E-9727 or placeholder Road Accident, upgrade to live incident
-          if (parsed.id === 'E-9727' || parsed.callerIssue === 'Road Accident') {
-            parsed.id = 'disp-2026-9041';
-            parsed.callerIssue = 'Road bike accident, head impact with helmet cracked, patient groaning with low consciousness';
-            parsed.callerVoiceTranscript = 'Road bike accident, head impact with helmet cracked, patient groaning with low consciousness';
-            parsed.callerName = 'Rameshwar Singh';
-          }
+        if (parsed && parsed.id === 'disp-2026-9041') {
           return parsed;
         }
       } catch (e) {
