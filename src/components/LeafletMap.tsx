@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import L from 'leaflet';
 import { Hospital, Ambulance, TrafficSignal } from '../types';
-import { Navigation, Locate, ExternalLink, MapPin, Compass, AlertCircle, Phone, Activity, Zap, ChevronUp, ChevronDown, Clock, ShieldCheck } from 'lucide-react';
+import { Navigation, Locate, ExternalLink, MapPin, Compass, AlertCircle, Phone, Activity, Zap, ChevronUp, ChevronDown, Clock, ShieldCheck, Plus, Minus } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 interface LeafletMapProps {
@@ -258,6 +258,7 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
         zoomDelta: 0.2,
         scrollWheelZoom: false, // Disables jerky default wheel zoom; handled smoothly via custom listener below
         zoomControl: false,
+        attributionControl: false,
         doubleClickZoom: true,
         dragging: true,
         touchZoom: true
@@ -270,8 +271,8 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors'
       }).addTo(map);
 
-      // Add zoom control in bottom-right
-      L.control.zoom({ position: 'bottomright' }).addTo(map);
+      // Add attribution in bottom-left to prevent overlap with live tracker card in bottom-right
+      L.control.attribution({ position: 'bottomleft' }).addTo(map);
 
       markersGroupRef.current = L.layerGroup().addTo(map);
       userMarkerGroupRef.current = L.layerGroup().addTo(map);
@@ -1129,6 +1130,29 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
           </span>
         </button>
 
+      </div>
+
+      {/* MODERN ZOOM IN / OUT CONTROLS (Vertical stack on right side, safely positioned away from bottom tracker card) */}
+      <div className="absolute top-16 right-3 z-30 flex flex-col items-center bg-white/95 hover:bg-white backdrop-blur-sm rounded-xl shadow-md border border-slate-200 overflow-hidden">
+        <button
+          type="button"
+          onClick={() => mapInstanceRef.current?.zoomIn(1)}
+          className="w-8 h-8 flex items-center justify-center text-slate-700 hover:text-emerald-700 hover:bg-slate-50 transition cursor-pointer"
+          title="Zoom In"
+          aria-label="Zoom In"
+        >
+          <Plus className="w-4 h-4" />
+        </button>
+        <div className="w-5 h-[1px] bg-slate-200" />
+        <button
+          type="button"
+          onClick={() => mapInstanceRef.current?.zoomOut(1)}
+          className="w-8 h-8 flex items-center justify-center text-slate-700 hover:text-emerald-700 hover:bg-slate-50 transition cursor-pointer"
+          title="Zoom Out"
+          aria-label="Zoom Out"
+        >
+          <Minus className="w-4 h-4" />
+        </button>
       </div>
 
       {/* TOP LEFT: Real-time User Location & Facilities Count Badge */}
