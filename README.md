@@ -18,7 +18,6 @@ MedCatalyst bridges the information gap between rural citizens, government healt
 * **ID-Based Authentication**: Secure access via ABDM Facility Registry codes.
 * **Doctor Roster Management**: Add medical staff and toggle their live status in real time.
 * **Bed Capacity Matrix**: Increment/decrement live bed and ventilator counts.
-* **108 Dispatch Command**: Review, accept, or failover incoming emergency SOS calls.
 
 ---
 
