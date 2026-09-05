@@ -52,7 +52,7 @@ function calculateHaversineKm(lat1: number, lon1: number, lat2: number, lon2: nu
 
 export type GoogleMapLayerType = 'roadmap' | 'satellite' | 'traffic' | 'terrain';
 
-export const GOOGLE_MAP_LAYERS: Record<GoogleMapLayerType, { url: string; name: string; subdomains: string[]; maxZoom: number; attribution: string }> = {
+const GOOGLE_MAP_LAYERS: Record<GoogleMapLayerType, { url: string; name: string; subdomains: string[]; maxZoom: number; attribution: string }> = {
   roadmap: {
     url: 'https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
     name: 'Google Roadmap',
