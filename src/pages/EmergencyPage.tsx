@@ -298,11 +298,11 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
                 </span>
               </div>
               <EmergencyTrackerCard
-                incidentId="E-9727"
-                title="Road Accident"
+                incidentId="disp-2026-9041"
+                title="Road bike accident, head impact with helmet cracked, patient groaning with low consciousness"
                 urgency="Critical"
                 patientCount={1}
-                initialStep={3}
+                initialStep={4}
                 className="w-full shadow-md"
               />
             </div>

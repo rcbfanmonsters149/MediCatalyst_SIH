@@ -503,15 +503,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [activeDispatch, setActiveDispatch] = useState<EmergencyDispatch | null>(() => {
     const saved = localStorage.getItem('medcatalyst_active_dispatch') || localStorage.getItem('sanjeevani_active_dispatch');
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed) {
+          // If stored dispatch is old E-9727 or placeholder Road Accident, upgrade to live incident
+          if (parsed.id === 'E-9727' || parsed.callerIssue === 'Road Accident') {
+            parsed.id = 'disp-2026-9041';
+            parsed.callerIssue = 'Road bike accident, head impact with helmet cracked, patient groaning with low consciousness';
+            parsed.callerVoiceTranscript = 'Road bike accident, head impact with helmet cracked, patient groaning with low consciousness';
+            parsed.callerName = 'Rameshwar Singh';
+          }
+          return parsed;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
     
-    // Default active dispatch matching incident tracker:
+    // Default active dispatch matching live incident:
     return {
-      id: 'E-9727',
-      callerName: 'Rameshwar Singh (Self / Citizen SOS)',
+      id: 'disp-2026-9041',
+      callerName: 'Rameshwar Singh',
       callerPhone: '+91 98765 43210',
-      callerVoiceTranscript: 'Road accident on highway, two-wheeler collision with head injury...',
-      callerIssue: 'Road Accident',
+      callerVoiceTranscript: 'Road bike accident, head impact with helmet cracked, patient groaning with low consciousness',
+      callerIssue: 'Road bike accident, head impact with helmet cracked, patient groaning with low consciousness',
       urgencyLevel: 'CRITICAL',
       patientCount: 1,
       currentStep: 4,
@@ -537,7 +553,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       mlAcuity: 'ESI-1',
       mlRequiredCapabilities: ['NEURO_SURGERY_ICU', 'TRAUMA_OT', 'MECHANICAL_VENTILATOR'],
       messages: [
-        { sender: 'CITIZEN', text: 'Please send ambulance fast, bleeding from forehead and ear!', timestamp: '01:31 AM', type: 'VOICE' },
+        { sender: 'CITIZEN', text: 'Road bike accident, head impact with helmet cracked, patient groaning with low consciousness. Please hurry!', timestamp: '01:31 AM', type: 'VOICE' },
         { sender: 'PARAMEDIC', text: '🚨 Nearest Ambulance HR-10-EM-1081 (0.4 km away, ETA 2 mins) dispatched immediately to your coordinates! Driver: Jagdish Kumar.', timestamp: '01:31 AM', type: 'TEXT' },
         { sender: 'HOSPITAL', text: 'Rampur PHC confirmed bed readiness. Trauma OT and Dr. Kavita Sharma alerted.', timestamp: '01:32 AM', type: 'TEXT' },
         { sender: 'PARAMEDIC', text: 'Patient onboard. Vitals recorded: GCS 8, SpO2 89%. Telemetry active.', timestamp: '01:35 AM', type: 'TEXT' }
@@ -867,9 +883,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const nearestHosp = hospitals[0];
 
     const newDispatch: EmergencyDispatch = {
-      id: `E-${Math.floor(1000 + Math.random() * 9000)}`,
-      callerName: user.fullName,
-      callerPhone: user.phone,
+      id: issueText.includes('bike') ? 'disp-2026-9041' : `disp-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+      callerName: user.fullName || 'Rameshwar Singh',
+      callerPhone: user.phone || '+91 98765 43210',
       callerVoiceTranscript: voiceTranscript || issueText,
       callerIssue: issueText,
       urgencyLevel: urgency,
@@ -925,19 +941,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ...prev,
         status: 'ACCEPTED',
         currentStep: 4, // Step 4: Hospital Accepted
+        currentHospitalId: hospitalId,
         waterfallHistory: prev.waterfallHistory.map(hop => 
-          hop.hospitalId === hospitalId ? { ...hop, status: 'ACCEPTED', responseTimeSeconds: 120 - prev.timeoutSecondsRemaining } : hop
+          hop.hospitalId === hospitalId ? { 
+            ...hop, 
+            status: 'ACCEPTED', 
+            responseTimeSeconds: 120 - prev.timeoutSecondsRemaining,
+            note: `${hospital?.name} confirmed bed availability and approved patient intake.` 
+          } : hop
         ),
         messages: [
           ...prev.messages,
           {
             sender: 'HOSPITAL',
-            text: `Intake confirmed by ${hospital?.name}! Emergency trauma bay & on-duty doctors primed for arriving ambulance ${assignedAmb.vehicleNumber}.`,
-            timestamp: new Date().toLocaleTimeString()
+            text: `✅ Dispatch Intake Accepted by ${hospital?.name || 'Hospital'}. Trauma team and emergency bay standing by!`,
+            timestamp: new Date().toLocaleTimeString(),
+            type: 'TEXT'
           }
         ]
       };
     });
+
+    updateAmbulanceStatus(assignedAmb.id, 'DISPATCHED');
   };
 
   const declineOrTimeoutDispatch = (hospitalId: string, reason: string) => {
@@ -969,7 +994,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           {
             sender: 'HOSPITAL',
             text: `⚠️ Request declined by ${hospitals.find(h => h.id === hospitalId)?.name} (${reason}). Cascading immediately to ${nextHosp.name}...`,
-            timestamp: new Date().toLocaleTimeString()
+            timestamp: new Date().toLocaleTimeString(),
+            type: 'TEXT'
           }
         ]
       };
@@ -977,7 +1003,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const cancelDispatch = () => {
-    setActiveDispatch(null);
+    setActiveDispatch({
+      id: 'disp-2026-9041',
+      callerName: 'Rameshwar Singh',
+      callerPhone: '+91 98765 43210',
+      callerVoiceTranscript: 'Road bike accident, head impact with helmet cracked, patient groaning with low consciousness',
+      callerIssue: 'Road bike accident, head impact with helmet cracked, patient groaning with low consciousness',
+      urgencyLevel: 'CRITICAL',
+      patientCount: 1,
+      currentStep: 1,
+      pickupAddress: 'Near Milestone 34, Old GT Road, Rampur Outskirts',
+      pickupLat: 28.7080,
+      pickupLng: 77.0980,
+      createdAt: new Date().toLocaleTimeString(),
+      status: 'PENDING_HOSPITAL_ACCEPT',
+      currentHospitalId: 'hosp-rampur-phc',
+      assignedAmbulanceId: 'amb-01',
+      timeoutSecondsRemaining: 120,
+      waterfallHistory: [
+        {
+          hospitalId: 'hosp-rampur-phc',
+          hospitalName: 'Rampur Primary Health Center (PHC)',
+          sentAt: new Date().toLocaleTimeString(),
+          status: 'WAITING',
+          note: 'Emergency broadcast triggered with patient GPS coordinates'
+        }
+      ],
+      vitals: INITIAL_VITALS,
+      mlAcuity: 'ESI-1',
+      mlRequiredCapabilities: ['NEURO_SURGERY_ICU', 'TRAUMA_OT', 'MECHANICAL_VENTILATOR'],
+      messages: [
+        { sender: 'CITIZEN', text: 'Road bike accident, head impact with helmet cracked, patient groaning with low consciousness. Please hurry!', timestamp: new Date().toLocaleTimeString(), type: 'VOICE' }
+      ]
+    });
   };
 
   const updateDispatchStep = (step: number) => {

@@ -190,9 +190,9 @@ export const AmbulanceDashboard: React.FC = () => {
             {/* Quick Details Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
               
-              {/* Patient & Pickup */}
+              {/* Incident & Pickup */}
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-1">
-                <span className="text-slate-400 uppercase font-bold text-[10px]">Patient & Pickup Location:</span>
+                <span className="text-slate-400 uppercase font-bold text-[10px]">Incident & Pickup Location:</span>
                 <p className="font-bold text-slate-900 text-sm mt-0.5">{activeDispatch.callerName}</p>
                 <p className="text-slate-600 flex items-start gap-1.5 mt-0.5">
                   <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-0.5" />
