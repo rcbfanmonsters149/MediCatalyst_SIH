@@ -66,3 +66,13 @@
   border-radius: inherit;
   z-index: 10;
 }
+
+/* Fix Leaflet custom div icon clipping and borders */
+.leaflet-div-icon.signal-map-marker,
+.leaflet-div-icon.dest-hospital-pin,
+.leaflet-div-icon.current-location-marker,
+.leaflet-div-icon.hospital-map-marker {
+  background: transparent !important;
+  border: none !important;
+  overflow: visible !important;
+}

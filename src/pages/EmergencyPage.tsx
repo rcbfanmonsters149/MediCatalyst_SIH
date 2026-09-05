@@ -20,6 +20,7 @@ import { useApp } from '../context/AppContext';
 import { TollFreeBanner } from '../components/TollFreeBanner';
 import { EmergencyTrackerCard } from '../components/EmergencyTrackerCard';
 import { VoiceSOSRecognitionModal } from '../components/VoiceSOSRecognitionModal';
+import { Link } from 'react-router-dom';
 
 interface EmergencyPageProps {
   onNavigateToAmbulance?: () => void;
@@ -401,11 +402,19 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
                   </div>
                 </div>
 
-                <div className="pt-2">
+                <div className="pt-2 space-y-2">
                   <div className="w-full py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span>Live Biometrics & Vitals Linked with Responders</span>
+                    <span>In-Ambulance Paramedic Assessment Form Linked</span>
                   </div>
+
+                  <Link
+                    to="/hospital?tab=ambulance"
+                    className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition border border-slate-200"
+                  >
+                    <Truck className="w-4 h-4 text-blue-600" />
+                    <span>Open Ambulance Portal (Paramedic Crew Desk)</span>
+                  </Link>
                 </div>
               </div>
 

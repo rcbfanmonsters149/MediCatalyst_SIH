@@ -28,7 +28,7 @@ cap_model = joblib.load(os.path.join(MODEL_DIR, "capability_model.joblib"))
 with open(os.path.join(MODEL_DIR, "model_metadata.json"), "r") as f:
     model_metadata = json.load(f)
 
-class TelemetryPayload(BaseModel):
+class AmbulanceAssessmentPayload(BaseModel):
     age: int = 45
     is_pediatric: int = 0
     heart_rate: int = 110
@@ -42,9 +42,14 @@ class TelemetryPayload(BaseModel):
     trauma: int = 1
     fast_score: int = 0
     blood_glucose: int = 110
+    paramedic_notes: Optional[str] = None
+
+# Backward compatibility alias
+TelemetryPayload = AmbulanceAssessmentPayload
 
 class HospitalMatchRequest(BaseModel):
-    telemetry: TelemetryPayload
+    assessment: Optional[AmbulanceAssessmentPayload] = None
+    telemetry: Optional[TelemetryPayload] = None
     target_hospital_capabilities: List[str] # e.g. ["24_7_CATH_LAB", "ICU", "TRAUMA_OT"]
     available_ventilators: int = 2
 
@@ -87,7 +92,10 @@ def predict_triage(data: TelemetryPayload):
 
 @app.post("/api/hospital/evaluate-capability")
 def evaluate_hospital_match(req: HospitalMatchRequest):
-    triage = predict_triage(req.telemetry)
+    data = req.assessment or req.telemetry
+    if not data:
+        raise HTTPException(status_code=400, detail="Missing ambulance assessment payload")
+    triage = predict_triage(data)
     needed = triage["needed_capabilities"]
     
     mismatches = []

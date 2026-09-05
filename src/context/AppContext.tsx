@@ -6,11 +6,20 @@ import {
   EmergencyDispatch, 
   PublicWorkerReport, 
   TelemetryVitals, 
+  AmbulanceAssessmentForm,
   WaterfallHop,
   DoctorOnDuty,
-  PatientRecord
+  PatientRecord,
+  TrafficCorridorEmergency,
+  TrafficSignal,
+  SignalLightState,
+  SignalCorridorStatus
 } from '../types';
-import { evaluateAmbulanceTelemetry, checkHospitalCapabilities } from '../utils/mlTriage';
+import { evaluateAmbulanceAssessment, evaluateAmbulanceTelemetry, checkHospitalCapabilities } from '../utils/mlTriage';
+import { 
+  createInitialTrafficEmergency, 
+  identifyRouteSignals 
+} from '../utils/trafficCorridor';
 
 export type HospitalResourceType = 
   | 'general' 
@@ -61,9 +70,12 @@ interface AppContextType {
   updateDispatchStep: (step: number) => void;
   sendDispatchMessage: (sender: 'CITIZEN' | 'HOSPITAL' | 'PARAMEDIC', text: string) => void;
   
-  // In-Ambulance Telemetry & Dynamic Reroute
-  vitals: TelemetryVitals;
-  updateVitals: (partial: Partial<TelemetryVitals>) => void;
+  // In-Ambulance Patient Assessment Form & Dynamic Reroute
+  ambulanceAssessment: AmbulanceAssessmentForm;
+  vitals: AmbulanceAssessmentForm;
+  updateAmbulanceAssessment: (partial: Partial<AmbulanceAssessmentForm>) => void;
+  updateVitals: (partial: Partial<AmbulanceAssessmentForm>) => void;
+  uploadAmbulanceAssessment: (form?: AmbulanceAssessmentForm) => void;
   executeDynamicReroute: () => void;
   loadPresetScenario: (scenario: 'BIKE_HEAD_TRAUMA' | 'ACUTE_STEMI_HEART' | 'MILD_FEVER_CLINIC') => void;
 
@@ -74,6 +86,19 @@ interface AppContextType {
   setGreenCorridorActive: (active: boolean) => void;
   clearTrafficJunction: (junctionName: string) => void;
   clearedJunctions: string[];
+
+  // Traffic Signal Police Post & Corridor Engine
+  trafficCorridor: TrafficCorridorEmergency;
+  overrideSignal: (signalId: string, lightState: SignalLightState) => void;
+  confirmSignalCleared: (signalId: string) => void;
+  toggleSimulation: (forcePlay?: boolean) => void;
+  setSimulationSpeed: (multiplier: number) => void;
+  resetSimulation: () => void;
+  setSimulationProgressManual: (progress: number) => void;
+  // Traffic Signal Police Authentication & Post Operations
+  policeUserSignal: TrafficSignal | null;
+  loginPoliceSignal: (signalIdOrCode: string) => boolean;
+  logoutPoliceSignal: () => void;
 }
 
 const INITIAL_HOSPITALS: Hospital[] = [
@@ -366,8 +391,8 @@ const INITIAL_WORKER_REPORTS: PublicWorkerReport[] = [
   }
 ];
 
-// Initial vitals representing a severe trauma bike accident with dropping GCS
-const INITIAL_VITALS: TelemetryVitals = {
+// Initial in-ambulance clinical assessment form (severe trauma case)
+const INITIAL_ASSESSMENT: AmbulanceAssessmentForm = {
   age: 52,
   is_pediatric: 0,
   heart_rate: 124,
@@ -380,8 +405,14 @@ const INITIAL_VITALS: TelemetryVitals = {
   ecg_stemi: 0,
   trauma: 1, // Polytrauma bike crash
   fast_score: 0,
-  blood_glucose: 128
+  blood_glucose: 128,
+  paramedicNotes: 'Patient semi-conscious following highway bike crash. Forehead laceration, pupils unequal.',
+  uploadedAt: '01:35 AM',
+  uploadedBy: 'Paramedic Crew (Unit HR-10-EM-1081)',
+  isUploaded: true
 };
+
+const INITIAL_VITALS: AmbulanceAssessmentForm = INITIAL_ASSESSMENT;
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -542,22 +573,99 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           note: 'Nearest Ambulance HR-10-EM-1081 (0.4 km away) dispatched first; Rampur PHC confirmed trauma intake'
         }
       ],
-      vitals: INITIAL_VITALS,
+      ambulanceAssessment: INITIAL_ASSESSMENT,
+      vitals: INITIAL_ASSESSMENT,
       mlAcuity: 'ESI-1',
       mlRequiredCapabilities: ['NEURO_SURGERY_ICU', 'TRAUMA_OT', 'MECHANICAL_VENTILATOR'],
       messages: [
         { sender: 'CITIZEN', text: 'Road bike accident, head impact with helmet cracked, patient groaning with low consciousness. Please hurry!', timestamp: '01:31 AM', type: 'VOICE' },
         { sender: 'PARAMEDIC', text: '🚨 Nearest Ambulance HR-10-EM-1081 (0.4 km away, ETA 2 mins) dispatched immediately to your coordinates! Driver: Jagdish Kumar.', timestamp: '01:31 AM', type: 'TEXT' },
         { sender: 'HOSPITAL', text: 'Rampur PHC confirmed bed readiness. Trauma OT and Dr. Kavita Sharma alerted.', timestamp: '01:32 AM', type: 'TEXT' },
-        { sender: 'PARAMEDIC', text: 'Patient onboard. Vitals recorded: GCS 8, SpO2 89%. Telemetry active.', timestamp: '01:35 AM', type: 'TEXT' }
+        { sender: 'PARAMEDIC', text: 'Patient onboard. Vitals recorded in in-ambulance assessment form: GCS 8, SpO2 89%.', timestamp: '01:35 AM', type: 'TEXT' }
       ]
     };
   });
 
-  const [vitals, setVitals] = useState<TelemetryVitals>(INITIAL_VITALS);
+  const [ambulanceAssessment, setAmbulanceAssessment] = useState<AmbulanceAssessmentForm>(INITIAL_ASSESSMENT);
+  const vitals = ambulanceAssessment;
+  const setVitals = setAmbulanceAssessment;
   const [workerReports, setWorkerReports] = useState<PublicWorkerReport[]>(INITIAL_WORKER_REPORTS);
   const [greenCorridorActive, setGreenCorridorActive] = useState<boolean>(false);
   const [clearedJunctions, setClearedJunctions] = useState<string[]>(['Rampur Toll Gate']);
+
+  // Traffic Police Corridor State
+  const [trafficCorridor, setTrafficCorridor] = useState<TrafficCorridorEmergency>(() => {
+    return createInitialTrafficEmergency();
+  });
+  const [signalOverrides, setSignalOverrides] = useState<Record<string, { lightState?: SignalLightState; status?: SignalCorridorStatus }>>({});
+
+  // Signal Post Officer Authentication State
+  const [policeUserSignal, setPoliceUserSignal] = useState<TrafficSignal | null>(() => {
+    const saved = localStorage.getItem('medcatalyst_police_signal');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return null;
+  });
+
+  // Keep logged-in police signal in sync with live corridor progress
+  useEffect(() => {
+    if (!policeUserSignal) return;
+    const current = trafficCorridor.signals.find(s => s.id === policeUserSignal.id);
+    if (current && (current.etaMinutes !== policeUserSignal.etaMinutes || current.distanceKm !== policeUserSignal.distanceKm || current.status !== policeUserSignal.status)) {
+      setPoliceUserSignal(current);
+    }
+  }, [trafficCorridor.signals, policeUserSignal]);
+
+  // Simulation tick effect
+  useEffect(() => {
+    if (!trafficCorridor.isSimulating) return;
+
+    const intervalMs = Math.max(150, Math.floor(1000 / (trafficCorridor.simulationSpeedMultiplier || 1)));
+    const stepSize = 0.012; // progress delta per tick
+
+    const interval = setInterval(() => {
+      setTrafficCorridor(prev => {
+        if (!prev.isSimulating) return prev;
+
+        const nextProgress = Math.min(1.0, prev.simulationProgress + stepSize);
+        const isDone = nextProgress >= 1.0;
+
+        // Slight speed variance 50-54 km/h for realism
+        const variance = (Math.random() - 0.5) * 4;
+        const speed = Math.min(65, Math.max(42, Math.round(52 + variance)));
+
+        const { signals, currentAmbulancePos, totalRouteKm } = identifyRouteSignals(
+          prev.routeCoordinates,
+          nextProgress,
+          speed,
+          signalOverrides,
+          prev.automatedGreenWave
+        );
+
+        const remainingKm = Math.max(0, totalRouteKm * (1 - nextProgress));
+        const totalEtaMinutes = Math.max(1, Math.round((remainingKm / speed) * 60));
+
+        return {
+          ...prev,
+          simulationProgress: nextProgress,
+          currentLat: currentAmbulancePos[0],
+          currentLng: currentAmbulancePos[1],
+          speedKmH: isDone ? 0 : speed,
+          totalEtaMinutes: isDone ? 0 : totalEtaMinutes,
+          signals,
+          isSimulating: !isDone,
+        };
+      });
+    }, intervalMs);
+
+    return () => clearInterval(interval);
+  }, [trafficCorridor.isSimulating, trafficCorridor.simulationSpeedMultiplier, trafficCorridor.automatedGreenWave, signalOverrides]);
+
 
   // Persist changes
   useEffect(() => {
@@ -1064,28 +1172,97 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  const updateVitals = (partial: Partial<TelemetryVitals>) => {
-    const nextVitals = { ...vitals, ...partial };
-    setVitals(nextVitals);
+  const updateAmbulanceAssessment = (partial: Partial<AmbulanceAssessmentForm>) => {
+    const nextForm = { ...ambulanceAssessment, ...partial };
+    setAmbulanceAssessment(nextForm);
 
-    // Re-evaluate with ML model
-    const prediction = evaluateAmbulanceTelemetry(nextVitals);
-    
     setActiveDispatch(prev => {
       if (!prev) return null;
       return {
         ...prev,
-        vitals: nextVitals,
-        mlAcuity: prediction.acuity,
-        mlRequiredCapabilities: prediction.requiredCapabilities
+        ambulanceAssessment: nextForm,
+        vitals: nextForm
       };
+    });
+  };
+
+  const updateVitals = updateAmbulanceAssessment;
+
+  const uploadAmbulanceAssessment = (formToUpload?: AmbulanceAssessmentForm) => {
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const nextForm: AmbulanceAssessmentForm = {
+      ...(formToUpload || ambulanceAssessment),
+      isUploaded: true,
+      uploadedAt: timeStr,
+      uploadedBy: 'Ambulance Crew (Unit HR-10-EM-1081)'
+    };
+    setAmbulanceAssessment(nextForm);
+
+    const prediction = evaluateAmbulanceAssessment(nextForm);
+    const targetHosp = hospitals.find(h => h.id === activeDispatch?.currentHospitalId) || hospitals[0];
+    const match = checkHospitalCapabilities(targetHosp, prediction.requiredCapabilities, hospitals);
+
+    setActiveDispatch(prev => {
+      if (!prev) return null;
+
+      if (!match.canHandle && match.recommendedHospital) {
+        const newHosp = match.recommendedHospital;
+        setGreenCorridorActive(true);
+        return {
+          ...prev,
+          ambulanceAssessment: nextForm,
+          vitals: nextForm,
+          mlAcuity: prediction.acuity,
+          mlRequiredCapabilities: prediction.requiredCapabilities,
+          currentHospitalId: newHosp.id,
+          status: 'REROUTED',
+          rerouteAlert: {
+            triggered: true,
+            reason: match.rerouteReason || `Critical capability deficit: ${match.mismatches.join(', ')}`,
+            originalHospitalId: targetHosp.id,
+            originalHospitalName: targetHosp.name,
+            newHospitalId: newHosp.id,
+            newHospitalName: newHosp.name,
+            timestamp: timeStr
+          },
+          messages: [
+            ...prev.messages,
+            {
+              sender: 'PARAMEDIC',
+              text: `📋 In-Ambulance Assessment Form Uploaded: BP ${nextForm.systolic_bp}/${nextForm.diastolic_bp}, HR ${nextForm.heart_rate} bpm, SpO2 ${nextForm.spo2}%, GCS ${nextForm.gcs}/15. Acuity: ${prediction.acuity}.`,
+              timestamp: timeStr
+            },
+            {
+              sender: 'PARAMEDIC',
+              text: `🚨 AI DYNAMIC REROUTE TRIGGERED: Primary facility ${targetHosp.name} lacks ${match.mismatches.join('; ')}. Diverting ambulance to ${newHosp.name} (+${newHosp.etaMinutes} mins, equipped with 24/7 ICU & specialized care). Traffic Police Green Corridor requested!`,
+              timestamp: timeStr
+            }
+          ]
+        };
+      } else {
+        return {
+          ...prev,
+          ambulanceAssessment: nextForm,
+          vitals: nextForm,
+          mlAcuity: prediction.acuity,
+          mlRequiredCapabilities: prediction.requiredCapabilities,
+          messages: [
+            ...prev.messages,
+            {
+              sender: 'PARAMEDIC',
+              text: `📋 In-Ambulance Assessment Form Uploaded: BP ${nextForm.systolic_bp}/${nextForm.diastolic_bp}, HR ${nextForm.heart_rate} bpm, SpO2 ${nextForm.spo2}%, GCS ${nextForm.gcs}/15. Facility ${targetHosp.name} confirmed compatible.`,
+              timestamp: timeStr
+            }
+          ]
+        };
+      }
     });
   };
 
   const executeDynamicReroute = () => {
     if (!activeDispatch) return;
     const targetHosp = hospitals.find(h => h.id === activeDispatch.currentHospitalId) || hospitals[0];
-    const prediction = evaluateAmbulanceTelemetry(vitals);
+    const prediction = evaluateAmbulanceAssessment(ambulanceAssessment);
     const match = checkHospitalCapabilities(targetHosp, prediction.requiredCapabilities, hospitals);
 
     if (match.recommendedHospital) {
@@ -1103,14 +1280,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             originalHospitalName: targetHosp.name,
             newHospitalId: newHosp.id,
             newHospitalName: newHosp.name,
-            timestamp: new Date().toLocaleTimeString()
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           },
           messages: [
             ...prev.messages,
             {
               sender: 'PARAMEDIC',
               text: `🚨 MEDCATALYST REROUTE ENACTED: Diverting from ${targetHosp.name} to ${newHosp.name}. Reasons: ${match.mismatches.join('; ')}. Reserving Trauma ICU & Cath Lab!`,
-              timestamp: new Date().toLocaleTimeString()
+              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             }
           ]
         };
@@ -1123,7 +1300,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const loadPresetScenario = (scenario: 'BIKE_HEAD_TRAUMA' | 'ACUTE_STEMI_HEART' | 'MILD_FEVER_CLINIC') => {
     if (scenario === 'BIKE_HEAD_TRAUMA') {
-      const scenarioVitals: TelemetryVitals = {
+      const scenarioForm: AmbulanceAssessmentForm = {
         age: 52,
         is_pediatric: 0,
         heart_rate: 128,
@@ -1136,12 +1313,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ecg_stemi: 0,
         trauma: 1,
         fast_score: 0,
-        blood_glucose: 125
+        blood_glucose: 125,
+        paramedicNotes: 'Severe road crash, high impact head strike without helmet. Unconscious, bleeding from cranial scalp.',
+        uploadedAt: undefined,
+        uploadedBy: 'Ambulance Crew (Unit HR-10-EM-1081)',
+        isUploaded: false
       };
-      setVitals(scenarioVitals);
-      updateVitals(scenarioVitals);
+      setAmbulanceAssessment(scenarioForm);
+      updateAmbulanceAssessment(scenarioForm);
     } else if (scenario === 'ACUTE_STEMI_HEART') {
-      const scenarioVitals: TelemetryVitals = {
+      const scenarioForm: AmbulanceAssessmentForm = {
         age: 58,
         is_pediatric: 0,
         heart_rate: 118,
@@ -1154,12 +1335,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ecg_stemi: 1, // ST-Elevation Myocardial Infarction
         trauma: 0,
         fast_score: 0,
-        blood_glucose: 145
+        blood_glucose: 145,
+        paramedicNotes: 'Sudden severe retrosternal squeezing chest pain radiating to left jaw and arm. Diaphoretic and pale.',
+        uploadedAt: undefined,
+        uploadedBy: 'Ambulance Crew (Unit HR-10-EM-1081)',
+        isUploaded: false
       };
-      setVitals(scenarioVitals);
-      updateVitals(scenarioVitals);
+      setAmbulanceAssessment(scenarioForm);
+      updateAmbulanceAssessment(scenarioForm);
     } else {
-      const scenarioVitals: TelemetryVitals = {
+      const scenarioForm: AmbulanceAssessmentForm = {
         age: 26,
         is_pediatric: 0,
         heart_rate: 76,
@@ -1172,10 +1357,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ecg_stemi: 0,
         trauma: 0,
         fast_score: 0,
-        blood_glucose: 98
+        blood_glucose: 98,
+        paramedicNotes: 'Patient conscious, alert and oriented x4. Low-grade fever with mild dehydration. Stable vital parameters.',
+        uploadedAt: undefined,
+        uploadedBy: 'Ambulance Crew (Unit HR-10-EM-1081)',
+        isUploaded: false
       };
-      setVitals(scenarioVitals);
-      updateVitals(scenarioVitals);
+      setAmbulanceAssessment(scenarioForm);
+      updateAmbulanceAssessment(scenarioForm);
     }
   };
 
@@ -1192,6 +1381,115 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!clearedJunctions.includes(junctionName)) {
       setClearedJunctions(prev => [...prev, junctionName]);
     }
+  };
+
+  // Traffic Corridor Signal Actions
+  const overrideSignal = (signalId: string, lightState: SignalLightState) => {
+    const status: SignalCorridorStatus =
+      lightState === 'EMERGENCY_OVERRIDE' || lightState === 'GREEN' ? 'PREEMPTED_GREEN' : 'NOTIFIED';
+
+    setSignalOverrides(prev => ({
+      ...prev,
+      [signalId]: { lightState, status },
+    }));
+
+    setTrafficCorridor(prev => ({
+      ...prev,
+      signals: prev.signals.map(s =>
+        s.id === signalId ? { ...s, lightState, status } : s
+      ),
+    }));
+  };
+
+  const confirmSignalCleared = (signalId: string) => {
+    setSignalOverrides(prev => ({
+      ...prev,
+      [signalId]: { lightState: 'GREEN', status: 'CLEARED' },
+    }));
+
+    setTrafficCorridor(prev => ({
+      ...prev,
+      signals: prev.signals.map(s =>
+        s.id === signalId
+          ? {
+              ...s,
+              lightState: 'GREEN',
+              status: 'CLEARED',
+              clearedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            }
+          : s
+      ),
+    }));
+  };
+
+  const toggleSimulation = (forcePlay?: boolean) => {
+    setTrafficCorridor(prev => {
+      const willPlay = forcePlay !== undefined ? forcePlay : !prev.isSimulating;
+      const progress = willPlay && prev.simulationProgress >= 1.0 ? 0 : prev.simulationProgress;
+      return {
+        ...prev,
+        isSimulating: willPlay,
+        simulationProgress: progress,
+      };
+    });
+  };
+
+  const setSimulationSpeed = (multiplier: number) => {
+    setTrafficCorridor(prev => ({
+      ...prev,
+      simulationSpeedMultiplier: multiplier,
+    }));
+  };
+
+  const resetSimulation = () => {
+    setSignalOverrides({});
+    const initial = createInitialTrafficEmergency();
+    setTrafficCorridor({
+      ...initial,
+      simulationSpeedMultiplier: trafficCorridor.simulationSpeedMultiplier,
+    });
+  };
+
+  const setSimulationProgressManual = (progress: number) => {
+    const nextProgress = Math.max(0, Math.min(1, progress));
+    const { signals, currentAmbulancePos, totalRouteKm } = identifyRouteSignals(
+      trafficCorridor.routeCoordinates,
+      nextProgress,
+      trafficCorridor.speedKmH,
+      signalOverrides,
+      trafficCorridor.automatedGreenWave
+    );
+    const remainingKm = Math.max(0, totalRouteKm * (1 - nextProgress));
+    const totalEtaMinutes = Math.max(1, Math.round((remainingKm / trafficCorridor.speedKmH) * 60));
+
+    setTrafficCorridor(prev => ({
+      ...prev,
+      simulationProgress: nextProgress,
+      currentLat: currentAmbulancePos[0],
+      currentLng: currentAmbulancePos[1],
+      totalEtaMinutes,
+      signals,
+    }));
+  };
+
+
+  const loginPoliceSignal = (signalIdOrCode: string): boolean => {
+    const normalized = signalIdOrCode.trim().toUpperCase();
+    const found = trafficCorridor.signals.find(
+      s => s.id.toUpperCase() === normalized || s.junctionCode.toUpperCase() === normalized
+    );
+
+    if (found) {
+      setPoliceUserSignal(found);
+      localStorage.setItem('medcatalyst_police_signal', JSON.stringify(found));
+      return true;
+    }
+    return false;
+  };
+
+  const logoutPoliceSignal = () => {
+    setPoliceUserSignal(null);
+    localStorage.removeItem('medcatalyst_police_signal');
   };
 
   return (
@@ -1223,8 +1521,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       cancelDispatch,
       updateDispatchStep,
       sendDispatchMessage,
-      vitals,
-      updateVitals,
+      ambulanceAssessment,
+      vitals: ambulanceAssessment,
+      updateAmbulanceAssessment,
+      updateVitals: updateAmbulanceAssessment,
+      uploadAmbulanceAssessment,
       executeDynamicReroute,
       loadPresetScenario,
       workerReports,
@@ -1232,7 +1533,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       greenCorridorActive,
       setGreenCorridorActive,
       clearTrafficJunction,
-      clearedJunctions
+      clearedJunctions,
+      trafficCorridor,
+      overrideSignal,
+      confirmSignalCleared,
+      toggleSimulation,
+      setSimulationSpeed,
+      resetSimulation,
+      setSimulationProgressManual,
+      policeUserSignal,
+      loginPoliceSignal,
+      logoutPoliceSignal
     }}>
       {children}
     </AppContext.Provider>

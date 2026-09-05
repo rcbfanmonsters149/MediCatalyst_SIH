@@ -154,7 +154,7 @@ export interface Ambulance {
   etaMinutes: number;
 }
 
-export interface TelemetryVitals {
+export interface AmbulanceAssessmentForm {
   age: number;
   is_pediatric: number;
   heart_rate: number;
@@ -168,7 +168,13 @@ export interface TelemetryVitals {
   trauma: number; // 0 or 1
   fast_score: number; // 0 to 3 (Stroke scale)
   blood_glucose: number;
+  paramedicNotes?: string;
+  uploadedAt?: string;
+  uploadedBy?: string;
+  isUploaded: boolean;
 }
+
+export type TelemetryVitals = AmbulanceAssessmentForm;
 
 export interface WaterfallHop {
   hospitalId: string;
@@ -198,8 +204,9 @@ export interface EmergencyDispatch {
   timeoutSecondsRemaining: number; // 120s down to 0
   waterfallHistory: WaterfallHop[];
   
-  // Real-time Telemetry & ML Reroute state
-  vitals?: TelemetryVitals;
+  // In-Ambulance Clinical Assessment & Triage state
+  ambulanceAssessment?: AmbulanceAssessmentForm;
+  vitals?: AmbulanceAssessmentForm;
   mlAcuity?: 'ESI-1' | 'ESI-2' | 'ESI-3' | 'ESI-4';
   mlRequiredCapabilities?: CapabilityType[];
   rerouteAlert?: {
@@ -233,3 +240,41 @@ export interface PublicWorkerReport {
   severity: 'NORMAL' | 'URGENT' | 'CRITICAL';
   metadata?: Record<string, any>;
 }
+
+export type SignalLightState = 'RED' | 'YELLOW' | 'GREEN' | 'EMERGENCY_OVERRIDE';
+export type SignalCorridorStatus = 'STANDBY' | 'NOTIFIED' | 'PREEMPTED_GREEN' | 'CLEARED';
+
+export interface TrafficSignal {
+  id: string; // e.g. 'S35', 'S31', 'S23', 'S18', 'S12'
+  name: string; // e.g. 'MG Road Junction'
+  junctionCode: string; // e.g. 'J-BLR-035'
+  lat: number;
+  lng: number;
+  distanceKm: number;
+  etaMinutes: number;
+  status: SignalCorridorStatus;
+  lightState: SignalLightState;
+  crossTrafficHalted?: boolean;
+  clearedAt?: string;
+}
+
+export interface TrafficCorridorEmergency {
+  ambulanceId: string; // e.g. 'A-104'
+  vehicleNumber: string; // e.g. 'KA-01-AM-104'
+  severity: 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL';
+  destinationHospital: string; // e.g. 'District Hospital'
+  destinationLat: number;
+  destinationLng: number;
+  pickupLocationName: string;
+  currentLat: number;
+  currentLng: number;
+  speedKmH: number;
+  totalEtaMinutes: number;
+  signals: TrafficSignal[];
+  routeCoordinates: [number, number][];
+  isSimulating: boolean;
+  simulationProgress: number; // 0 to 1
+  simulationSpeedMultiplier: number;
+  automatedGreenWave: boolean;
+}
+

@@ -19,27 +19,38 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Hospital } from '../../types';
-import { LeafletMap } from '../LeafletMap';
 import { EmergencyTrackerCard } from '../EmergencyTrackerCard';
+import { LeafletMap } from '../LeafletMap';
+import { evaluateAmbulanceAssessment } from '../../utils/mlTriage';
 
 interface HospitalEmergencyTabProps {
   hospital: Hospital;
   onNotify: (msg: string) => void;
+  onSwitchToAmbulancePortal?: () => void;
 }
 
-export const HospitalEmergencyTab: React.FC<HospitalEmergencyTabProps> = ({ hospital, onNotify }) => {
+export const HospitalEmergencyTab: React.FC<HospitalEmergencyTabProps> = ({ 
+  hospital, 
+  onNotify,
+  onSwitchToAmbulancePortal
+}) => {
   const { 
     activeDispatch, 
     acceptDispatchByHospital, 
     declineOrTimeoutDispatch, 
     ambulances, 
-    vitals, 
+    ambulanceAssessment,
     sendDispatchMessage,
     updateDispatchStep,
     hospitals
   } = useApp();
 
   const [chatInput, setChatInput] = useState('');
+
+  const assessment = activeDispatch?.ambulanceAssessment || ambulanceAssessment;
+  const triagePrediction = evaluateAmbulanceAssessment(assessment);
+  const isRerouted = activeDispatch?.status === 'REROUTED';
+  const rerouteAlert = activeDispatch?.rerouteAlert;
 
   const isTargetOfActiveDispatch = activeDispatch?.currentHospitalId === hospital.id;
   const assignedAmbulance = ambulances.find(a => a.id === 'amb-01') || ambulances[0];
@@ -213,7 +224,7 @@ export const HospitalEmergencyTab: React.FC<HospitalEmergencyTabProps> = ({ hosp
           </div>
 
           <p className="text-xs text-slate-500">
-            Real-time visual map tracking the patient's exact pickup coordinates, ambulance telemetry location, and route corridor to {hospital.name}.
+            Real-time visual map tracking the patient's exact pickup coordinates, ambulance live GPS location, and route corridor to {hospital.name}.
           </p>
 
           <div className="rounded-xl overflow-hidden border border-slate-200">
@@ -242,78 +253,154 @@ export const HospitalEmergencyTab: React.FC<HospitalEmergencyTabProps> = ({ hosp
           </div>
         </div>
 
-        {/* In-Transit Telemetry HUD & Communication (5 Cols) */}
+        {/* In-Transit Paramedic Assessment Report & Radio Communication (5 Cols) */}
         <div className="lg:col-span-5 space-y-6">
 
-          {/* Pre-Arrival Telemetry Vitals */}
+          {/* Paramedic Intake & Assessment Report */}
           <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Activity className="w-5 h-5 text-rose-600" />
-                <h3 className="font-bold text-base text-slate-900 font-heading">
-                  Pre-Arrival Patient Telemetry
-                </h3>
+                <FileText className="w-5 h-5 text-blue-600" />
+                <div>
+                  <h3 className="font-bold text-base text-slate-900 font-heading">
+                    Paramedic Assessment Report
+                  </h3>
+                  <p className="text-[10px] text-slate-500">
+                    {assessment.isUploaded ? `Uploaded inside ambulance by ${assessment.uploadedBy || 'Crew'}` : 'Awaiting clinical form upload from ambulance crew'}
+                  </p>
+                </div>
               </div>
-              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300">
-                Acuity: ESI-1
+              <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${
+                triagePrediction.acuity === 'ESI-1'
+                  ? 'bg-red-100 text-red-800 border-red-300'
+                  : (triagePrediction.acuity === 'ESI-2' ? 'bg-orange-100 text-orange-800 border-orange-300' : 'bg-emerald-100 text-emerald-800 border-emerald-300')
+              }`}>
+                {triagePrediction.acuity}
               </span>
             </div>
 
-            <p className="text-xs text-slate-500">
-              Streaming vitals from in-ambulance IoT monitors to allow your trauma team to prepare the ER/OT before arrival.
-            </p>
+            {/* Reroute Alert Banner if destination diverted */}
+            {isRerouted && rerouteAlert && (
+              <div className="p-3.5 bg-red-50 border border-red-300 rounded-xl text-xs text-red-900 space-y-1 animate-pulse">
+                <div className="flex items-center gap-1.5 font-bold text-red-800">
+                  <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                  <span>Dynamic AI Reroute Enacted</span>
+                </div>
+                <p className="text-[11px] text-red-700 leading-tight">
+                  Diverted from {rerouteAlert.originalHospitalName} to <strong>{rerouteAlert.newHospitalName}</strong>. Reason: {rerouteAlert.reason}.
+                </p>
+              </div>
+            )}
 
-            <div className="grid grid-cols-2 gap-3 pt-1 text-xs">
+            {!isRerouted && assessment.isUploaded && (
+              <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center gap-2">
+                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="font-bold text-[11px]">Destination Confirmed: {hospital.name} is ready for inbound patient.</span>
+              </div>
+            )}
+
+            {/* Core Vitals Grid */}
+            <div className="grid grid-cols-2 gap-2.5 pt-1 text-xs">
               
               {/* Heart Rate */}
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                <div className="flex items-center justify-between text-slate-500">
+              <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="flex items-center justify-between text-slate-500 text-[11px]">
                   <span>Heart Rate</span>
-                  <Heart className="w-4 h-4 text-rose-500 animate-pulse" />
+                  <Heart className="w-3.5 h-3.5 text-rose-500" />
                 </div>
-                <div className="text-xl font-extrabold text-slate-900 mt-1 font-mono">
-                  {vitals.heart_rate} <span className="text-xs text-slate-500 font-sans font-normal">BPM</span>
+                <div className="text-lg font-extrabold text-slate-900 mt-0.5 font-mono">
+                  {assessment.heart_rate} <span className="text-[10px] text-slate-500 font-sans font-normal">BPM</span>
                 </div>
-                <span className="text-[10px] text-rose-600 font-bold">Tachycardia Alert</span>
+                <span className="text-[10px] text-slate-500">
+                  {assessment.heart_rate > 100 ? 'Tachycardia' : (assessment.heart_rate < 60 ? 'Bradycardia' : 'Normal')}
+                </span>
               </div>
 
               {/* SpO2 */}
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                <div className="flex items-center justify-between text-slate-500">
+              <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="flex items-center justify-between text-slate-500 text-[11px]">
                   <span>Oxygen (SpO2)</span>
-                  <Wind className="w-4 h-4 text-sky-500" />
+                  <Wind className="w-3.5 h-3.5 text-sky-500" />
                 </div>
-                <div className="text-xl font-extrabold text-sky-700 mt-1 font-mono">
-                  {vitals.spo2}%
+                <div className="text-lg font-extrabold text-sky-700 mt-0.5 font-mono">
+                  {assessment.spo2}%
                 </div>
-                <span className="text-[10px] text-amber-700 font-bold">Supplemental O2 on</span>
+                <span className="text-[10px] text-slate-500">
+                  {assessment.spo2 < 88 ? 'Supplemental O2 ON' : 'Normal Saturation'}
+                </span>
               </div>
 
               {/* Blood Pressure */}
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                <div className="flex items-center justify-between text-slate-500">
+              <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="flex items-center justify-between text-slate-500 text-[11px]">
                   <span>Blood Pressure</span>
-                  <Activity className="w-4 h-4 text-emerald-500" />
+                  <Activity className="w-3.5 h-3.5 text-emerald-500" />
                 </div>
-                <div className="text-xl font-extrabold text-slate-900 mt-1 font-mono">
-                  {vitals.systolic_bp}/{vitals.diastolic_bp}
+                <div className="text-lg font-extrabold text-slate-900 mt-0.5 font-mono">
+                  {assessment.systolic_bp}/{assessment.diastolic_bp}
                 </div>
-                <span className="text-[10px] text-slate-500">Hypotensive Trend</span>
+                <span className="text-[10px] text-slate-500">
+                  {assessment.systolic_bp < 90 ? 'Hypotension' : 'Adequate'}
+                </span>
               </div>
 
               {/* GCS Coma Scale */}
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                <div className="flex items-center justify-between text-slate-500">
+              <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="flex items-center justify-between text-slate-500 text-[11px]">
                   <span>GCS Coma Score</span>
-                  <Brain className="w-4 h-4 text-purple-500" />
+                  <Brain className="w-3.5 h-3.5 text-purple-500" />
                 </div>
-                <div className="text-xl font-extrabold text-purple-700 mt-1 font-mono">
-                  {vitals.gcs} / 15
+                <div className="text-lg font-extrabold text-purple-700 mt-0.5 font-mono">
+                  {assessment.gcs} / 15
                 </div>
-                <span className="text-[10px] text-rose-600 font-bold">Severe Impairment</span>
+                <span className="text-[10px] text-slate-500">
+                  {assessment.gcs <= 8 ? 'Severe / Comatose' : (assessment.gcs <= 12 ? 'Moderate' : 'Mild / Alert')}
+                </span>
               </div>
 
             </div>
+
+            {/* Additional Clinical Flags & Notes */}
+            <div className="space-y-2 pt-1 border-t border-slate-100 text-xs">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-slate-500 font-semibold">12-Lead ECG Finding:</span>
+                <span className={`font-bold px-2 py-0.5 rounded ${
+                  assessment.ecg_stemi === 1 ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-700'
+                }`}>
+                  {assessment.ecg_stemi === 1 ? 'Active STEMI' : 'Normal Rhythm'}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-slate-500 font-semibold">Trauma Assessment:</span>
+                <span className={`font-bold px-2 py-0.5 rounded ${
+                  assessment.trauma === 1 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700'
+                }`}>
+                  {assessment.trauma === 1 ? 'Severe Trauma Crash' : 'None Reported'}
+                </span>
+              </div>
+
+              {assessment.paramedicNotes && (
+                <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-[11px] text-slate-700">
+                  <span className="font-bold text-slate-900 block">Paramedic Clinical Field Notes:</span>
+                  <p className="mt-0.5 italic">{assessment.paramedicNotes}</p>
+                </div>
+              )}
+
+              {onSwitchToAmbulancePortal && (
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={onSwitchToAmbulancePortal}
+                    className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Truck className="w-3.5 h-3.5 text-slate-600" />
+                    <span>Open Ambulance Portal to Review or Update Form</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
           </div>
 
           {/* Paramedic & ER Chat Channel */}

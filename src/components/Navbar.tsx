@@ -81,8 +81,17 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
             </button>
           </nav>
 
-          {/* Right Action: Ambulance & Hospital Portals & User Profile Pill */}
-          <div className="flex items-center gap-3">
+          {/* Right Action: Traffic Police, Ambulance & Hospital Portals & User Profile Pill */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Link
+              to="/police"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-amber-300/80 bg-amber-50 hover:bg-amber-100 text-amber-950 text-xs font-extrabold transition shadow-2xs"
+              title="Traffic Police On-Duty Signal Post & Green Corridor"
+            >
+              <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse"></span>
+              <span>Traffic Police</span>
+            </Link>
+
             <Link
               to="/ambulance"
               className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50 text-slate-600 hover:text-emerald-700 text-xs font-bold transition shadow-2xs"
