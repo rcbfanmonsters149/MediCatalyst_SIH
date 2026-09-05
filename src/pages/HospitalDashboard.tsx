@@ -103,7 +103,7 @@ export const HospitalDashboard: React.FC = () => {
 
         {/* Live Notification Floating Toast */}
         {notification && (
-          <div className="fixed top-20 right-6 z-50 p-4 bg-emerald-600 text-white rounded-2xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2 border border-emerald-500 max-w-md">
+          <div className="fixed top-20 right-6 z-[9999] p-4 bg-emerald-600 text-white rounded-2xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2 border border-emerald-500 max-w-md">
             <CheckCircle2 className="w-5 h-5 shrink-0" />
             <div>
               <p className="text-sm font-bold">{notification}</p>
