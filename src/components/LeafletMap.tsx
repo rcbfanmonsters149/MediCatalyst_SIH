@@ -1,6 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import L from 'leaflet';
 import { Hospital, Ambulance } from '../types';
+import { Navigation, Locate, ExternalLink, MapPin, Compass, AlertCircle } from 'lucide-react';
 
 interface LeafletMapProps {
   hospitals: Hospital[];
@@ -13,6 +14,19 @@ interface LeafletMapProps {
   showReroutePath?: boolean;
 }
 
+// Haversine distance calculator in kilometers
+function calculateHaversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Earth radius in km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c * 10) / 10;
+}
+
 export const LeafletMap: React.FC<LeafletMapProps> = ({
   hospitals,
   ambulances = [],
@@ -20,141 +34,394 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
   onSelectHospital,
   pickupLocation,
   rerouteDestination,
-  height = '400px',
+  height = '460px',
   showReroutePath = false
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersGroupRef = useRef<L.LayerGroup | null>(null);
-  const polylineGroupRef = useRef<L.LayerGroup | null>(null);
+  const userMarkerGroupRef = useRef<L.LayerGroup | null>(null);
+  const routeGroupRef = useRef<L.LayerGroup | null>(null);
 
+  // User's detected real-time GPS location (default fallback: Delhi NCR / Haryana corridor)
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy?: number } | null>(null);
+  const [isLocating, setIsLocating] = useState<boolean>(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [hasCenteredOnUser, setHasCenteredOnUser] = useState<boolean>(false);
+
+  // Request browser geolocation
+  const detectUserLocation = useCallback((forcePan = false) => {
+    if (!navigator.geolocation) {
+      setLocationError('Geolocation is not supported by your browser.');
+      return;
+    }
+
+    setIsLocating(true);
+    setLocationError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const coords = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy
+        };
+        setUserLocation(coords);
+        setIsLocating(false);
+
+        if (mapInstanceRef.current && (forcePan || !hasCenteredOnUser)) {
+          mapInstanceRef.current.flyTo([coords.lat, coords.lng], 13, {
+            duration: 1.5
+          });
+          setHasCenteredOnUser(true);
+        }
+      },
+      (err) => {
+        console.warn('Geolocation lookup notice:', err.message);
+        // Fallback default coordinates (Milestone 34, GT Road Corridor)
+        const fallback = { lat: 28.7080, lng: 77.0980 };
+        setUserLocation(fallback);
+        setIsLocating(false);
+        if (err.code === err.PERMISSION_DENIED) {
+          setLocationError('Location permission denied. Using default regional center.');
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 8000,
+        maximumAge: 30000
+      }
+    );
+  }, [hasCenteredOnUser]);
+
+  // Initial location detection on component mount
+  useEffect(() => {
+    detectUserLocation(false);
+  }, [detectUserLocation]);
+
+  // Determine current active anchor position for distance calculations
+  const effectiveUserCoords = userLocation || pickupLocation || { lat: 28.7080, lng: 77.0980 };
+
+  // Calculate nearest hospital from user's current GPS position
+  const nearestHospital = hospitals.reduce((closest, curr) => {
+    const dist = calculateHaversineKm(effectiveUserCoords.lat, effectiveUserCoords.lng, curr.lat, curr.lng);
+    const closestDist = closest ? calculateHaversineKm(effectiveUserCoords.lat, effectiveUserCoords.lng, closest.lat, closest.lng) : Infinity;
+    return dist < closestDist ? curr : closest;
+  }, hospitals[0]);
+
+  // Target hospital for navigation route (either selected, or nearest)
+  const targetHospital = hospitals.find(h => h.id === selectedHospitalId) || nearestHospital;
+
+  // Initialize Leaflet Map Instance
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
     if (!mapInstanceRef.current) {
-      // Initialize map centered on Haryana / Rural Delhi NCR corridor
+      const initialCenter: [number, number] = userLocation 
+        ? [userLocation.lat, userLocation.lng] 
+        : [28.7180, 77.0900];
+
       const map = L.map(mapContainerRef.current, {
-        center: [28.7500, 77.0700],
-        zoom: 11,
-        zoomControl: true,
+        center: initialCenter,
+        zoom: 12,
+        zoomControl: false, // We'll render custom top-right controls
         scrollWheelZoom: true
       });
 
+      // Google Maps style clean OSM tiles
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors | MedCatalyst',
-        maxZoom: 18
+        attribution: '&copy; OpenStreetMap | Google Maps Navigation Ready',
+        maxZoom: 19
       }).addTo(map);
 
+      // Add zoom control in bottom-right
+      L.control.zoom({ position: 'bottomright' }).addTo(map);
+
       markersGroupRef.current = L.layerGroup().addTo(map);
-      polylineGroupRef.current = L.layerGroup().addTo(map);
+      userMarkerGroupRef.current = L.layerGroup().addTo(map);
+      routeGroupRef.current = L.layerGroup().addTo(map);
+
       mapInstanceRef.current = map;
     }
 
     const map = mapInstanceRef.current;
-    const markersGroup = markersGroupRef.current;
-    const polylineGroup = polylineGroupRef.current;
+    if (!map) return;
 
-    if (!map || !markersGroup || !polylineGroup) return;
+    // Invalidate size on container changes
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 200);
+
+  }, [userLocation]);
+
+  // Render Markers, Highlights, User GPS Pin, and Routes
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    const markersGroup = markersGroupRef.current;
+    const userMarkerGroup = userMarkerGroupRef.current;
+    const routeGroup = routeGroupRef.current;
+
+    if (!map || !markersGroup || !userMarkerGroup || !routeGroup) return;
 
     markersGroup.clearLayers();
-    polylineGroup.clearLayers();
+    userMarkerGroup.clearLayers();
+    routeGroup.clearLayers();
 
-    // 1. Render Hospitals
+    // 1. RENDER USER'S CURRENT GPS LOCATION (Pulsing Radar Pin)
+    const userLat = effectiveUserCoords.lat;
+    const userLng = effectiveUserCoords.lng;
+
+    const userPinHtml = `
+      <div style="position: relative; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+        <span style="position: absolute; width: 36px; height: 36px; border-radius: 50%; background-color: rgba(59, 130, 246, 0.4); animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;"></span>
+        <div style="
+          width: 22px; 
+          height: 22px; 
+          border-radius: 50%; 
+          background: linear-gradient(135deg, #2563eb, #1d4ed8); 
+          border: 3px solid #ffffff; 
+          box-shadow: 0 0 12px rgba(37, 99, 235, 0.8);
+          display: flex; 
+          align-items: center; 
+          justify-content: center;
+          color: white;
+          font-size: 11px;
+          font-weight: bold;
+          z-index: 10;
+        ">
+        </div>
+        <div style="
+          position: absolute;
+          bottom: -18px;
+          background: #1e293b;
+          color: #ffffff;
+          font-size: 9px;
+          font-weight: 800;
+          padding: 1px 6px;
+          border-radius: 6px;
+          white-space: nowrap;
+          box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+          letter-spacing: 0.5px;
+        ">
+          YOU
+        </div>
+      </div>
+    `;
+
+    const userIcon = L.divIcon({
+      html: userPinHtml,
+      className: 'user-gps-marker',
+      iconSize: [36, 36],
+      iconAnchor: [18, 18]
+    });
+
+    const userMarker = L.marker([userLat, userLng], { icon: userIcon, zIndexOffset: 1000 });
+    userMarker.bindPopup(`
+      <div style="font-family: sans-serif; min-width: 200px; padding: 2px;">
+        <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+          <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: #2563eb;"></span>
+          <strong style="color: #0f172a; font-size: 13px;">Your Current GPS Position</strong>
+        </div>
+        <p style="margin: 0 0 8px; color: #64748b; font-size: 11px;">
+          Coordinates: ${userLat.toFixed(4)}, ${userLng.toFixed(4)}
+        </p>
+        <a 
+          href="https://www.google.com/maps/search/hospitals/@${userLat},${userLng},14z" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          style="display: inline-flex; align-items: center; justify-content: center; width: 100%; background-color: #2563eb; color: white; padding: 6px 10px; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: bold;"
+        >
+          🗺️ Search Hospitals in Google Maps
+        </a>
+      </div>
+    `);
+    userMarkerGroup.addLayer(userMarker);
+
+    // Optional user accuracy circle
+    if (userLocation?.accuracy && userLocation.accuracy < 1000) {
+      const accuracyCircle = L.circle([userLat, userLng], {
+        radius: Math.min(userLocation.accuracy, 250),
+        color: '#3b82f6',
+        fillColor: '#93c5fd',
+        fillOpacity: 0.15,
+        weight: 1
+      });
+      userMarkerGroup.addLayer(accuracyCircle);
+    }
+
+    // 2. HIGHLIGHT & RENDER HOSPITALS
     hospitals.forEach(hosp => {
       const isSelected = hosp.id === selectedHospitalId;
+      const isNearest = hosp.id === nearestHospital?.id;
       const isRerouteTarget = rerouteDestination?.id === hosp.id;
+      
+      const distFromUser = calculateHaversineKm(userLat, userLng, hosp.lat, hosp.lng);
+      const drivingEta = Math.max(2, Math.round(distFromUser * 2.1));
 
-      const bgColor = isRerouteTarget 
-        ? '#ea580c' // Orange for reroute
-        : (isSelected ? '#dc2626' : (hosp.type === 'Apex Multi-Specialty' ? '#2563eb' : '#059669'));
+      // Theme Colors & Highlighting
+      let primaryColor = '#059669'; // Emerald default for PHC / CHC
+      let badgeLabel = 'PHC / CHC';
 
-      const markerHtml = `
-        <div style="
-          background-color: ${bgColor};
-          color: white;
-          width: 34px;
-          height: 34px;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: bold;
-          font-size: 16px;
-          box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-          border: 2px solid white;
-          ${isSelected || isRerouteTarget ? 'animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;' : ''}
-        ">
-          🏥
-        </div>
-      `;
+      if (hosp.type.includes('Apex') || hosp.type.includes('Tertiary') || hosp.type.includes('Sub-District')) {
+        primaryColor = '#2563eb'; // Blue for Apex
+        badgeLabel = 'Apex Trauma';
+      }
+      if (isRerouteTarget) {
+        primaryColor = '#ea580c'; // Orange for reroute
+        badgeLabel = 'Reroute Bay';
+      }
+      if (isNearest) {
+        badgeLabel = '⭐ Nearest';
+      }
 
-      const icon = L.divIcon({
-        html: markerHtml,
-        className: 'custom-hosp-pin',
-        iconSize: [34, 34],
-        iconAnchor: [17, 17]
-      });
+      const isHighlighted = isSelected || isNearest || isRerouteTarget;
 
-      const marker = L.marker([hosp.lat, hosp.lng], { icon });
+      const hospitalPinHtml = `
+        <div style="position: relative; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+          
+          ${isHighlighted ? `
+            <span style="
+              position: absolute; 
+              width: 44px; 
+              height: 44px; 
+              border-radius: 50%; 
+              background-color: ${isNearest ? 'rgba(16, 185, 129, 0.4)' : 'rgba(37, 99, 235, 0.4)'}; 
+              animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+            "></span>
+          ` : ''}
 
-      const popupContent = `
-        <div style="font-family: sans-serif; min-width: 180px;">
-          <h4 style="margin: 0 0 4px; font-weight: bold; color: #1e293b; font-size: 14px;">${hosp.name}</h4>
-          <p style="margin: 0 0 6px; font-size: 12px; color: #64748b;">${hosp.type}</p>
-          <div style="font-size: 12px; line-height: 1.4;">
-            <div><strong>General Beds:</strong> ${hosp.generalBedsAvail}/${hosp.generalBedsTotal}</div>
-            <div><strong>ICU Beds:</strong> ${hosp.icuBedsAvail}/${hosp.icuBedsTotal}</div>
-            <div><strong>Ventilators:</strong> ${hosp.ventilatorsAvail}</div>
-            <div><strong>ETA:</strong> ${hosp.etaMinutes} mins (${hosp.distanceKm} km)</div>
+          <div style="
+            background: linear-gradient(135deg, ${primaryColor}, ${primaryColor}dd);
+            color: white;
+            width: ${isHighlighted ? '38px' : '32px'};
+            height: ${isHighlighted ? '38px' : '32px'};
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: ${isHighlighted ? '18px' : '15px'};
+            box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+            border: 2.5px solid white;
+            transition: all 0.2s;
+            z-index: 5;
+          ">
+            🏥
+          </div>
+
+          <!-- Highlight Pill Tag Above Marker -->
+          <div style="
+            position: absolute;
+            top: -14px;
+            background: ${isNearest ? '#059669' : (isSelected ? '#dc2626' : '#1e293b')};
+            color: #ffffff;
+            font-size: 9px;
+            font-weight: 800;
+            padding: 1.5px 6px;
+            border-radius: 8px;
+            white-space: nowrap;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.25);
+            border: 1px solid rgba(255,255,255,0.7);
+            letter-spacing: 0.3px;
+          ">
+            ${badgeLabel}
           </div>
         </div>
       `;
 
-      marker.bindPopup(popupContent);
+      const hospIcon = L.divIcon({
+        html: hospitalPinHtml,
+        className: 'custom-hosp-pin',
+        iconSize: [44, 44],
+        iconAnchor: [22, 22]
+      });
+
+      const marker = L.marker([hosp.lat, hosp.lng], { 
+        icon: hospIcon,
+        zIndexOffset: isHighlighted ? 500 : 100 
+      });
+
+      // Google Maps Direct Navigation Link URL
+      const googleMapsDirectionsUrl = `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${hosp.lat},${hosp.lng}&travelmode=driving`;
+      const googleMapsSearchUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hosp.name + ', ' + hosp.address)}`;
+
+      const popupContent = `
+        <div style="font-family: 'Inter', system-ui, sans-serif; min-width: 240px; padding: 4px;">
+          
+          <div style="display: flex; align-items: start; justify-content: space-between; gap: 8px; margin-bottom: 6px;">
+            <div>
+              <h4 style="margin: 0; font-weight: 800; color: #0f172a; font-size: 14px; line-height: 1.2;">${hosp.name}</h4>
+              <span style="font-size: 11px; color: #64748b; font-weight: 500;">${hosp.type}</span>
+            </div>
+            ${isNearest ? '<span style="background: #ecfdf5; color: #065f46; font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 9999px; border: 1px solid #a7f3d0; white-space: nowrap;">⚡ NEAREST</span>' : ''}
+          </div>
+
+          <!-- Distance & Driving ETA Bar -->
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
+            <div>
+              <span style="color: #64748b;">Distance:</span> <strong style="color: #0f172a;">${distFromUser} km</strong>
+            </div>
+            <div>
+              <span style="color: #64748b;">Drive ETA:</span> <strong style="color: #059669;">~${drivingEta} mins</strong>
+            </div>
+          </div>
+
+          <!-- Bed Availability Grid -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 11px; margin-bottom: 10px;">
+            <div style="background: #f1f5f9; padding: 4px 6px; border-radius: 6px;">
+              <span style="color: #64748b;">Gen Beds:</span> <strong>${hosp.generalBedsAvail}/${hosp.generalBedsTotal}</strong>
+            </div>
+            <div style="background: ${hosp.icuBedsAvail > 0 ? '#ecfdf5' : '#fff1f2'}; padding: 4px 6px; border-radius: 6px;">
+              <span style="color: #64748b;">ICU Beds:</span> <strong style="color: ${hosp.icuBedsAvail > 0 ? '#059669' : '#e11d48'};">${hosp.icuBedsAvail}/${hosp.icuBedsTotal}</strong>
+            </div>
+            <div style="background: #f1f5f9; padding: 4px 6px; border-radius: 6px;">
+              <span style="color: #64748b;">Ventilators:</span> <strong>${hosp.ventilatorsAvail}</strong>
+            </div>
+            <div style="background: #f1f5f9; padding: 4px 6px; border-radius: 6px;">
+              <span style="color: #64748b;">24x7 ER:</span> <strong>${hosp.is24x7Emergency ? 'Yes' : 'On-Call'}</strong>
+            </div>
+          </div>
+
+          <!-- Google Maps Action Buttons -->
+          <div style="display: flex; flex-direction: column; gap: 5px;">
+            <a 
+              href="${googleMapsDirectionsUrl}" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              style="display: flex; align-items: center; justify-content: center; gap: 6px; background-color: #059669; color: #ffffff; padding: 7px 10px; border-radius: 8px; text-decoration: none; font-size: 12px; font-weight: 700; box-shadow: 0 1px 3px rgba(0,0,0,0.15);"
+            >
+              🧭 Navigate with Google Maps
+            </a>
+            
+            <a 
+              href="${googleMapsSearchUrl}" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              style="display: flex; align-items: center; justify-content: center; gap: 4px; background-color: #f1f5f9; color: #334155; padding: 5px 8px; border-radius: 6px; text-decoration: none; font-size: 10px; font-weight: 600;"
+            >
+              🗺️ View Landmark on Google Maps
+            </a>
+          </div>
+
+        </div>
+      `;
+
+      marker.bindPopup(popupContent, { maxWidth: 280 });
+
       marker.on('click', () => {
-        if (onSelectHospital) onSelectHospital(hosp.id);
+        if (onSelectHospital) {
+          onSelectHospital(hosp.id);
+        }
       });
 
       markersGroup.addLayer(marker);
     });
 
-    // 2. Render Patient Pickup if present
-    if (pickupLocation) {
-      const pickupHtml = `
-        <div style="
-          background-color: #ef4444;
-          color: white;
-          width: 32px;
-          height: 32px;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 16px;
-          box-shadow: 0 0 15px rgba(239, 68, 68, 0.8);
-          border: 3px solid white;
-        ">
-          📍
-        </div>
-      `;
-
-      const pickupIcon = L.divIcon({
-        html: pickupHtml,
-        className: 'pickup-pin',
-        iconSize: [32, 32],
-        iconAnchor: [16, 16]
-      });
-
-      const pickupMarker = L.marker([pickupLocation.lat, pickupLocation.lng], { icon: pickupIcon });
-      pickupMarker.bindPopup(`<b>Emergency Pickup Location:</b><br>${pickupLocation.label}`);
-      markersGroup.addLayer(pickupMarker);
-    }
-
-    // 3. Render Ambulances
+    // 3. RENDER AMBULANCES
     ambulances.forEach(amb => {
+      const isAvailable = amb.status === 'AVAILABLE';
       const ambHtml = `
         <div style="
-          background-color: #0284c7;
+          background-color: ${isAvailable ? '#0284c7' : '#f59e0b'};
           color: white;
           width: 30px;
           height: 30px;
@@ -179,94 +446,152 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
 
       const ambMarker = L.marker([amb.currentLat, amb.currentLng], { icon: ambIcon });
       ambMarker.bindPopup(`
-        <b>${amb.vehicleNumber}</b> (${amb.type})<br>
-        Status: <b>${amb.status}</b><br>
-        Driver: ${amb.driverName}
+        <div style="font-family: sans-serif; font-size: 12px;">
+          <strong style="font-size: 13px; color: #0f172a;">${amb.vehicleNumber}</strong> (${amb.type})<br>
+          Status: <strong style="color: ${isAvailable ? '#0284c7' : '#f59e0b'};">${amb.status}</strong><br>
+          Driver: ${amb.driverName} (${amb.driverPhone})<br>
+          Base: ${amb.hospitalName}
+        </div>
       `);
       markersGroup.addLayer(ambMarker);
     });
 
-    // 4. Render Dynamic Reroute Polyline
-    if (pickupLocation) {
-      const primaryHosp = hospitals.find(h => h.id === selectedHospitalId) || hospitals[0];
+    // 4. DRAW GOOGLE-MAPS STYLE CONNECTING NAVIGATION ROUTE
+    if (targetHospital) {
+      const isReroute = showReroutePath && rerouteDestination;
+      const destination = isReroute ? rerouteDestination : targetHospital;
 
-      if (showReroutePath && rerouteDestination) {
-        // Red / Orange dashed line to the new Apex Multi-Specialty hospital
-        const rerouteCoords: [number, number][] = [
-          [pickupLocation.lat, pickupLocation.lng],
-          [28.7600, 77.0600], // intermediate road waypoint
-          [rerouteDestination.lat, rerouteDestination.lng]
-        ];
+      // Simulated realistic street waypoints between GPS user and target hospital
+      const midLat = (userLat + destination.lat) / 2 + 0.005;
+      const midLng = (userLng + destination.lng) / 2 - 0.003;
 
-        const rerouteLine = L.polyline(rerouteCoords, {
-          color: '#f97316',
-          weight: 5,
-          dashArray: '8, 8',
-          opacity: 0.9
-        });
-        rerouteLine.bindPopup(`<b>⚡ MEDCATALYST REROUTE CORRIDOR</b><br>Diverting to ${rerouteDestination.name} (+12 mins) for specialized Cath Lab & Neuro-ICU care.`);
-        polylineGroup.addLayer(rerouteLine);
+      const routePoints: [number, number][] = [
+        [userLat, userLng],
+        [midLat, midLng],
+        [destination.lat, destination.lng]
+      ];
 
-        // Grayed out old initial route to show it was abandoned
-        const oldCoords: [number, number][] = [
-          [pickupLocation.lat, pickupLocation.lng],
-          [primaryHosp.lat, primaryHosp.lng]
-        ];
-        const oldLine = L.polyline(oldCoords, {
-          color: '#94a3b8',
-          weight: 3,
-          dashArray: '4, 6',
-          opacity: 0.5
-        });
-        polylineGroup.addLayer(oldLine);
+      // Outer shadow line for depth
+      const shadowLine = L.polyline(routePoints, {
+        color: '#0f172a',
+        weight: 7,
+        opacity: 0.15
+      });
+      routeGroup.addLayer(shadowLine);
 
-      } else {
-        // Normal green active route to primary hospital
-        const normalCoords: [number, number][] = [
-          [pickupLocation.lat, pickupLocation.lng],
-          [primaryHosp.lat, primaryHosp.lng]
-        ];
-        const normalLine = L.polyline(normalCoords, {
-          color: '#10b981',
-          weight: 4,
-          opacity: 0.8
-        });
-        polylineGroup.addLayer(normalLine);
-      }
+      // Main vibrant route polyline
+      const mainRouteLine = L.polyline(routePoints, {
+        color: isReroute ? '#f97316' : '#10b981',
+        weight: 5,
+        opacity: 0.85,
+        dashArray: isReroute ? '8, 8' : undefined
+      });
+
+      mainRouteLine.bindPopup(`
+        <div style="font-family: sans-serif; font-size: 11px;">
+          <strong>${isReroute ? '⚡ AI Diverted Trauma Route' : '🧭 Direct Route to ' + destination.name}</strong><br>
+          Distance: ~${calculateHaversineKm(userLat, userLng, destination.lat, destination.lng)} km
+        </div>
+      `);
+      routeGroup.addLayer(mainRouteLine);
     }
 
-    // Invalidate size to ensure proper rendering inside dynamic containers
-    setTimeout(() => {
-      map.invalidateSize();
-    }, 200);
-
-  }, [hospitals, ambulances, selectedHospitalId, pickupLocation, rerouteDestination, showReroutePath, onSelectHospital]);
+  }, [
+    hospitals,
+    ambulances,
+    selectedHospitalId,
+    effectiveUserCoords,
+    nearestHospital,
+    targetHospital,
+    rerouteDestination,
+    showReroutePath,
+    onSelectHospital,
+    userLocation
+  ]);
 
   return (
-    <div className="relative w-full rounded-xl overflow-hidden border border-slate-200 shadow-sm" style={{ height }}>
-      <div ref={mapContainerRef} className="w-full h-full" />
+    <div className="relative w-full rounded-2xl overflow-hidden border border-slate-200 shadow-sm" style={{ height }}>
       
-      {/* Map Legend Overlay */}
-      <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-sm px-3 py-2 rounded-lg shadow-md border border-slate-200 text-xs flex flex-wrap items-center gap-3 z-[1000]">
-        <div className="flex items-center gap-1">
-          <span className="w-3 h-3 rounded-full bg-emerald-600 inline-block"></span>
-          <span className="text-slate-700">Primary / CHC</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <span className="w-3 h-3 rounded-full bg-blue-600 inline-block"></span>
-          <span className="text-slate-700">Apex Multi-Specialty</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <span className="w-3 h-3 rounded-full bg-sky-500 inline-block"></span>
-          <span className="text-slate-700">Ambulance</span>
-        </div>
-        {showReroutePath && (
-          <div className="flex items-center gap-1 font-bold text-orange-600">
-            <span className="w-3 h-1 bg-orange-500 inline-block"></span>
-            <span>AI Dynamic Reroute Path</span>
-          </div>
-        )}
+      {/* Map Container */}
+      <div ref={mapContainerRef} className="w-full h-full z-0" />
+
+      {/* TOP FLOATING CONTROLS BAR: Google Maps Help + Locate Me */}
+      <div className="absolute top-3 right-3 z-[1000] flex items-center gap-2">
+        
+        {/* Open in Google Maps Button */}
+        <a
+          href={`https://www.google.com/maps/search/hospitals/@${effectiveUserCoords.lat},${effectiveUserCoords.lng},13z`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="px-3 py-2 bg-white/95 hover:bg-white text-slate-700 hover:text-emerald-700 rounded-xl shadow-md border border-slate-200 text-xs font-bold transition flex items-center gap-1.5 backdrop-blur-sm"
+          title="Open surrounding area in Google Maps"
+        >
+          <Compass className="w-4 h-4 text-emerald-600" />
+          <span className="hidden sm:inline">Google Maps View</span>
+          <ExternalLink className="w-3 h-3 opacity-60" />
+        </a>
+
+        {/* Locate My GPS Button */}
+        <button
+          type="button"
+          onClick={() => detectUserLocation(true)}
+          disabled={isLocating}
+          className={`p-2 bg-white/95 hover:bg-white text-slate-700 rounded-xl shadow-md border border-slate-200 text-xs font-bold transition flex items-center gap-1.5 backdrop-blur-sm cursor-pointer ${
+            isLocating ? 'text-blue-600 animate-spin' : 'hover:text-blue-600'
+          }`}
+          title="Center on my current GPS location"
+        >
+          <Locate className={`w-4 h-4 ${isLocating ? 'animate-spin text-blue-600' : 'text-blue-600'}`} />
+          <span className="text-[11px] font-bold hidden md:inline">
+            {isLocating ? 'Locating...' : 'My Location'}
+          </span>
+        </button>
+
       </div>
+
+      {/* TOP LEFT: Real-time User Location & Nearest Hospital Badge */}
+      <div className="absolute top-3 left-3 z-[1000] bg-white/95 backdrop-blur-sm px-3.5 py-2 rounded-xl shadow-md border border-slate-200 text-xs max-w-xs">
+        <div className="flex items-center gap-2">
+          <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-ping shrink-0"></span>
+          <div className="truncate">
+            <span className="font-extrabold text-slate-900 block truncate">
+              {userLocation ? '📍 GPS Position Active' : '📍 Region: Haryana / Delhi NCR'}
+            </span>
+            <span className="text-[10px] text-emerald-700 font-semibold block truncate">
+              Nearest: {nearestHospital?.name} ({calculateHaversineKm(effectiveUserCoords.lat, effectiveUserCoords.lng, nearestHospital.lat, nearestHospital.lng)} km)
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Location Error Toast (if any) */}
+      {locationError && (
+        <div className="absolute top-16 left-3 z-[1000] bg-amber-50 border border-amber-200 text-amber-800 px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 shadow-sm">
+          <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+          <span>{locationError}</span>
+        </div>
+      )}
+
+      {/* Map Legend Overlay at Bottom */}
+      <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-sm px-3.5 py-2 rounded-xl shadow-md border border-slate-200 text-xs flex flex-wrap items-center gap-3 z-[1000]">
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-full bg-blue-600 inline-block"></span>
+          <span className="text-slate-700 font-medium">My Location</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-md bg-emerald-600 inline-block"></span>
+          <span className="text-slate-700 font-medium">Primary / CHC</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-md bg-blue-600 inline-block"></span>
+          <span className="text-slate-700 font-medium">Apex Trauma</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-full bg-sky-500 inline-block"></span>
+          <span className="text-slate-700 font-medium">Ambulance</span>
+        </div>
+      </div>
+
     </div>
   );
 };
