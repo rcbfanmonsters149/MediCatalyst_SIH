@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import L from 'leaflet';
 import { Hospital, Ambulance, TrafficSignal } from '../types';
 import { Navigation, Locate, ExternalLink, MapPin, Compass, AlertCircle, Phone, Activity, Zap, ChevronUp, ChevronDown, Clock, ShieldCheck } from 'lucide-react';
@@ -78,8 +78,9 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
   const userMarkerGroupRef = useRef<L.LayerGroup | null>(null);
   const routeGroupRef = useRef<L.LayerGroup | null>(null);
   const liveAmbLayerRef = useRef<L.LayerGroup | null>(null);
-  const lastFocusedKeyRef = useRef<string>('');
   const hasUserInteractedRef = useRef<boolean>(false);
+  const hasInitialFitHappenedRef = useRef<boolean>(false);
+  const prevSelectedHospIdRef = useRef<string | undefined>(selectedHospitalId);
 
   // User's detected real-time GPS location
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy?: number } | null>(() => {
@@ -87,7 +88,6 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
   });
   const [isLocating, setIsLocating] = useState<boolean>(false);
   const [locationError, setLocationError] = useState<string | null>(null);
-  const [hasCenteredOnUser, setHasCenteredOnUser] = useState<boolean>(false);
 
   // Request browser geolocation
   const detectUserLocation = useCallback((forcePan = false) => {
@@ -112,11 +112,11 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
         // Dynamically relocate hospitals and ambulances to the user's immediate coordinates
         relocateToUserLocation(coords.lat, coords.lng);
 
-        if (mapInstanceRef.current && (forcePan || !hasCenteredOnUser)) {
-          mapInstanceRef.current.flyTo([coords.lat, coords.lng], 15, {
-            duration: 1.5
+        // Only pan if the user explicitly clicked "My Location" button
+        if (mapInstanceRef.current && forcePan) {
+          mapInstanceRef.current.flyTo([coords.lat, coords.lng], 16, {
+            duration: 1.2
           });
-          setHasCenteredOnUser(true);
         }
       },
       (err) => {
@@ -132,7 +132,7 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
         maximumAge: 30000
       }
     );
-  }, [hasCenteredOnUser, relocateToUserLocation]);
+  }, [relocateToUserLocation]);
 
   // Initial location detection on component mount
   useEffect(() => {
@@ -146,18 +146,28 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
     }
   }, [contextUserLocation]);
 
-  // Determine current active anchor position for distance calculations
-  const effectiveUserCoords = userLocation || (contextUserLocation ? { lat: contextUserLocation.lat, lng: contextUserLocation.lng } : null) || pickupLocation || { lat: 28.7080, lng: 77.0980 };
+  // Stable memoized anchor position for distance & route calculations
+  const effectiveUserCoords = useMemo(() => {
+    if (userLocation) return { lat: userLocation.lat, lng: userLocation.lng };
+    if (contextUserLocation) return { lat: contextUserLocation.lat, lng: contextUserLocation.lng };
+    if (pickupLocation) return { lat: pickupLocation.lat, lng: pickupLocation.lng };
+    return { lat: 28.7080, lng: 77.0980 };
+  }, [userLocation?.lat, userLocation?.lng, contextUserLocation?.lat, contextUserLocation?.lng, pickupLocation?.lat, pickupLocation?.lng]);
 
   // Calculate nearest hospital from user's current GPS position
-  const nearestHospital = hospitals.reduce((closest, curr) => {
-    const dist = calculateHaversineKm(effectiveUserCoords.lat, effectiveUserCoords.lng, curr.lat, curr.lng);
-    const closestDist = closest ? calculateHaversineKm(effectiveUserCoords.lat, effectiveUserCoords.lng, closest.lat, closest.lng) : Infinity;
-    return dist < closestDist ? curr : closest;
-  }, hospitals[0]);
+  const nearestHospital = useMemo(() => {
+    if (!hospitals || hospitals.length === 0) return undefined;
+    return hospitals.reduce((closest, curr) => {
+      const dist = calculateHaversineKm(effectiveUserCoords.lat, effectiveUserCoords.lng, curr.lat, curr.lng);
+      const closestDist = closest ? calculateHaversineKm(effectiveUserCoords.lat, effectiveUserCoords.lng, closest.lat, closest.lng) : Infinity;
+      return dist < closestDist ? curr : closest;
+    }, hospitals[0]);
+  }, [hospitals, effectiveUserCoords]);
 
   // Target hospital for navigation route (either selected, or nearest)
-  const targetHospital = hospitals.find(h => h.id === selectedHospitalId) || nearestHospital;
+  const targetHospital = useMemo(() => {
+    return hospitals.find(h => h.id === selectedHospitalId) || nearestHospital || hospitals[0];
+  }, [hospitals, selectedHospitalId, nearestHospital]);
 
   // Google Maps style auto-zoom to frame active trip (User ➔ Ambulance ➔ Hospital)
   const focusActiveRoute = useCallback((force = false) => {
@@ -194,26 +204,52 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
     try {
       map.flyToBounds(L.latLngBounds(points), {
         padding: [60, 60],
-        maxZoom: 16,
+        maxZoom: 15,
         duration: 1.2
       });
     } catch (e) {}
   }, [corridorRoute, showReroutePath, rerouteDestination, targetHospital, effectiveUserCoords, liveAmbulance]);
 
-  // Initialize Leaflet Map Instance
+  // When user actively switches hospital selection, smoothly glide to frame the new destination
+  useEffect(() => {
+    if (!mapInstanceRef.current || !hasInitialFitHappenedRef.current) return;
+    if (selectedHospitalId && selectedHospitalId !== prevSelectedHospIdRef.current) {
+      prevSelectedHospIdRef.current = selectedHospitalId;
+      focusActiveRoute(true);
+    }
+  }, [selectedHospitalId, focusActiveRoute]);
+
+  // Initialize Leaflet Map Instance with Perfect First-Time View & Slow Smooth Scrolling
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
     if (!mapInstanceRef.current) {
-      const initialCenter: [number, number] = userLocation 
-        ? [userLocation.lat, userLocation.lng] 
-        : (pickupLocation ? [pickupLocation.lat, pickupLocation.lng] : [28.7180, 77.0900]);
+      const destination = (showReroutePath && rerouteDestination) ? rerouteDestination : targetHospital;
+      
+      let initialBounds: L.LatLngBounds | null = null;
+      if (corridorRoute && corridorRoute.length > 1) {
+        initialBounds = L.latLngBounds(corridorRoute);
+      } else if (destination) {
+        initialBounds = L.latLngBounds([
+          [effectiveUserCoords.lat, effectiveUserCoords.lng],
+          [destination.lat, destination.lng]
+        ]);
+      }
+
+      const initialCenter: [number, number] = initialBounds 
+        ? [initialBounds.getCenter().lat, initialBounds.getCenter().lng]
+        : [effectiveUserCoords.lat, effectiveUserCoords.lng];
 
       const map = L.map(mapContainerRef.current, {
         center: initialCenter,
         zoom: 14,
+        zoomSnap: 0.1,
+        zoomDelta: 0.2,
+        scrollWheelZoom: false, // Disables jerky default wheel zoom; handled smoothly via custom listener below
         zoomControl: false,
-        scrollWheelZoom: true
+        doubleClickZoom: true,
+        dragging: true,
+        touchZoom: true
       });
 
       // Google Maps style clean OSM tiles
@@ -230,19 +266,57 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
       routeGroupRef.current = L.layerGroup().addTo(map);
       liveAmbLayerRef.current = L.layerGroup().addTo(map);
 
-      // Track manual user drag / zoom so we do not forcibly override their chosen zoom level
+      // PERFECT FIRST-TIME VIEW: Zoom in to the correct extent framing both places
+      if (initialBounds) {
+        map.fitBounds(initialBounds, {
+          padding: [65, 65],
+          maxZoom: 15,
+          animate: false
+        });
+        hasInitialFitHappenedRef.current = true;
+      }
+
+      // Track manual user drag / click so we do not override their chosen zoom level
       map.on('movestart', (e: any) => {
         if (e.originalEvent) {
           hasUserInteractedRef.current = true;
         }
       });
-      map.on('zoomstart', (e: any) => {
-        if (e.originalEvent) {
-          hasUserInteractedRef.current = true;
+
+      // SILKY-SMOOTH SLOW TRACKPAD & MOUSE WHEEL ZOOM
+      // Eliminates zoom oscillation ("zooming in and out simultaneously") and makes scrolling gentle and slow
+      let targetZoom = map.getZoom();
+      let zoomRafId: number | null = null;
+
+      const container = mapContainerRef.current;
+      const onWheel = (e: WheelEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        hasUserInteractedRef.current = true;
+
+        // Slow, graceful delta dampening (direct response to user: "scroll should happen slowly")
+        const zoomDelta = e.deltaY * -0.0012;
+        const currentZoom = map.getZoom();
+        targetZoom = Math.min(18, Math.max(10, (zoomRafId !== null ? targetZoom : currentZoom) + zoomDelta));
+
+        if (zoomRafId === null) {
+          const mousePoint = map.mouseEventToContainerPoint(e);
+          zoomRafId = requestAnimationFrame(() => {
+            map.setZoomAround(mousePoint, targetZoom, { animate: false });
+            zoomRafId = null;
+          });
         }
-      });
+      };
+
+      container.addEventListener('wheel', onWheel, { passive: false });
 
       mapInstanceRef.current = map;
+
+      return () => {
+        container.removeEventListener('wheel', onWheel);
+        if (zoomRafId !== null) cancelAnimationFrame(zoomRafId);
+      };
     }
 
     const map = mapInstanceRef.current;
@@ -253,7 +327,7 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
       map.invalidateSize();
     }, 200);
 
-  }, [userLocation]);
+  }, []);
 
   // Render Markers, Highlights, User GPS Pin, and Routes
   useEffect(() => {
@@ -619,9 +693,6 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
       });
       corridorLine.bindPopup('<b>🚑 EMERGENCY AMBULANCE ROUTE</b><br>Designated green corridor to destination hospital.');
       routeGroup.addLayer(corridorLine);
-
-      // Fit map bounds to the corridor
-      map.fitBounds(L.latLngBounds(corridorRoute), { padding: [35, 35] });
     }
 
     // 6. Traffic Police Signals (if in corridor mode)
@@ -802,38 +873,6 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
       const destMarker = L.marker([destinationLocation.lat, destinationLocation.lng], { icon: destIcon });
       destMarker.bindPopup(`<b>Destination Hospital</b><br>${destinationLocation.name}<br>Emergency Trauma Center`);
       markersGroup.addLayer(destMarker);
-    }
-
-    // Google Maps style auto-focus: Frame active trip route tightly (User ➔ Ambulance ➔ Hospital)
-    // Only auto-zooms when route/hospital changes; NEVER overrides user's manual zoom or pan
-    const routeKey = `${userLat.toFixed(3)}_${userLng.toFixed(3)}_${targetHospital?.id || ''}_${rerouteDestination?.id || ''}_${corridorRoute ? 'corridor' : 'direct'}`;
-    
-    if (!hasUserInteractedRef.current || routeKey !== lastFocusedKeyRef.current) {
-      lastFocusedKeyRef.current = routeKey;
-
-      if (corridorRoute && corridorRoute.length > 1) {
-        try {
-          map.fitBounds(L.latLngBounds(corridorRoute), { padding: [50, 50], maxZoom: 15 });
-        } catch (e) {}
-      } else if (targetHospital) {
-        const destination = (showReroutePath && rerouteDestination) ? rerouteDestination : targetHospital;
-        const tripPoints: [number, number][] = [
-          [userLat, userLng],
-          [destination.lat, destination.lng]
-        ];
-        if (liveAmbulance) {
-          tripPoints.push([liveAmbulance.lat, liveAmbulance.lng]);
-        }
-        try {
-          map.fitBounds(L.latLngBounds(tripPoints), { padding: [60, 60], maxZoom: 16 });
-        } catch (e) {}
-      } else if (hospitals.length > 0) {
-        const allPoints: [number, number][] = hospitals.map(h => [h.lat, h.lng]);
-        allPoints.push([userLat, userLng]);
-        try {
-          map.fitBounds(L.latLngBounds(allPoints), { padding: [50, 50], maxZoom: 14 });
-        } catch (e) {}
-      }
     }
 
     // Invalidate size
@@ -1023,7 +1062,7 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
               {contextUserLocation?.areaName ? `📍 Near ${contextUserLocation.areaName}` : (userLocation ? '📍 GPS Position Active' : '📍 Current Location')}
             </span>
             <span className="text-[10px] text-emerald-700 font-semibold block truncate">
-              Nearest: {nearestHospital?.name} ({calculateHaversineKm(effectiveUserCoords.lat, effectiveUserCoords.lng, nearestHospital.lat, nearestHospital.lng)} km)
+              {nearestHospital ? `Nearest: ${nearestHospital.name} (${calculateHaversineKm(effectiveUserCoords.lat, effectiveUserCoords.lng, nearestHospital.lat, nearestHospital.lng)} km)` : 'Locating nearest facility...'}
             </span>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   MapPin, 
   Clock, 
@@ -31,13 +31,23 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
   const [expandedDoctorHospId, setExpandedDoctorHospId] = useState<string | null>('hosp-rampur-phc');
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
 
+  const memoizedPickupLocation = useMemo(() => {
+    return userLocation ? {
+      lat: userLocation.lat,
+      lng: userLocation.lng,
+      label: `Your Current Location (${userLocation.areaName || 'Live GPS'})`
+    } : undefined;
+  }, [userLocation?.lat, userLocation?.lng, userLocation?.areaName]);
+
   // Sorted nearest hospitals measured directly from the user's real GPS position
   const effectiveCoords = userLocation || { lat: 28.7080, lng: 77.0980 };
-  const sortedHospitals = [...hospitals].map(h => {
-    const dist = calculateHaversineKm(effectiveCoords.lat, effectiveCoords.lng, h.lat, h.lng);
-    const eta = Math.max(2, Math.round(dist * 2.1));
-    return { ...h, distanceKm: dist, etaMinutes: eta };
-  }).sort((a, b) => a.distanceKm - b.distanceKm);
+  const sortedHospitals = useMemo(() => {
+    return [...hospitals].map(h => {
+      const dist = calculateHaversineKm(effectiveCoords.lat, effectiveCoords.lng, h.lat, h.lng);
+      const eta = Math.max(2, Math.round(dist * 2.1));
+      return { ...h, distanceKm: dist, etaMinutes: eta };
+    }).sort((a, b) => a.distanceKm - b.distanceKm);
+  }, [hospitals, effectiveCoords.lat, effectiveCoords.lng]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
@@ -100,11 +110,7 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
         <LeafletMap
           hospitals={hospitals}
           ambulances={ambulances}
-          pickupLocation={userLocation ? {
-            lat: userLocation.lat,
-            lng: userLocation.lng,
-            label: `Your Current Location (${userLocation.areaName || 'Live GPS'})`
-          } : undefined}
+          pickupLocation={memoizedPickupLocation}
           selectedHospitalId={selectedHospitalId}
           onSelectHospital={(id) => setSelectedHospitalId(id)}
           height="450px"

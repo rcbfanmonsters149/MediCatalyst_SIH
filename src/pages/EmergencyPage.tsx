@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Send, 
   PhoneCall, 
@@ -94,6 +94,12 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
   };
 
   const dispatch = activeDispatch || fallbackDispatch;
+
+  const memoizedPickup = useMemo(() => ({
+    lat: dispatch.pickupLat,
+    lng: dispatch.pickupLng,
+    label: dispatch.pickupAddress
+  }), [dispatch.pickupLat, dispatch.pickupLng, dispatch.pickupAddress]);
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -250,11 +256,7 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
               hospitals={hospitals}
               ambulances={ambulances}
               selectedHospitalId={dispatch.currentHospitalId}
-              pickupLocation={{
-                lat: dispatch.pickupLat,
-                lng: dispatch.pickupLng,
-                label: dispatch.pickupAddress
-              }}
+              pickupLocation={memoizedPickup}
               height="460px"
               showRideHUD={true}
             />
