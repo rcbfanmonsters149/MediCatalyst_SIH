@@ -77,6 +77,9 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
   const markersGroupRef = useRef<L.LayerGroup | null>(null);
   const userMarkerGroupRef = useRef<L.LayerGroup | null>(null);
   const routeGroupRef = useRef<L.LayerGroup | null>(null);
+  const liveAmbLayerRef = useRef<L.LayerGroup | null>(null);
+  const lastFocusedKeyRef = useRef<string>('');
+  const hasUserInteractedRef = useRef<boolean>(false);
 
   // User's detected real-time GPS location
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy?: number } | null>(() => {
@@ -110,7 +113,7 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
         relocateToUserLocation(coords.lat, coords.lng);
 
         if (mapInstanceRef.current && (forcePan || !hasCenteredOnUser)) {
-          mapInstanceRef.current.flyTo([coords.lat, coords.lng], 14, {
+          mapInstanceRef.current.flyTo([coords.lat, coords.lng], 15, {
             duration: 1.5
           });
           setHasCenteredOnUser(true);
@@ -156,6 +159,47 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
   // Target hospital for navigation route (either selected, or nearest)
   const targetHospital = hospitals.find(h => h.id === selectedHospitalId) || nearestHospital;
 
+  // Google Maps style auto-zoom to frame active trip (User ➔ Ambulance ➔ Hospital)
+  const focusActiveRoute = useCallback((force = false) => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    if (force) {
+      hasUserInteractedRef.current = false;
+    }
+
+    if (corridorRoute && corridorRoute.length > 1) {
+      try {
+        map.flyToBounds(L.latLngBounds(corridorRoute), {
+          padding: [50, 50],
+          maxZoom: 15,
+          duration: 1.2
+        });
+      } catch (e) {}
+      return;
+    }
+
+    const destination = (showReroutePath && rerouteDestination) ? rerouteDestination : targetHospital;
+    if (!destination) return;
+
+    const points: [number, number][] = [
+      [effectiveUserCoords.lat, effectiveUserCoords.lng],
+      [destination.lat, destination.lng]
+    ];
+
+    if (liveAmbulance) {
+      points.push([liveAmbulance.lat, liveAmbulance.lng]);
+    }
+
+    try {
+      map.flyToBounds(L.latLngBounds(points), {
+        padding: [60, 60],
+        maxZoom: 16,
+        duration: 1.2
+      });
+    } catch (e) {}
+  }, [corridorRoute, showReroutePath, rerouteDestination, targetHospital, effectiveUserCoords, liveAmbulance]);
+
   // Initialize Leaflet Map Instance
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -167,7 +211,7 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
 
       const map = L.map(mapContainerRef.current, {
         center: initialCenter,
-        zoom: 12,
+        zoom: 14,
         zoomControl: false,
         scrollWheelZoom: true
       });
@@ -184,6 +228,19 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
       markersGroupRef.current = L.layerGroup().addTo(map);
       userMarkerGroupRef.current = L.layerGroup().addTo(map);
       routeGroupRef.current = L.layerGroup().addTo(map);
+      liveAmbLayerRef.current = L.layerGroup().addTo(map);
+
+      // Track manual user drag / zoom so we do not forcibly override their chosen zoom level
+      map.on('movestart', (e: any) => {
+        if (e.originalEvent) {
+          hasUserInteractedRef.current = true;
+        }
+      });
+      map.on('zoomstart', (e: any) => {
+        if (e.originalEvent) {
+          hasUserInteractedRef.current = true;
+        }
+      });
 
       mapInstanceRef.current = map;
     }
@@ -500,101 +557,6 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
       markersGroup.addLayer(ambMarker);
     });
 
-    // 3.5. RENDER LIVE MOVING AMBULANCE (Uber/Rapido style real-time moving marker)
-    if (liveAmbulance) {
-      const isApproaching = liveAmbulance.phase === 'EN_ROUTE_TO_PATIENT';
-      const movingAmbHtml = `
-        <div style="position: relative; width: 46px; height: 46px; display: flex; align-items: center; justify-content: center;">
-          <span style="
-            position: absolute;
-            width: 46px;
-            height: 46px;
-            border-radius: 50%;
-            background-color: rgba(239, 68, 68, 0.45);
-            animation: ping 1.2s cubic-bezier(0, 0, 0.2, 1) infinite;
-          "></span>
-          <div style="
-            width: 34px;
-            height: 34px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #ef4444, #b91c1c);
-            border: 2.5px solid #ffffff;
-            box-shadow: 0 0 16px rgba(239, 68, 68, 0.95);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 17px;
-            color: white;
-            z-index: 20;
-          ">
-            🚑
-          </div>
-          <div style="
-            position: absolute;
-            bottom: -16px;
-            background: #991b1b;
-            color: #ffffff;
-            font-size: 9px;
-            font-weight: 900;
-            padding: 1px 6px;
-            border-radius: 4px;
-            white-space: nowrap;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.4);
-            letter-spacing: 0.5px;
-          ">
-            ${liveAmbulance.vehicleNumber} • ${liveAmbulance.speedKmH} km/h
-          </div>
-        </div>
-      `;
-
-      const movingAmbIcon = L.divIcon({
-        html: movingAmbHtml,
-        className: 'live-moving-amb-marker',
-        iconSize: [46, 46],
-        iconAnchor: [23, 23]
-      });
-
-      const movingAmbMarker = L.marker([liveAmbulance.lat, liveAmbulance.lng], {
-        icon: movingAmbIcon,
-        zIndexOffset: 1200
-      });
-
-      movingAmbMarker.bindPopup(`
-        <div style="font-family: 'Inter', system-ui, sans-serif; min-width: 230px; padding: 2px;">
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 5px;">
-            <strong style="color: #b91c1c; font-size: 13px;">🚨 Live Moving Ambulance</strong>
-            <span style="background: #fee2e2; color: #991b1b; font-size: 10px; font-weight: 800; padding: 1px 6px; border-radius: 4px;">${liveAmbulance.vehicleNumber}</span>
-          </div>
-          <div style="font-size: 11px; color: #334155; margin-bottom: 6px; line-height: 1.4;">
-            Driver: <b>${liveAmbulance.driverName}</b> (${liveAmbulance.driverPhone})<br>
-            Current Speed: <b>${liveAmbulance.speedKmH} km/h</b> • Status: <b style="color: #ea580c;">${isApproaching ? 'EN ROUTE TO PATIENT' : 'TRANSPORTING TO APEX'}</b>
-          </div>
-          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px; font-size: 11px; display: flex; flex-direction: column; gap: 3px;">
-            <div>📍 <b>Pickup Distance:</b> <span style="color: #ea580c; font-weight: 800;">${liveAmbulance.distanceToPatientKm} km</span> (~${liveAmbulance.etaToPatientMinutes} mins)</div>
-            <div>🏥 <b>Hospital Distance:</b> <span style="color: #059669; font-weight: 800;">${liveAmbulance.distancePatientToHospitalKm} km</span> (~${liveAmbulance.etaToHospitalMinutes} mins)</div>
-          </div>
-        </div>
-      `);
-      markersGroup.addLayer(movingAmbMarker);
-
-      // Render Live Ambulance Transit Polyline
-      const ambRoutePoints: [number, number][] = [
-        [liveAmbulance.originLat, liveAmbulance.originLng],
-        [liveAmbulance.pickupLat, liveAmbulance.pickupLng],
-        [liveAmbulance.hospLat, liveAmbulance.hospLng]
-      ];
-
-      const ambRouteLine = L.polyline(ambRoutePoints, {
-        color: '#ef4444',
-        weight: 3.5,
-        opacity: 0.7,
-        dashArray: '6, 8',
-        lineCap: 'round',
-        lineJoin: 'round'
-      });
-      routeGroup.addLayer(ambRouteLine);
-    }
-
     // 4. DRAW GOOGLE-MAPS STYLE CONNECTING NAVIGATION ROUTE (if normal mode)
     if (targetHospital && !corridorRoute) {
       const isReroute = showReroutePath && rerouteDestination;
@@ -842,13 +804,36 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
       markersGroup.addLayer(destMarker);
     }
 
-    // Auto-fit bounds to user's location and nearby local hospitals
-    if (!corridorRoute && hospitals.length > 0) {
-      const allPoints: [number, number][] = hospitals.map(h => [h.lat, h.lng]);
-      allPoints.push([userLat, userLng]);
-      try {
-        map.fitBounds(L.latLngBounds(allPoints), { padding: [50, 50], maxZoom: 14 });
-      } catch (e) {}
+    // Google Maps style auto-focus: Frame active trip route tightly (User ➔ Ambulance ➔ Hospital)
+    // Only auto-zooms when route/hospital changes; NEVER overrides user's manual zoom or pan
+    const routeKey = `${userLat.toFixed(3)}_${userLng.toFixed(3)}_${targetHospital?.id || ''}_${rerouteDestination?.id || ''}_${corridorRoute ? 'corridor' : 'direct'}`;
+    
+    if (!hasUserInteractedRef.current || routeKey !== lastFocusedKeyRef.current) {
+      lastFocusedKeyRef.current = routeKey;
+
+      if (corridorRoute && corridorRoute.length > 1) {
+        try {
+          map.fitBounds(L.latLngBounds(corridorRoute), { padding: [50, 50], maxZoom: 15 });
+        } catch (e) {}
+      } else if (targetHospital) {
+        const destination = (showReroutePath && rerouteDestination) ? rerouteDestination : targetHospital;
+        const tripPoints: [number, number][] = [
+          [userLat, userLng],
+          [destination.lat, destination.lng]
+        ];
+        if (liveAmbulance) {
+          tripPoints.push([liveAmbulance.lat, liveAmbulance.lng]);
+        }
+        try {
+          map.fitBounds(L.latLngBounds(tripPoints), { padding: [60, 60], maxZoom: 16 });
+        } catch (e) {}
+      } else if (hospitals.length > 0) {
+        const allPoints: [number, number][] = hospitals.map(h => [h.lat, h.lng]);
+        allPoints.push([userLat, userLng]);
+        try {
+          map.fitBounds(L.latLngBounds(allPoints), { padding: [50, 50], maxZoom: 14 });
+        } catch (e) {}
+      }
     }
 
     // Invalidate size
@@ -872,9 +857,111 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
     onSelectSignal,
     corridorRoute,
     activeAmbulanceLocation,
-    destinationLocation,
-    liveAmbulance
+    destinationLocation
   ]);
+
+  // Dedicated real-time moving ambulance layer update
+  // Runs every second without disturbing user zoom, closing popups, or resetting camera
+  useEffect(() => {
+    const liveGroup = liveAmbLayerRef.current;
+    if (!liveGroup) return;
+
+    liveGroup.clearLayers();
+
+    if (!liveAmbulance) return;
+
+    const isApproaching = liveAmbulance.phase === 'EN_ROUTE_TO_PATIENT';
+    const movingAmbHtml = `
+      <div style="position: relative; width: 46px; height: 46px; display: flex; align-items: center; justify-content: center;">
+        <span style="
+          position: absolute;
+          width: 46px;
+          height: 46px;
+          border-radius: 50%;
+          background-color: rgba(239, 68, 68, 0.45);
+          animation: ping 1.2s cubic-bezier(0, 0, 0.2, 1) infinite;
+        "></span>
+        <div style="
+          width: 34px;
+          height: 34px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #ef4444, #b91c1c);
+          border: 2.5px solid #ffffff;
+          box-shadow: 0 0 16px rgba(239, 68, 68, 0.95);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 17px;
+          color: white;
+          z-index: 20;
+        ">
+          🚑
+        </div>
+        <div style="
+          position: absolute;
+          bottom: -16px;
+          background: #991b1b;
+          color: #ffffff;
+          font-size: 9px;
+          font-weight: 900;
+          padding: 1px 6px;
+          border-radius: 4px;
+          white-space: nowrap;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+          letter-spacing: 0.5px;
+        ">
+          ${liveAmbulance.vehicleNumber} • ${liveAmbulance.speedKmH} km/h
+        </div>
+      </div>
+    `;
+
+    const movingAmbIcon = L.divIcon({
+      html: movingAmbHtml,
+      className: 'live-moving-amb-marker',
+      iconSize: [46, 46],
+      iconAnchor: [23, 23]
+    });
+
+    const movingAmbMarker = L.marker([liveAmbulance.lat, liveAmbulance.lng], {
+      icon: movingAmbIcon,
+      zIndexOffset: 1200
+    });
+
+    movingAmbMarker.bindPopup(`
+      <div style="font-family: 'Inter', system-ui, sans-serif; min-width: 230px; padding: 2px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 5px;">
+          <strong style="color: #b91c1c; font-size: 13px;">🚨 Live Moving Ambulance</strong>
+          <span style="background: #fee2e2; color: #991b1b; font-size: 10px; font-weight: 800; padding: 1px 6px; border-radius: 4px;">${liveAmbulance.vehicleNumber}</span>
+        </div>
+        <div style="font-size: 11px; color: #334155; margin-bottom: 6px; line-height: 1.4;">
+          Driver: <b>${liveAmbulance.driverName}</b> (${liveAmbulance.driverPhone})<br>
+          Current Speed: <b>${liveAmbulance.speedKmH} km/h</b> • Status: <b style="color: #ea580c;">${isApproaching ? 'EN ROUTE TO PATIENT' : 'TRANSPORTING TO APEX'}</b>
+        </div>
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px; font-size: 11px; display: flex; flex-direction: column; gap: 3px;">
+          <div>📍 <b>Pickup Distance:</b> <span style="color: #ea580c; font-weight: 800;">${liveAmbulance.distanceToPatientKm} km</span> (~${liveAmbulance.etaToPatientMinutes} mins)</div>
+          <div>🏥 <b>Hospital Distance:</b> <span style="color: #059669; font-weight: 800;">${liveAmbulance.distancePatientToHospitalKm} km</span> (~${liveAmbulance.etaToHospitalMinutes} mins)</div>
+        </div>
+      </div>
+    `);
+    liveGroup.addLayer(movingAmbMarker);
+
+    // Render Live Ambulance Transit Polyline
+    const ambRoutePoints: [number, number][] = [
+      [liveAmbulance.originLat, liveAmbulance.originLng],
+      [liveAmbulance.pickupLat, liveAmbulance.pickupLng],
+      [liveAmbulance.hospLat, liveAmbulance.hospLng]
+    ];
+
+    const ambRouteLine = L.polyline(ambRoutePoints, {
+      color: '#ef4444',
+      weight: 3.5,
+      opacity: 0.75,
+      dashArray: '6, 8',
+      lineCap: 'round',
+      lineJoin: 'round'
+    });
+    liveGroup.addLayer(ambRouteLine);
+  }, [liveAmbulance]);
 
   return (
     <div className="relative w-full rounded-2xl overflow-hidden border border-slate-200 shadow-sm" style={{ height }}>
@@ -897,6 +984,17 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
           <span className="hidden sm:inline">Google Maps View</span>
           <ExternalLink className="w-3 h-3 opacity-60" />
         </a>
+
+        {/* Focus Active Trip Route Button (Google Maps Style) */}
+        <button
+          type="button"
+          onClick={() => focusActiveRoute(true)}
+          className="px-3 py-2 bg-white/95 hover:bg-white text-slate-700 hover:text-blue-700 rounded-xl shadow-md border border-slate-200 text-xs font-bold transition flex items-center gap-1.5 backdrop-blur-sm cursor-pointer"
+          title="Auto-zoom and frame active route (You ➔ Ambulance ➔ Hospital)"
+        >
+          <Navigation className="w-3.5 h-3.5 text-blue-600" />
+          <span className="hidden sm:inline">Focus Route</span>
+        </button>
 
         {/* Locate My GPS Button */}
         <button
