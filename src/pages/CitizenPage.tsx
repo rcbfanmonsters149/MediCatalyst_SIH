@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   MapPin, 
   Clock, 
@@ -13,11 +13,16 @@ import {
   Droplets,
   Zap,
   Scan,
-  Disc
+  Disc,
+  Mic,
+  Truck,
+  Building2
 } from 'lucide-react';
-import { useApp } from '../context/AppContext';
+import { useApp, calculateHaversineKm } from '../context/AppContext';
 import { LeafletMap } from '../components/LeafletMap';
 import { getCapabilityFriendlyName } from '../utils/mlTriage';
+import { VoiceSOSRecognitionModal } from '../components/VoiceSOSRecognitionModal';
+import { Link } from 'react-router-dom';
 
 interface CitizenPageProps {
   onOpenEmergency: () => void;
@@ -25,11 +30,27 @@ interface CitizenPageProps {
 }
 
 export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => {
-  const { hospitals, selectedHospitalId, setSelectedHospitalId } = useApp();
+  const { hospitals, selectedHospitalId, setSelectedHospitalId, ambulances, userLocation } = useApp();
   const [expandedDoctorHospId, setExpandedDoctorHospId] = useState<string | null>('hosp-rampur-phc');
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
 
-  // Sorted nearest hospitals
-  const sortedHospitals = [...hospitals].sort((a, b) => a.distanceKm - b.distanceKm);
+  const memoizedPickupLocation = useMemo(() => {
+    return userLocation ? {
+      lat: userLocation.lat,
+      lng: userLocation.lng,
+      label: `Your Current Location (${userLocation.areaName || 'Live GPS'})`
+    } : undefined;
+  }, [userLocation?.lat, userLocation?.lng, userLocation?.areaName]);
+
+  // Sorted nearest hospitals measured directly from the user's real GPS position
+  const effectiveCoords = userLocation || { lat: 28.7080, lng: 77.0980 };
+  const sortedHospitals = useMemo(() => {
+    return [...hospitals].map(h => {
+      const dist = calculateHaversineKm(effectiveCoords.lat, effectiveCoords.lng, h.lat, h.lng);
+      const eta = Math.max(2, Math.round(dist * 2.1));
+      return { ...h, distanceKm: dist, etaMinutes: eta };
+    }).sort((a, b) => a.distanceKm - b.distanceKm);
+  }, [hospitals, effectiveCoords.lat, effectiveCoords.lng]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
@@ -44,11 +65,26 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
           <div className="flex flex-wrap gap-3 pt-1">
             <button
               onClick={onOpenEmergency}
-              className="flex items-center gap-2 bg-white text-red-700 hover:bg-red-50 px-6 py-3.5 rounded-xl font-black text-sm sm:text-base shadow-lg hover:shadow-xl transition transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+              className="flex items-center gap-2 bg-white text-red-700 hover:bg-red-50 px-6 py-3.5 rounded-xl font-black text-sm sm:text-base shadow-lg hover:shadow-xl transition transform hover:-translate-y-0.5 active:translate-y-0 animate-emergency-beacon cursor-pointer"
             >
               <AlertTriangle className="w-5 h-5 text-red-600" />
               <span>Request Immediate Ambulance (SOS)</span>
             </button>
+            <button
+              onClick={() => setIsVoiceModalOpen(true)}
+              className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white px-5 py-3 rounded-xl font-bold text-sm sm:text-base shadow-lg hover:shadow-xl transition transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+              title="Speak in Hindi, Marathi, or English (बोलकर सहायता लें / आवाजाने मदत मागा)"
+            >
+              <Mic className="w-5 h-5 animate-pulse text-amber-100" />
+              <span>🎙️ Voice SOS (हिन्दी / मराठी / English)</span>
+            </button>
+            <a
+              href="tel:108"
+              className="flex items-center gap-2 bg-red-900/40 hover:bg-red-900/60 border border-white/30 text-white px-5 py-3 rounded-xl font-bold text-sm sm:text-base transition"
+            >
+              <Phone className="w-4 h-4" />
+              <span>Dial 108 Directly</span>
+            </a>
           </div>
         </div>
 
@@ -58,24 +94,117 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
         </div>
       </div>
 
+      {/* Stakeholder Operations Portals Quick Switcher */}
+      <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-100">
+          <div>
+            <h2 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+              <span>🚀 Operational Role Portals</span>
+              <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-200">
+                Connected SIH Network
+              </span>
+            </h2>
+            <p className="text-xs text-slate-500">
+              Direct access for emergency paramedics, hospital administrators, traffic controllers, and frontline ASHA health workers.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Link
+            to="/ambulance"
+            className="p-3.5 rounded-xl border border-emerald-200/80 bg-emerald-50/40 hover:bg-emerald-50 hover:border-emerald-300 transition group flex flex-col justify-between shadow-2xs"
+          >
+            <div className="flex items-center justify-between">
+              <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition">
+                <Truck className="w-4 h-4" />
+              </div>
+              <span className="text-[10px] font-bold text-emerald-700 bg-white px-2 py-0.5 rounded-md border border-emerald-200 shadow-2xs">
+                108 Fleet
+              </span>
+            </div>
+            <div className="mt-2.5">
+              <span className="font-bold text-xs text-slate-900 block group-hover:text-emerald-700 transition">Ambulance Cockpit</span>
+              <span className="text-[10px] text-slate-500 block">Driver route & telemetry</span>
+            </div>
+          </Link>
+
+          <Link
+            to="/hospital"
+            className="p-3.5 rounded-xl border border-blue-200/80 bg-blue-50/40 hover:bg-blue-50 hover:border-blue-300 transition group flex flex-col justify-between shadow-2xs"
+          >
+            <div className="flex items-center justify-between">
+              <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition">
+                <Building2 className="w-4 h-4" />
+              </div>
+              <span className="text-[10px] font-bold text-blue-700 bg-white px-2 py-0.5 rounded-md border border-blue-200 shadow-2xs">
+                Hospital
+              </span>
+            </div>
+            <div className="mt-2.5">
+              <span className="font-bold text-xs text-slate-900 block group-hover:text-blue-700 transition">Hospital Staff Desk</span>
+              <span className="text-[10px] text-slate-500 block">Emergency ER & bed status</span>
+            </div>
+          </Link>
+
+          <Link
+            to="/police"
+            className="p-3.5 rounded-xl border border-amber-200/80 bg-amber-50/40 hover:bg-amber-50 hover:border-amber-300 transition group flex flex-col justify-between shadow-2xs"
+          >
+            <div className="flex items-center justify-between">
+              <div className="w-8 h-8 rounded-lg bg-amber-600 text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition">
+                <ShieldCheck className="w-4 h-4" />
+              </div>
+              <span className="text-[10px] font-bold text-amber-800 bg-white px-2 py-0.5 rounded-md border border-amber-200 shadow-2xs">
+                Traffic ITMS
+              </span>
+            </div>
+            <div className="mt-2.5">
+              <span className="font-bold text-xs text-slate-900 block group-hover:text-amber-800 transition">Traffic Police Post</span>
+              <span className="text-[10px] text-slate-500 block">Signal green corridor wave</span>
+            </div>
+          </Link>
+
+          <Link
+            to="/workers"
+            className="p-3.5 rounded-xl border border-purple-200/80 bg-purple-50/40 hover:bg-purple-50 hover:border-purple-300 transition group flex flex-col justify-between shadow-2xs"
+          >
+            <div className="flex items-center justify-between">
+              <div className="w-8 h-8 rounded-lg bg-purple-600 text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition">
+                <HeartPulse className="w-4 h-4" />
+              </div>
+              <span className="text-[10px] font-bold text-purple-700 bg-white px-2 py-0.5 rounded-md border border-purple-200 shadow-2xs">
+                Community
+              </span>
+            </div>
+            <div className="mt-2.5">
+              <span className="font-bold text-xs text-slate-900 block group-hover:text-purple-700 transition">ASHA & Frontline</span>
+              <span className="text-[10px] text-slate-500 block">Maternal health & police SOS</span>
+            </div>
+          </Link>
+        </div>
+      </div>
+
       {/* 2. Map Section (Directly after Emergency Button at the Top) */}
-      <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-xs border border-slate-200 space-y-3">
+      <div id="map-section" className="bg-white p-4 sm:p-5 rounded-2xl shadow-xs border border-slate-200 space-y-3">
         <div className="flex items-center justify-between pb-2 border-b border-slate-100">
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4 text-blue-600" />
-            <h3 className="font-bold text-slate-800 text-sm">
-              Nearby Hospitals & Healthcare Centers Radar
+            <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+              <span>Nearby Hospitals & Healthcare Centers Radar</span>
+              {userLocation?.areaName && (
+                <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+                  📍 {userLocation.areaName}
+                </span>
+              )}
             </h3>
           </div>
         </div>
         
         <LeafletMap
           hospitals={hospitals}
-          pickupLocation={{
-            lat: 28.6920,
-            lng: 77.1150,
-            label: 'Your Current Location (Village Rampur)'
-          }}
+          ambulances={ambulances}
+          pickupLocation={memoizedPickupLocation}
           selectedHospitalId={selectedHospitalId}
           onSelectHospital={(id) => setSelectedHospitalId(id)}
           height="450px"
@@ -112,6 +241,11 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
                       <h3 className="text-base sm:text-lg font-bold text-slate-900 font-heading">
                         {hosp.name}
                       </h3>
+                      {hosp.id === sortedHospitals[0]?.id && (
+                        <span className="text-[10px] bg-emerald-600 text-white font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-2xs animate-pulse">
+                          ⭐ Nearest Hospital (~{hosp.distanceKm} km)
+                        </span>
+                      )}
                       <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
                         hosp.type === 'Apex Multi-Specialty' 
                           ? 'bg-blue-100 text-blue-800 border border-blue-200' 
@@ -379,6 +513,16 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
         </div>
 
       </div>
+
+      {/* 3-Language Elderly Speech Recognition Voice SOS Modal */}
+      <VoiceSOSRecognitionModal
+        isOpen={isVoiceModalOpen}
+        onClose={() => setIsVoiceModalOpen(false)}
+        initialLanguage="hi-IN"
+        onTranscriptSubmitted={() => {
+          onOpenEmergency();
+        }}
+      />
 
     </div>
   );

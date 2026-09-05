@@ -35,15 +35,15 @@ export const TRACKER_STEPS: TrackerStep[] = [
 ];
 
 export const EmergencyTrackerCard: React.FC<EmergencyTrackerCardProps> = ({
-  incidentId = 'E-9727',
-  title = 'Road Accident',
+  incidentId = 'disp-2026-9041',
+  title = 'Road bike accident, head impact with helmet cracked, patient groaning with low consciousness',
   urgency = 'Critical',
   patientCount = 1,
   initialStep = 4,
   currentStep: controlledStep,
   onStepChange,
   interactive = true,
-  showControls = true,
+  showControls = false,
   className = '',
 }) => {
   const [internalStep, setInternalStep] = useState<number>(initialStep);
@@ -97,32 +97,35 @@ export const EmergencyTrackerCard: React.FC<EmergencyTrackerCardProps> = ({
       
       {/* Header Row */}
       <div className="flex flex-wrap items-center justify-between gap-3 pb-5 border-b border-slate-100">
-        <div className="flex flex-wrap items-center gap-2.5">
-          {/* Incident ID Pill */}
-          <span className="px-2.5 py-1 bg-red-600 text-white rounded-md text-xs font-bold font-mono tracking-wider shadow-xs">
-            {incidentId}
-          </span>
+        <div className="flex items-center gap-3">
+          <span className="w-3.5 h-3.5 rounded-full bg-red-600 animate-ping shrink-0"></span>
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Incident ID Pill */}
+            <span className="px-2.5 py-1 bg-red-600 text-white rounded-md text-xs font-bold font-mono tracking-wider shadow-xs">
+              {incidentId}
+            </span>
 
-          {/* Title */}
-          <h3 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight font-heading">
-            {title}
-          </h3>
+            {/* Title */}
+            <h3 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight font-heading">
+              {title}
+            </h3>
 
-          {/* Urgency Pill Badge */}
-          <span className="px-2.5 py-0.5 bg-teal-50 text-teal-800 border border-teal-200/80 rounded-full text-xs font-semibold">
-            {urgency}
-          </span>
+            {/* Urgency Pill Badge */}
+            <span className="px-2.5 py-0.5 bg-teal-50 text-teal-800 border border-teal-200/80 rounded-full text-xs font-semibold">
+              {urgency}
+            </span>
 
-          {/* Patient Count Badge */}
-          <span className="px-2.5 py-0.5 border border-slate-200 text-slate-600 rounded-full text-xs font-medium bg-white">
-            {patientCount} patient(s)
-          </span>
+            {/* Patient Count Badge */}
+            <span className="px-2.5 py-0.5 border border-slate-200 text-slate-600 rounded-full text-xs font-medium bg-white">
+              {patientCount} patient(s)
+            </span>
+          </div>
         </div>
 
-        {/* Demo Indicator Tag */}
+        {/* Live Indicator Tag */}
         <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 bg-slate-50 px-2.5 py-1 rounded-full border border-slate-100">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span>Live Tracking</span>
+          <span>Live Incident</span>
         </div>
       </div>
 

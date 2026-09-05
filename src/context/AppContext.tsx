@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { 
   Hospital, 
   UserBioData, 
@@ -13,7 +13,8 @@ import {
   TrafficCorridorEmergency,
   TrafficSignal,
   SignalLightState,
-  SignalCorridorStatus
+  SignalCorridorStatus,
+  LiveMovingAmbulance
 } from '../types';
 import { evaluateAmbulanceAssessment, evaluateAmbulanceTelemetry, checkHospitalCapabilities } from '../utils/mlTriage';
 import { 
@@ -54,8 +55,11 @@ interface AppContextType {
   loginUser: (identifier: string) => boolean;
   addPatientPrescription: (record: Omit<PatientRecord, 'id'>) => void;
 
-  // Ambulances
+  // Ambulances & Fleet Driver Authentication
   ambulances: Ambulance[];
+  ambulanceUser: Ambulance | null;
+  loginAmbulance: (vehicleNumber: string) => boolean;
+  logoutAmbulance: () => void;
   updateAmbulanceStatus: (ambulanceId: string, status: Ambulance['status']) => void;
 
   // Emergency Dispatch Engine
@@ -96,6 +100,13 @@ interface AppContextType {
   policeUserSignal: TrafficSignal | null;
   loginPoliceSignal: (signalIdOrCode: string) => boolean;
   logoutPoliceSignal: () => void;
+
+  // Live GPS User Location & Proximity Localization
+  userLocation: { lat: number; lng: number; areaName?: string } | null;
+  relocateToUserLocation: (lat: number, lng: number, areaName?: string) => void;
+
+  // Uber/Rapido-Style Live Moving Ambulance Tracking Telemetry
+  liveAmbulance: LiveMovingAmbulance;
 }
 
 const INITIAL_HOSPITALS: Hospital[] = [
@@ -409,6 +420,115 @@ const INITIAL_ASSESSMENT: AmbulanceAssessmentForm = {
   isUploaded: true
 };
 
+// Haversine distance calculator in kilometers
+export function calculateHaversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Earth radius in km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c * 10) / 10;
+}
+
+function createLocalizedHospitals(baseLat: number, baseLng: number, areaName: string, template: Hospital[]): Hospital[] {
+  const t0 = template[0] || INITIAL_HOSPITALS[0];
+  const t1 = template[1] || INITIAL_HOSPITALS[1];
+  const t2 = template[2] || INITIAL_HOSPITALS[2];
+  const t3 = template[3] || INITIAL_HOSPITALS[3];
+
+  const h1Lat = Math.round((baseLat + 0.0090) * 10000) / 10000;
+  const h1Lng = Math.round((baseLng + 0.0075) * 10000) / 10000;
+  const h1Dist = calculateHaversineKm(baseLat, baseLng, h1Lat, h1Lng);
+
+  const h2Lat = Math.round((baseLat - 0.0160) * 10000) / 10000;
+  const h2Lng = Math.round((baseLng + 0.0150) * 10000) / 10000;
+  const h2Dist = calculateHaversineKm(baseLat, baseLng, h2Lat, h2Lng);
+
+  const h3Lat = Math.round((baseLat + 0.0270) * 10000) / 10000;
+  const h3Lng = Math.round((baseLng - 0.0230) * 10000) / 10000;
+  const h3Dist = calculateHaversineKm(baseLat, baseLng, h3Lat, h3Lng);
+
+  const h4Lat = Math.round((baseLat - 0.0410) * 10000) / 10000;
+  const h4Lng = Math.round((baseLng + 0.0360) * 10000) / 10000;
+  const h4Dist = calculateHaversineKm(baseLat, baseLng, h4Lat, h4Lng);
+
+  return [
+    {
+      ...t0,
+      id: 'hosp-rampur-phc',
+      name: `${areaName} Primary Health Center (PHC)`,
+      address: `${areaName} Sector Health Road`,
+      lat: h1Lat,
+      lng: h1Lng,
+      distanceKm: h1Dist,
+      etaMinutes: Math.max(2, Math.round(h1Dist * 2.2)),
+    },
+    {
+      ...t1,
+      id: 'hosp-bilaspur-chc',
+      name: `${areaName} Community Health Center (CHC)`,
+      address: `${areaName} NH Bypass Junction`,
+      lat: h2Lat,
+      lng: h2Lng,
+      distanceKm: h2Dist,
+      etaMinutes: Math.max(4, Math.round(h2Dist * 2.2)),
+    },
+    {
+      ...t2,
+      id: 'hosp-sonipat-district',
+      name: `${areaName} District Civil Hospital & Trauma Unit`,
+      address: `Civil Lines Road, ${areaName}`,
+      lat: h3Lat,
+      lng: h3Lng,
+      distanceKm: h3Dist,
+      etaMinutes: Math.max(6, Math.round(h3Dist * 2.2)),
+    },
+    {
+      ...t3,
+      id: 'hosp-apex-multispecialty',
+      name: `Apex MedCatalyst Multi-Specialty & Level-1 Trauma Center (${areaName})`,
+      address: `Super Highway Ring Road, ${areaName}`,
+      lat: h4Lat,
+      lng: h4Lng,
+      distanceKm: h4Dist,
+      etaMinutes: Math.max(10, Math.round(h4Dist * 2.2)),
+    }
+  ];
+}
+
+function createLocalizedAmbulances(baseLat: number, baseLng: number, areaName: string, template: Ambulance[]): Ambulance[] {
+  const a0 = template[0] || INITIAL_AMBULANCES[0];
+  const a1 = template[1] || INITIAL_AMBULANCES[1];
+  const a2 = template[2] || INITIAL_AMBULANCES[2];
+
+  return [
+    {
+      ...a0,
+      hospitalName: `${areaName} Primary Health Center`,
+      currentLat: Math.round((baseLat + 0.0040) * 10000) / 10000,
+      currentLng: Math.round((baseLng + 0.0030) * 10000) / 10000,
+      etaMinutes: 2,
+    },
+    {
+      ...a1,
+      hospitalName: `${areaName} Community Health Center`,
+      currentLat: Math.round((baseLat - 0.0095) * 10000) / 10000,
+      currentLng: Math.round((baseLng + 0.0075) * 10000) / 10000,
+      etaMinutes: 4,
+    },
+    {
+      ...a2,
+      hospitalName: `Apex MedCatalyst Multi-Specialty (${areaName})`,
+      currentLat: Math.round((baseLat + 0.0165) * 10000) / 10000,
+      currentLng: Math.round((baseLng - 0.0125) * 10000) / 10000,
+      etaMinutes: 7,
+    }
+  ];
+}
+
 const INITIAL_VITALS: AmbulanceAssessmentForm = INITIAL_ASSESSMENT;
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -493,17 +613,62 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : INITIAL_AMBULANCES;
   });
 
+  const [ambulanceUser, setAmbulanceUser] = useState<Ambulance | null>(() => {
+    const saved = localStorage.getItem('medcatalyst_ambulance_user');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  const loginAmbulance = (vehicleNumber: string): boolean => {
+    const cleanNum = vehicleNumber.trim().toUpperCase().replace(/\s+/g, '-');
+    const matched = ambulances.find(a => 
+      a.vehicleNumber.toUpperCase() === cleanNum ||
+      a.id.toUpperCase() === cleanNum ||
+      a.vehicleNumber.toUpperCase().replace(/[^A-Z0-9]/g, '') === cleanNum.replace(/[^A-Z0-9]/g, '')
+    );
+
+    if (matched) {
+      setAmbulanceUser(matched);
+      localStorage.setItem('medcatalyst_ambulance_user', JSON.stringify(matched));
+      return true;
+    }
+    return false;
+  };
+
+  const logoutAmbulance = () => {
+    setAmbulanceUser(null);
+    localStorage.removeItem('medcatalyst_ambulance_user');
+  };
+
+  useEffect(() => {
+    if (ambulanceUser) {
+      const updated = ambulances.find(a => a.id === ambulanceUser.id);
+      if (updated) {
+        setAmbulanceUser(updated);
+        localStorage.setItem('medcatalyst_ambulance_user', JSON.stringify(updated));
+      }
+    }
+  }, [ambulances]);
+
   const [activeDispatch, setActiveDispatch] = useState<EmergencyDispatch | null>(() => {
     const saved = localStorage.getItem('medcatalyst_active_dispatch') || localStorage.getItem('sanjeevani_active_dispatch');
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.id === 'disp-2026-9041') {
+          return parsed;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
     
-    // Default active dispatch matching incident tracker:
+    // Default active dispatch matching live incident:
     return {
-      id: 'E-9727',
-      callerName: 'Rameshwar Singh (Self / Citizen SOS)',
+      id: 'disp-2026-9041',
+      callerName: 'Rameshwar Singh',
       callerPhone: '+91 98765 43210',
-      callerVoiceTranscript: 'Road accident on highway, two-wheeler collision with head injury...',
-      callerIssue: 'Road Accident',
+      callerVoiceTranscript: 'Road bike accident, head impact with helmet cracked, patient groaning with low consciousness',
+      callerIssue: 'Road bike accident, head impact with helmet cracked, patient groaning with low consciousness',
       urgencyLevel: 'CRITICAL',
       patientCount: 1,
       currentStep: 4,
@@ -530,7 +695,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       mlAcuity: 'ESI-1',
       mlRequiredCapabilities: ['NEURO_SURGERY_ICU', 'TRAUMA_OT', 'MECHANICAL_VENTILATOR'],
       messages: [
-        { sender: 'CITIZEN', text: 'Please send ambulance fast, bleeding from forehead and ear!', timestamp: '01:31 AM', type: 'VOICE' },
+        { sender: 'CITIZEN', text: 'Road bike accident, head impact with helmet cracked, patient groaning with low consciousness. Please hurry!', timestamp: '01:31 AM', type: 'VOICE' },
         { sender: 'PARAMEDIC', text: '🚨 Nearest Ambulance HR-10-EM-1081 (0.4 km away, ETA 2 mins) dispatched immediately to your coordinates! Driver: Jagdish Kumar.', timestamp: '01:31 AM', type: 'TEXT' },
         { sender: 'HOSPITAL', text: 'Rampur PHC confirmed bed readiness. Trauma OT and Dr. Kavita Sharma alerted.', timestamp: '01:32 AM', type: 'TEXT' },
         { sender: 'PARAMEDIC', text: 'Patient onboard. Vitals recorded in in-ambulance assessment form: GCS 8, SpO2 89%.', timestamp: '01:35 AM', type: 'TEXT' }
@@ -563,6 +728,225 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     return null;
   });
+
+  // User's detected live GPS location
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; areaName?: string } | null>(() => {
+    const saved = localStorage.getItem('medcatalyst_user_location');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return null;
+  });
+
+  // Relocate the entire hospital, ambulance, and emergency dispatch network dynamically around the user's real GPS position
+  const relocateToUserLocation = useCallback((lat: number, lng: number, customAreaName?: string) => {
+    const area = customAreaName || (userLocation?.areaName) || 'Local Area';
+    const newLoc = { lat, lng, areaName: area };
+    setUserLocation(newLoc);
+    try {
+      localStorage.setItem('medcatalyst_user_location', JSON.stringify(newLoc));
+    } catch (e) {}
+
+    setHospitals(prev => {
+      const updated = createLocalizedHospitals(lat, lng, area, prev);
+      try {
+        localStorage.setItem('medcatalyst_hospitals', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    setAmbulances(prev => {
+      const updated = createLocalizedAmbulances(lat, lng, area, prev);
+      try {
+        localStorage.setItem('medcatalyst_ambulances', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    setActiveDispatch(prev => {
+      if (!prev) return prev;
+      const updated: EmergencyDispatch = {
+        ...prev,
+        pickupLat: lat,
+        pickupLng: lng,
+        pickupAddress: `${area}, Near Current Location`,
+        waterfallHistory: [
+          {
+            hospitalId: 'hosp-rampur-phc',
+            hospitalName: `${area} Primary Health Center (PHC)`,
+            sentAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            status: 'ACCEPTED',
+            responseTimeSeconds: 28,
+            note: `Nearest Ambulance HR-10-EM-1081 (0.5 km away) dispatched immediately; ${area} PHC confirmed intake`
+          }
+        ],
+        messages: [
+          { sender: 'CITIZEN', text: prev.callerIssue, timestamp: '01:31 AM', type: 'VOICE' },
+          { sender: 'PARAMEDIC', text: `🚨 Nearest Ambulance HR-10-EM-1081 (0.5 km away, ETA 2 mins) dispatched immediately to your coordinates! Driver: Jagdish Kumar.`, timestamp: '01:31 AM', type: 'TEXT' },
+          { sender: 'HOSPITAL', text: `${area} PHC confirmed bed readiness. Emergency staff alerted.`, timestamp: '01:32 AM', type: 'TEXT' },
+          { sender: 'PARAMEDIC', text: 'Patient onboard. Vitals recorded in in-ambulance assessment form: GCS 8, SpO2 89%.', timestamp: '01:35 AM', type: 'TEXT' }
+        ]
+      };
+      try {
+        localStorage.setItem('medcatalyst_active_dispatch', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    // In background, reverse-geocode using OpenStreetMap Nominatim
+    if (!customAreaName) {
+      try {
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+          .then(res => res.json())
+          .then(data => {
+            const addr = data.address || {};
+            const resolvedCity = addr.suburb || addr.neighbourhood || addr.city_district || addr.town || addr.city || addr.county || '';
+            if (resolvedCity && resolvedCity.toLowerCase() !== 'local area') {
+              relocateToUserLocation(lat, lng, resolvedCity);
+            }
+          })
+          .catch(() => {
+            // Fallback to client geocode
+            fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`)
+              .then(res => res.json())
+              .then(data => {
+                const resolvedCity = data.locality || data.city || data.principalSubdivision || '';
+                if (resolvedCity && resolvedCity.toLowerCase() !== 'local area') {
+                  relocateToUserLocation(lat, lng, resolvedCity);
+                }
+              })
+              .catch(() => {});
+          });
+      } catch (e) {}
+    }
+  }, [userLocation?.areaName]);
+
+  // Query browser geolocation on initial mount
+  useEffect(() => {
+    if (typeof window !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          relocateToUserLocation(pos.coords.latitude, pos.coords.longitude);
+        },
+        (err) => {
+          console.log('GPS notice:', err.message);
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+      );
+    }
+  }, [relocateToUserLocation]);
+
+  // Uber/Rapido-Style Live Moving Ambulance State (Shared across all portals)
+  const [liveAmbulance, setLiveAmbulance] = useState<LiveMovingAmbulance>(() => {
+    const defaultLat = 28.7080;
+    const defaultLng = 77.0980;
+    const hosp = INITIAL_HOSPITALS[0];
+    return {
+      lat: defaultLat + 0.0050,
+      lng: defaultLng + 0.0040,
+      speedKmH: 48,
+      heading: 215,
+      progress: 0.15,
+      phase: 'EN_ROUTE_TO_PATIENT',
+      distanceToPatientKm: 0.6,
+      distancePatientToHospitalKm: 1.2,
+      etaToPatientMinutes: 2,
+      etaToHospitalMinutes: 4,
+      vehicleNumber: 'HR-10-EM-1081',
+      driverName: 'Jagdish Kumar',
+      driverPhone: '+91 98765 43210',
+      originLat: defaultLat + 0.0075,
+      originLng: defaultLng + 0.0065,
+      pickupLat: defaultLat,
+      pickupLng: defaultLng,
+      hospLat: hosp.lat,
+      hospLng: hosp.lng
+    };
+  });
+
+  // Smooth Live Ambulance Movement Simulation (Updates location & distances every second)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setLiveAmbulance(prev => {
+        const patientLat = activeDispatch?.pickupLat || userLocation?.lat || 28.7080;
+        const patientLng = activeDispatch?.pickupLng || userLocation?.lng || 77.0980;
+        const targetHosp = hospitals.find(h => h.id === activeDispatch?.currentHospitalId) || hospitals[0] || INITIAL_HOSPITALS[0];
+        const hospLat = targetHosp.lat;
+        const hospLng = targetHosp.lng;
+
+        // Origin ambulance station/depot
+        const originLat = patientLat + 0.0075;
+        const originLng = patientLng + 0.0065;
+
+        let nextProgress = prev.progress + 0.008;
+        if (nextProgress >= 1.0) nextProgress = 0.0;
+
+        let curLat: number;
+        let curLng: number;
+        let phase: 'EN_ROUTE_TO_PATIENT' | 'TRANSPORTING_TO_HOSPITAL';
+        let heading: number;
+
+        if (nextProgress < 0.45) {
+          // Phase 1: Moving from depot to patient pickup
+          phase = 'EN_ROUTE_TO_PATIENT';
+          const subT = nextProgress / 0.45;
+          curLat = originLat + (patientLat - originLat) * subT;
+          curLng = originLng + (patientLng - originLng) * subT;
+          heading = 210;
+        } else {
+          // Phase 2: Transporting patient to destination hospital
+          phase = 'TRANSPORTING_TO_HOSPITAL';
+          const subT = (nextProgress - 0.45) / 0.55;
+          curLat = patientLat + (hospLat - patientLat) * subT;
+          curLng = patientLng + (hospLng - patientLng) * subT;
+          heading = 45;
+        }
+
+        const distToPatient = phase === 'EN_ROUTE_TO_PATIENT' 
+          ? calculateHaversineKm(curLat, curLng, patientLat, patientLng)
+          : 0;
+        const distPatientToHosp = calculateHaversineKm(patientLat, patientLng, hospLat, hospLng);
+        const distToHosp = calculateHaversineKm(curLat, curLng, hospLat, hospLng);
+
+        const etaPatient = phase === 'EN_ROUTE_TO_PATIENT' 
+          ? Math.max(1, Math.round(distToPatient * 2.2))
+          : 0;
+        const etaHosp = Math.max(1, Math.round(distToHosp * 2.2));
+
+        const baseSpeed = 46;
+        const jitter = Math.sin(Date.now() / 1500) * 5;
+        const speed = Math.round(baseSpeed + jitter);
+
+        return {
+          lat: Math.round(curLat * 100000) / 100000,
+          lng: Math.round(curLng * 100000) / 100000,
+          speedKmH: speed,
+          heading,
+          progress: nextProgress,
+          phase,
+          distanceToPatientKm: distToPatient,
+          distancePatientToHospitalKm: distPatientToHosp,
+          etaToPatientMinutes: etaPatient,
+          etaToHospitalMinutes: etaHosp,
+          vehicleNumber: 'HR-10-EM-1081',
+          driverName: 'Jagdish Kumar',
+          driverPhone: '+91 98765 43210',
+          originLat,
+          originLng,
+          pickupLat: patientLat,
+          pickupLng: patientLng,
+          hospLat,
+          hospLng
+        };
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [activeDispatch?.pickupLat, activeDispatch?.pickupLng, activeDispatch?.currentHospitalId, hospitals, userLocation]);
 
   // Keep logged-in police signal in sync with live corridor progress
   useEffect(() => {
@@ -936,9 +1320,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const nearestHosp = hospitals[0];
 
     const newDispatch: EmergencyDispatch = {
-      id: `E-${Math.floor(1000 + Math.random() * 9000)}`,
-      callerName: user.fullName,
-      callerPhone: user.phone,
+      id: issueText.includes('bike') ? 'disp-2026-9041' : `disp-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+      callerName: user.fullName || 'Rameshwar Singh',
+      callerPhone: user.phone || '+91 98765 43210',
       callerVoiceTranscript: voiceTranscript || issueText,
       callerIssue: issueText,
       urgencyLevel: urgency,
@@ -994,19 +1378,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ...prev,
         status: 'ACCEPTED',
         currentStep: 4, // Step 4: Hospital Accepted
+        currentHospitalId: hospitalId,
         waterfallHistory: prev.waterfallHistory.map(hop => 
-          hop.hospitalId === hospitalId ? { ...hop, status: 'ACCEPTED', responseTimeSeconds: 120 - prev.timeoutSecondsRemaining } : hop
+          hop.hospitalId === hospitalId ? { 
+            ...hop, 
+            status: 'ACCEPTED', 
+            responseTimeSeconds: 120 - prev.timeoutSecondsRemaining,
+            note: `${hospital?.name} confirmed bed availability and approved patient intake.` 
+          } : hop
         ),
         messages: [
           ...prev.messages,
           {
             sender: 'HOSPITAL',
-            text: `Intake confirmed by ${hospital?.name}! Emergency trauma bay & on-duty doctors primed for arriving ambulance ${assignedAmb.vehicleNumber}.`,
-            timestamp: new Date().toLocaleTimeString()
+            text: `✅ Dispatch Intake Accepted by ${hospital?.name || 'Hospital'}. Trauma team and emergency bay standing by!`,
+            timestamp: new Date().toLocaleTimeString(),
+            type: 'TEXT'
           }
         ]
       };
     });
+
+    updateAmbulanceStatus(assignedAmb.id, 'DISPATCHED');
   };
 
   const declineOrTimeoutDispatch = (hospitalId: string, reason: string) => {
@@ -1038,7 +1431,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           {
             sender: 'HOSPITAL',
             text: `⚠️ Request declined by ${hospitals.find(h => h.id === hospitalId)?.name} (${reason}). Cascading immediately to ${nextHosp.name}...`,
-            timestamp: new Date().toLocaleTimeString()
+            timestamp: new Date().toLocaleTimeString(),
+            type: 'TEXT'
           }
         ]
       };
@@ -1046,7 +1440,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const cancelDispatch = () => {
-    setActiveDispatch(null);
+    setActiveDispatch({
+      id: 'disp-2026-9041',
+      callerName: 'Rameshwar Singh',
+      callerPhone: '+91 98765 43210',
+      callerVoiceTranscript: 'Road bike accident, head impact with helmet cracked, patient groaning with low consciousness',
+      callerIssue: 'Road bike accident, head impact with helmet cracked, patient groaning with low consciousness',
+      urgencyLevel: 'CRITICAL',
+      patientCount: 1,
+      currentStep: 1,
+      pickupAddress: 'Near Milestone 34, Old GT Road, Rampur Outskirts',
+      pickupLat: 28.7080,
+      pickupLng: 77.0980,
+      createdAt: new Date().toLocaleTimeString(),
+      status: 'PENDING_HOSPITAL_ACCEPT',
+      currentHospitalId: 'hosp-rampur-phc',
+      assignedAmbulanceId: 'amb-01',
+      timeoutSecondsRemaining: 120,
+      waterfallHistory: [
+        {
+          hospitalId: 'hosp-rampur-phc',
+          hospitalName: 'Rampur Primary Health Center (PHC)',
+          sentAt: new Date().toLocaleTimeString(),
+          status: 'WAITING',
+          note: 'Emergency broadcast triggered with patient GPS coordinates'
+        }
+      ],
+      vitals: INITIAL_VITALS,
+      mlAcuity: 'ESI-1',
+      mlRequiredCapabilities: ['NEURO_SURGERY_ICU', 'TRAUMA_OT', 'MECHANICAL_VENTILATOR'],
+      messages: [
+        { sender: 'CITIZEN', text: 'Road bike accident, head impact with helmet cracked, patient groaning with low consciousness. Please hurry!', timestamp: new Date().toLocaleTimeString(), type: 'VOICE' }
+      ]
+    });
   };
 
   const updateDispatchStep = (step: number) => {
@@ -1420,6 +1846,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       loginUser,
       addPatientPrescription,
       ambulances,
+      ambulanceUser,
+      loginAmbulance,
+      logoutAmbulance,
       updateAmbulanceStatus,
       activeDispatch,
       createEmergencyDispatch,
@@ -1450,7 +1879,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setSimulationProgressManual,
       policeUserSignal,
       loginPoliceSignal,
-      logoutPoliceSignal
+      logoutPoliceSignal,
+      userLocation,
+      relocateToUserLocation,
+      liveAmbulance
     }}>
       {children}
     </AppContext.Provider>

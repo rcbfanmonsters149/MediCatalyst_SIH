@@ -11,12 +11,17 @@ import {
   Clock, 
   Navigation, 
   HeartPulse, 
-  Phone,
-  Flame,
-  Radio
+  Phone, 
+  Flame, 
+  Radio,
+  ArrowLeft,
+  Building2,
+  Truck,
+  Heart
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { LeafletMap } from '../components/LeafletMap';
+import { Link } from 'react-router-dom';
 
 export const PublicWorkersPage: React.FC = () => {
   const { 
@@ -102,7 +107,47 @@ export const PublicWorkersPage: React.FC = () => {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col justify-between font-sans">
+      
+      {/* Top Header Bar with navigation */}
+      <header className="bg-white border-b border-slate-200 py-3.5 px-6 shadow-2xs sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Link to="/" className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-600 to-orange-700 flex items-center justify-center text-white shadow-md hover:scale-105 transition">
+              <ShieldCheck className="w-5 h-5" />
+            </Link>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-lg tracking-tight font-heading text-slate-900">
+                  Med<span className="text-amber-600">Catalyst</span> Frontline & ASHA
+                </span>
+                <span className="text-[10px] font-mono font-bold bg-amber-50 text-amber-800 px-2.5 py-0.5 rounded-full border border-amber-200 hidden sm:inline">
+                  Public Workers Operations
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Link 
+              to="/" 
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 transition"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back to Citizen Portal</span>
+            </Link>
+
+            <Link
+              to="/police"
+              className="hidden sm:inline-flex items-center gap-1 text-xs font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 px-2.5 py-1.5 rounded-xl border border-amber-200 transition"
+            >
+              <span>Traffic Police</span>
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 flex-1 w-full">
       
       {/* Top Header */}
       <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -521,6 +566,7 @@ export const PublicWorkersPage: React.FC = () => {
         </div>
       )}
 
+      </main>
     </div>
   );
 };

@@ -7,9 +7,12 @@ import { BioDataPage } from './pages/BioDataPage';
 import { EmergencyPage } from './pages/EmergencyPage';
 import { HospitalDashboard } from './pages/HospitalDashboard';
 import { HospitalLoginPage } from './pages/HospitalLoginPage';
+import { AmbulanceDashboard } from './pages/AmbulanceDashboard';
+import { AmbulanceLoginPage } from './pages/AmbulanceLoginPage';
 import { TrafficPoliceDashboard } from './pages/TrafficPoliceDashboard';
 import { TrafficPoliceLoginPage } from './pages/TrafficPoliceLoginPage';
-import { Building2, ArrowRight, Truck } from 'lucide-react';
+import { PublicWorkersPage } from './pages/PublicWorkersPage';
+import { Building2, ArrowRight, Truck, ShieldCheck } from 'lucide-react';
 
 /**
  * Public Citizen Healthcare Portal (Route: /)
@@ -37,7 +40,7 @@ const CitizenPortal: React.FC = () => {
         )}
       </main>
 
-      {/* Citizen Portal Footer with Discrete Hospital Desk Link */}
+      {/* Citizen Portal Footer with Portal Links */}
       <footer className="bg-slate-900 text-slate-400 py-6 px-4 text-center text-xs space-y-2">
         <p className="font-semibold text-slate-300">
           MedCatalyst • Rural Healthcare & Emergency Response Portal
@@ -46,6 +49,15 @@ const CitizenPortal: React.FC = () => {
           Empowering Rural & Underserved Communities with Connected Emergency Healthcare Access
         </p>
         <div className="pt-2 border-t border-slate-800 flex flex-wrap items-center justify-center gap-3">
+          <Link
+            to="/ambulance"
+            className="text-slate-400 hover:text-emerald-400 transition inline-flex items-center gap-1.5 py-1 px-3 rounded-lg border border-slate-800 hover:border-emerald-700 bg-slate-950/60"
+          >
+            <Truck className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Ambulance Driver Cockpit Login</span>
+            <ArrowRight className="w-3 h-3" />
+          </Link>
+
           <Link
             to="/hospital"
             className="text-slate-400 hover:text-blue-400 transition inline-flex items-center gap-1.5 py-1 px-3 rounded-lg border border-slate-800 hover:border-blue-700 bg-slate-950/60"
@@ -72,6 +84,15 @@ const CitizenPortal: React.FC = () => {
             <span>Ambulance Portal (Paramedic Crew Desk)</span>
             <ArrowRight className="w-3 h-3" />
           </Link>
+
+          <Link
+            to="/workers"
+            className="text-purple-400/90 hover:text-purple-300 transition inline-flex items-center gap-1.5 py-1 px-3 rounded-lg border border-purple-900/50 hover:border-purple-600 bg-purple-950/30"
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-purple-400" />
+            <span>ASHA & Frontline Healthcare Portal</span>
+            <ArrowRight className="w-3 h-3" />
+          </Link>
         </div>
       </footer>
     </div>
@@ -89,6 +110,19 @@ const HospitalPortal: React.FC = () => {
   }
 
   return <HospitalDashboard />;
+};
+
+/**
+ * Dedicated Ambulance Crew Operations Portal (Route: /ambulance)
+ */
+const AmbulancePortal: React.FC = () => {
+  const { ambulanceUser } = useApp();
+
+  if (!ambulanceUser) {
+    return <AmbulanceLoginPage />;
+  }
+
+  return <AmbulanceDashboard />;
 };
 
 /**
@@ -116,12 +150,17 @@ export default function App() {
           {/* Hospital Staff Portal */}
           <Route path="/hospital" element={<HospitalPortal />} />
 
-          {/* Ambulance Paramedic Operations Portal */}
-          <Route path="/ambulance" element={<Navigate to="/hospital?tab=ambulance" replace />} />
+          {/* Ambulance Crew Portal */}
+          <Route path="/ambulance" element={<AmbulancePortal />} />
 
           {/* Traffic Police Signal Post Dashboard */}
           <Route path="/police" element={<TrafficPolicePortal />} />
           <Route path="/traffic" element={<Navigate to="/police" replace />} />
+
+          {/* Frontline Healthcare Workers & ASHA Portal */}
+          <Route path="/workers" element={<PublicWorkersPage />} />
+          <Route path="/asha" element={<Navigate to="/workers" replace />} />
+          <Route path="/frontline" element={<Navigate to="/workers" replace />} />
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
