@@ -15,11 +15,13 @@ import {
   Droplets,
   Zap,
   Scan,
-  Disc
+  Disc,
+  Mic
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { LeafletMap } from '../components/LeafletMap';
 import { getCapabilityFriendlyName } from '../utils/mlTriage';
+import { VoiceSOSRecognitionModal } from '../components/VoiceSOSRecognitionModal';
 
 interface CitizenPageProps {
   onOpenEmergency: () => void;
@@ -34,6 +36,7 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
   const [filterDoctorPresent, setFilterDoctorPresent] = useState(false);
   const [filterType, setFilterType] = useState<string>('ALL');
   const [expandedDoctorHospId, setExpandedDoctorHospId] = useState<string | null>('hosp-rampur-phc');
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
 
   const filteredHospitals = hospitals.filter(hosp => {
     const matchesSearch = hosp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -70,10 +73,18 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
           <div className="flex flex-wrap gap-3 pt-2">
             <button
               onClick={onOpenEmergency}
-              className="flex items-center gap-2 bg-white text-red-700 hover:bg-red-50 px-5 py-3 rounded-xl font-bold text-sm sm:text-base shadow-lg hover:shadow-xl transition transform hover:-translate-y-0.5 active:translate-y-0 animate-emergency-beacon"
+              className="flex items-center gap-2 bg-white text-red-700 hover:bg-red-50 px-5 py-3 rounded-xl font-bold text-sm sm:text-base shadow-lg hover:shadow-xl transition transform hover:-translate-y-0.5 active:translate-y-0 animate-emergency-beacon cursor-pointer"
             >
               <AlertTriangle className="w-5 h-5 text-red-600" />
               <span>Request Immediate Ambulance (SOS)</span>
+            </button>
+            <button
+              onClick={() => setIsVoiceModalOpen(true)}
+              className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white px-5 py-3 rounded-xl font-bold text-sm sm:text-base shadow-lg hover:shadow-xl transition transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+              title="Speak in Hindi, Marathi, or English (बोलकर सहायता लें / आवाजाने मदत मागा)"
+            >
+              <Mic className="w-5 h-5 animate-pulse text-amber-100" />
+              <span>🎙️ Voice SOS (हिन्दी / मराठी / English)</span>
             </button>
             <a
               href="tel:108"
@@ -518,6 +529,16 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
         </div>
 
       </div>
+
+      {/* 3-Language Elderly Speech Recognition Voice SOS Modal */}
+      <VoiceSOSRecognitionModal
+        isOpen={isVoiceModalOpen}
+        onClose={() => setIsVoiceModalOpen(false)}
+        initialLanguage="hi-IN"
+        onTranscriptSubmitted={() => {
+          onOpenEmergency();
+        }}
+      />
 
     </div>
   );

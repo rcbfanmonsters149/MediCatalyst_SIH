@@ -12,11 +12,14 @@ import {
   ArrowRight,
   MessageSquare,
   Sparkles,
-  Info
+  Info,
+  Mic,
+  Languages
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { TollFreeBanner } from '../components/TollFreeBanner';
 import { EmergencyTrackerCard } from '../components/EmergencyTrackerCard';
+import { VoiceSOSRecognitionModal } from '../components/VoiceSOSRecognitionModal';
 
 interface EmergencyPageProps {
   onNavigateToAmbulance?: () => void;
@@ -33,6 +36,7 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
   } = useApp();
 
   const [chatMessage, setChatMessage] = useState('');
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
 
   // Fallback guaranteed live incident disp-2026-9041
   const fallbackDispatch = {
@@ -126,6 +130,37 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
           <span className="font-bold text-amber-800 shrink-0 hidden sm:inline">
             {eligibleEmergencyHospitals.length} Qualified Facilities Active
           </span>
+        </div>
+
+        {/* Elderly & Hands-free Voice SOS Recognition Banner */}
+        <div className="bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 text-white rounded-2xl p-4 sm:p-5 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5 text-center sm:text-left">
+            <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white shrink-0 shadow-inner">
+              <Mic className="w-6 h-6 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                <span className="font-extrabold text-base sm:text-lg font-heading tracking-tight">
+                  Elderly Voice Recognition SOS
+                </span>
+                <span className="text-[10px] uppercase font-black tracking-wider px-2 py-0.5 rounded-full bg-white/25 text-white border border-white/30">
+                  🇮🇳 हिन्दी • 🚩 मराठी • 🌐 English
+                </span>
+              </div>
+              <p className="text-xs text-red-100 mt-0.5">
+                Can't type? Tap the microphone and speak naturally in <strong>Hindi</strong>, <strong>Marathi</strong>, or <strong>English</strong>.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsVoiceModalOpen(true)}
+            className="w-full sm:w-auto px-5 py-3 bg-white text-red-700 hover:bg-red-50 rounded-xl font-extrabold text-sm shadow-md transition transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2 shrink-0 cursor-pointer animate-emergency-beacon"
+          >
+            <Mic className="w-4 h-4 text-red-600" />
+            <span>बोलकर सहायता लें (Tap to Speak)</span>
+          </button>
         </div>
 
         {/* ACTIVE EMERGENCY DISPATCH DISPLAY */}
@@ -315,12 +350,20 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
                 </div>
 
                 {/* Send Update Input */}
-                <form onSubmit={handleSendMessage} className="flex gap-2 pt-2 border-t border-slate-100">
+                <form onSubmit={handleSendMessage} className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsVoiceModalOpen(true)}
+                    className="p-2.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl transition flex items-center justify-center shrink-0 cursor-pointer shadow-2xs"
+                    title="Speak message in Hindi, Marathi, or English (बोलकर संदेश भेजें / आवाजाने पाठवा)"
+                  >
+                    <Mic className="w-4 h-4 text-red-600 animate-pulse" />
+                  </button>
                   <input
                     type="text"
                     value={chatMessage}
                     onChange={(e) => setChatMessage(e.target.value)}
-                    placeholder="Send urgent note to Paramedic & Hospital..."
+                    placeholder="Type or tap mic to speak in Hindi, Marathi, English..."
                     className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-emerald-500 transition"
                   />
                   <button
@@ -373,6 +416,14 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
         </div>
 
       </div>
+
+      {/* 3-Language Elderly Speech Recognition Voice SOS Modal */}
+      <VoiceSOSRecognitionModal
+        isOpen={isVoiceModalOpen}
+        onClose={() => setIsVoiceModalOpen(false)}
+        initialLanguage="hi-IN"
+      />
+
     </div>
   );
 };
