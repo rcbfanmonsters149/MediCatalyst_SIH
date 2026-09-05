@@ -50,6 +50,39 @@ function calculateHaversineKm(lat1: number, lon1: number, lat2: number, lon2: nu
   return Math.round(R * c * 10) / 10;
 }
 
+export type GoogleMapLayerType = 'roadmap' | 'satellite' | 'traffic' | 'terrain';
+
+export const GOOGLE_MAP_LAYERS: Record<GoogleMapLayerType, { url: string; name: string; subdomains: string[]; maxZoom: number; attribution: string }> = {
+  roadmap: {
+    url: 'https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+    name: 'Google Roadmap',
+    subdomains: ['0', '1', '2', '3'],
+    maxZoom: 20,
+    attribution: '&copy; <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer">Google Maps</a>'
+  },
+  satellite: {
+    url: 'https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+    name: 'Google Satellite Hybrid',
+    subdomains: ['0', '1', '2', '3'],
+    maxZoom: 20,
+    attribution: '&copy; <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer">Google Maps</a>'
+  },
+  traffic: {
+    url: 'https://mt{s}.google.com/vt/lyrs=m,traffic&x={x}&y={y}&z={z}',
+    name: 'Google Live Traffic',
+    subdomains: ['0', '1', '2', '3'],
+    maxZoom: 20,
+    attribution: '&copy; <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer">Google Maps Traffic</a>'
+  },
+  terrain: {
+    url: 'https://mt{s}.google.com/vt/lyrs=p&x={x}&y={y}&z={z}',
+    name: 'Google Terrain',
+    subdomains: ['0', '1', '2', '3'],
+    maxZoom: 20,
+    attribution: '&copy; <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer">Google Maps</a>'
+  }
+};
+
 export const LeafletMap: React.FC<LeafletMapProps> = ({
   hospitals = [],
   ambulances = [],
@@ -71,6 +104,11 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
 }) => {
   const { userLocation: contextUserLocation, relocateToUserLocation, liveAmbulance } = useApp();
   const [isHudCollapsed, setIsHudCollapsed] = useState<boolean>(false);
+
+  // Google Maps Active Layer Type (strictly Google Maps, zero OpenStreetMap)
+  const [activeGoogleMapType, setActiveGoogleMapType] = useState<GoogleMapLayerType>('roadmap');
+  const googleTileLayerRef = useRef<L.TileLayer | null>(null);
+  const activeGoogleTypeRef = useRef<GoogleMapLayerType>('roadmap');
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -252,11 +290,14 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
         touchZoom: true
       });
 
-      // Google Maps style clean OSM tiles
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap | Google Maps Navigation Ready',
-        maxZoom: 19
+      // STRICTLY AUTHENTIC GOOGLE MAPS TILES (Zero OpenStreetMap)
+      const initialLayerConfig = GOOGLE_MAP_LAYERS[activeGoogleTypeRef.current] || GOOGLE_MAP_LAYERS.roadmap;
+      const initialGoogleTileLayer = L.tileLayer(initialLayerConfig.url, {
+        subdomains: initialLayerConfig.subdomains,
+        maxZoom: initialLayerConfig.maxZoom,
+        attribution: initialLayerConfig.attribution
       }).addTo(map);
+      googleTileLayerRef.current = initialGoogleTileLayer;
 
       // Add zoom control in bottom-right
       L.control.zoom({ position: 'bottomright' }).addTo(map);
@@ -359,6 +400,32 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
     }, 200);
 
   }, []);
+ 
+  // Dynamically switch Google Maps Layers (Roadmap, Satellite Hybrid, Traffic, Terrain)
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    if (activeGoogleTypeRef.current === activeGoogleMapType && googleTileLayerRef.current) return;
+
+    if (googleTileLayerRef.current) {
+      map.removeLayer(googleTileLayerRef.current);
+    }
+
+    const layerConfig = GOOGLE_MAP_LAYERS[activeGoogleMapType] || GOOGLE_MAP_LAYERS.roadmap;
+    const newGoogleTileLayer = L.tileLayer(layerConfig.url, {
+      subdomains: layerConfig.subdomains,
+      maxZoom: layerConfig.maxZoom,
+      attribution: layerConfig.attribution
+    }).addTo(map);
+
+    // Keep base layer at bottom beneath routes, ambulances, and markers
+    if ((newGoogleTileLayer as any).bringToBack) {
+      (newGoogleTileLayer as any).bringToBack();
+    }
+
+    googleTileLayerRef.current = newGoogleTileLayer;
+    activeGoogleTypeRef.current = activeGoogleMapType;
+  }, [activeGoogleMapType]);
 
   // Render Markers, Highlights, User GPS Pin, and Routes
   useEffect(() => {
@@ -1039,9 +1106,62 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
       {/* Map Container */}
       <div ref={mapContainerRef} className="w-full h-full z-0" style={{ touchAction: 'none' }} />
 
-      {/* TOP FLOATING CONTROLS BAR: Google Maps Help + Locate Me */}
-      <div className="absolute top-3 right-3 z-[1000] flex items-center gap-2">
+      {/* TOP FLOATING CONTROLS BAR: Google Maps Selector + Help + Locate Me */}
+      <div className="absolute top-3 right-3 z-[1000] flex flex-wrap items-center justify-end gap-2 max-w-[calc(100%-200px)]">
         
+        {/* Google Maps Layer Selector */}
+        <div className="flex items-center bg-white/95 backdrop-blur-sm p-0.5 rounded-xl shadow-md border border-slate-200 text-xs font-semibold">
+          <button
+            type="button"
+            onClick={() => setActiveGoogleMapType('roadmap')}
+            className={`px-2 py-1 rounded-lg transition text-[11px] font-bold flex items-center gap-1 cursor-pointer ${
+              activeGoogleMapType === 'roadmap'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+            title="Google Maps Standard Roadmap"
+          >
+            <span>Roadmap</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveGoogleMapType('satellite')}
+            className={`px-2 py-1 rounded-lg transition text-[11px] font-bold flex items-center gap-1 cursor-pointer ${
+              activeGoogleMapType === 'satellite'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+            title="Google Maps Satellite Hybrid Imagery"
+          >
+            <span>Satellite</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveGoogleMapType('traffic')}
+            className={`px-2 py-1 rounded-lg transition text-[11px] font-bold flex items-center gap-1 cursor-pointer ${
+              activeGoogleMapType === 'traffic'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+            title="Google Maps Real-Time Traffic"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-pulse"></span>
+            <span>Traffic</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveGoogleMapType('terrain')}
+            className={`px-2 py-1 rounded-lg transition text-[11px] font-bold flex items-center gap-1 cursor-pointer ${
+              activeGoogleMapType === 'terrain'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+            title="Google Maps Physical Terrain"
+          >
+            <span>Terrain</span>
+          </button>
+        </div>
+
         {/* Open in Google Maps Button */}
         <a
           href={`https://www.google.com/maps/search/hospitals/@${effectiveUserCoords.lat},${effectiveUserCoords.lng},13z`}
@@ -1273,6 +1393,13 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
           )}
         </div>
       )}
+
+      {/* Authentic Google Maps Watermark Badge */}
+      <div className="absolute bottom-2 left-2 z-[990] pointer-events-none flex items-center gap-1.5 bg-white/90 backdrop-blur-xs px-2 py-0.5 rounded shadow-xs text-[10px] text-slate-700 font-medium select-none border border-slate-200/60">
+        <span className="font-extrabold tracking-tight text-slate-800">Google</span>
+        <span className="text-slate-400">|</span>
+        <span className="text-[9px] text-slate-600">Map data ©{new Date().getFullYear()}</span>
+      </div>
 
     </div>
   );
