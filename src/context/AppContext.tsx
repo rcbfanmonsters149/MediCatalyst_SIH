@@ -797,37 +797,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return updated;
     });
 
-    // In background, reverse-geocode to get real city / neighborhood name without OpenStreetMap
+    // In background, reverse-geocode using OpenStreetMap Nominatim
     if (!customAreaName) {
       try {
-        const apiKey = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY;
-        if (apiKey) {
-          fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}`)
-            .then(res => res.json())
-            .then(data => {
-              if (data.results && data.results[0]) {
-                const comps = data.results[0].address_components || [];
-                const locality = comps.find((c: any) => c.types.includes('locality'))?.long_name ||
-                                 comps.find((c: any) => c.types.includes('sublocality'))?.long_name ||
-                                 comps.find((c: any) => c.types.includes('administrative_area_level_2'))?.long_name || '';
-                if (locality && locality.toLowerCase() !== 'local area') {
-                  relocateToUserLocation(lat, lng, locality);
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+          .then(res => res.json())
+          .then(data => {
+            const addr = data.address || {};
+            const resolvedCity = addr.suburb || addr.neighbourhood || addr.city_district || addr.town || addr.city || addr.county || '';
+            if (resolvedCity && resolvedCity.toLowerCase() !== 'local area') {
+              relocateToUserLocation(lat, lng, resolvedCity);
+            }
+          })
+          .catch(() => {
+            // Fallback to client geocode
+            fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`)
+              .then(res => res.json())
+              .then(data => {
+                const resolvedCity = data.locality || data.city || data.principalSubdivision || '';
+                if (resolvedCity && resolvedCity.toLowerCase() !== 'local area') {
+                  relocateToUserLocation(lat, lng, resolvedCity);
                 }
-              }
-            })
-            .catch(() => {});
-        } else {
-          // Client reverse geocode without OpenStreetMap
-          fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`)
-            .then(res => res.json())
-            .then(data => {
-              const resolvedCity = data.locality || data.city || data.principalSubdivision || '';
-              if (resolvedCity && resolvedCity.toLowerCase() !== 'local area') {
-                relocateToUserLocation(lat, lng, resolvedCity);
-              }
-            })
-            .catch(() => {});
-        }
+              })
+              .catch(() => {});
+          });
       } catch (e) {}
     }
   }, [userLocation?.areaName]);
