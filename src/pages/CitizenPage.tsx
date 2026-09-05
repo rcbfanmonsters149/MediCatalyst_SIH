@@ -82,7 +82,7 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
       </div>
 
       {/* 2. Map Section (Directly after Emergency Button at the Top) */}
-      <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-xs border border-slate-200 space-y-3">
+      <div id="map-section" className="bg-white p-4 sm:p-5 rounded-2xl shadow-xs border border-slate-200 space-y-3">
         <div className="flex items-center justify-between pb-2 border-b border-slate-100">
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4 text-blue-600" />

@@ -18,7 +18,7 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
-  const { activeDispatch, user } = useApp();
+  const { activeDispatch, user, liveAmbulance } = useApp();
 
   return (
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs">
@@ -79,6 +79,29 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
                 </span>
               )}
             </button>
+
+            <button
+              onClick={() => {
+                setActiveTab('citizen');
+                setTimeout(() => {
+                  const el = document.getElementById('map-section') || document.querySelector('.leaflet-container');
+                  if (el) el.scrollIntoView({ behavior: 'smooth' });
+                }, 100);
+              }}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-bold bg-blue-50/90 hover:bg-blue-100 text-blue-700 border border-blue-200 transition shadow-2xs group cursor-pointer"
+              title="View live GPS hospital radar & moving ambulance tracker"
+            >
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-600"></span>
+              </span>
+              <span>Live Radar</span>
+              {liveAmbulance && (
+                <span className="bg-blue-600 text-white text-[10.5px] font-mono px-2 py-0.5 rounded-full font-extrabold shadow-2xs">
+                  {liveAmbulance.distanceToPatientKm} km
+                </span>
+              )}
+            </button>
           </nav>
 
           {/* Right Action: Traffic Police, Ambulance & Hospital Portals & User Profile Pill */}
@@ -132,14 +155,26 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
         </div>
 
         {/* Mobile Navigation */}
-        <div className="md:hidden flex items-center justify-around py-2 border-t border-slate-100 text-xs">
+        <div className="md:hidden flex items-center justify-around py-2 border-t border-slate-100 text-xs gap-1">
           <button
             onClick={() => setActiveTab('citizen')}
             className={`flex-1 py-1.5 text-center font-semibold rounded-lg transition ${
               activeTab === 'citizen' ? 'bg-emerald-600 text-white' : 'text-slate-600'
             }`}
           >
-            Hospitals & Beds
+            Hospitals
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('citizen');
+              setTimeout(() => {
+                const el = document.getElementById('map-section') || document.querySelector('.leaflet-container');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }, 100);
+            }}
+            className="flex-1 py-1.5 text-center font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg transition"
+          >
+            🗺️ Radar {liveAmbulance ? `(${liveAmbulance.distanceToPatientKm}km)` : ''}
           </button>
           <button
             onClick={() => setActiveTab('emergency')}
@@ -147,7 +182,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
               activeTab === 'emergency' ? 'bg-red-600 text-white' : 'text-red-600'
             }`}
           >
-            Emergency SOS
+            SOS
           </button>
           <button
             onClick={() => setActiveTab('profile')}
@@ -155,7 +190,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
               activeTab === 'profile' ? 'bg-emerald-600 text-white' : 'text-slate-600'
             }`}
           >
-            My Profile
+            Profile
           </button>
         </div>
 

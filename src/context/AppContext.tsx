@@ -13,7 +13,8 @@ import {
   TrafficCorridorEmergency,
   TrafficSignal,
   SignalLightState,
-  SignalCorridorStatus
+  SignalCorridorStatus,
+  LiveMovingAmbulance
 } from '../types';
 import { evaluateAmbulanceAssessment, evaluateAmbulanceTelemetry, checkHospitalCapabilities } from '../utils/mlTriage';
 import { 
@@ -103,6 +104,9 @@ interface AppContextType {
   // Live GPS User Location & Proximity Localization
   userLocation: { lat: number; lng: number; areaName?: string } | null;
   relocateToUserLocation: (lat: number, lng: number, areaName?: string) => void;
+
+  // Uber/Rapido-Style Live Moving Ambulance Tracking Telemetry
+  liveAmbulance: LiveMovingAmbulance;
 }
 
 const INITIAL_HOSPITALS: Hospital[] = [
@@ -824,6 +828,114 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       );
     }
   }, [relocateToUserLocation]);
+
+  // Uber/Rapido-Style Live Moving Ambulance State (Shared across all portals)
+  const [liveAmbulance, setLiveAmbulance] = useState<LiveMovingAmbulance>(() => {
+    const defaultLat = 28.7080;
+    const defaultLng = 77.0980;
+    const hosp = INITIAL_HOSPITALS[0];
+    return {
+      lat: defaultLat + 0.0050,
+      lng: defaultLng + 0.0040,
+      speedKmH: 48,
+      heading: 215,
+      progress: 0.15,
+      phase: 'EN_ROUTE_TO_PATIENT',
+      distanceToPatientKm: 0.6,
+      distancePatientToHospitalKm: 1.2,
+      etaToPatientMinutes: 2,
+      etaToHospitalMinutes: 4,
+      vehicleNumber: 'HR-10-EM-1081',
+      driverName: 'Jagdish Kumar',
+      driverPhone: '+91 98765 43210',
+      originLat: defaultLat + 0.0075,
+      originLng: defaultLng + 0.0065,
+      pickupLat: defaultLat,
+      pickupLng: defaultLng,
+      hospLat: hosp.lat,
+      hospLng: hosp.lng
+    };
+  });
+
+  // Smooth Live Ambulance Movement Simulation (Updates location & distances every second)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setLiveAmbulance(prev => {
+        const patientLat = activeDispatch?.pickupLat || userLocation?.lat || 28.7080;
+        const patientLng = activeDispatch?.pickupLng || userLocation?.lng || 77.0980;
+        const targetHosp = hospitals.find(h => h.id === activeDispatch?.currentHospitalId) || hospitals[0] || INITIAL_HOSPITALS[0];
+        const hospLat = targetHosp.lat;
+        const hospLng = targetHosp.lng;
+
+        // Origin ambulance station/depot
+        const originLat = patientLat + 0.0075;
+        const originLng = patientLng + 0.0065;
+
+        let nextProgress = prev.progress + 0.008;
+        if (nextProgress >= 1.0) nextProgress = 0.0;
+
+        let curLat: number;
+        let curLng: number;
+        let phase: 'EN_ROUTE_TO_PATIENT' | 'TRANSPORTING_TO_HOSPITAL';
+        let heading: number;
+
+        if (nextProgress < 0.45) {
+          // Phase 1: Moving from depot to patient pickup
+          phase = 'EN_ROUTE_TO_PATIENT';
+          const subT = nextProgress / 0.45;
+          curLat = originLat + (patientLat - originLat) * subT;
+          curLng = originLng + (patientLng - originLng) * subT;
+          heading = 210;
+        } else {
+          // Phase 2: Transporting patient to destination hospital
+          phase = 'TRANSPORTING_TO_HOSPITAL';
+          const subT = (nextProgress - 0.45) / 0.55;
+          curLat = patientLat + (hospLat - patientLat) * subT;
+          curLng = patientLng + (hospLng - patientLng) * subT;
+          heading = 45;
+        }
+
+        const distToPatient = phase === 'EN_ROUTE_TO_PATIENT' 
+          ? calculateHaversineKm(curLat, curLng, patientLat, patientLng)
+          : 0;
+        const distPatientToHosp = calculateHaversineKm(patientLat, patientLng, hospLat, hospLng);
+        const distToHosp = calculateHaversineKm(curLat, curLng, hospLat, hospLng);
+
+        const etaPatient = phase === 'EN_ROUTE_TO_PATIENT' 
+          ? Math.max(1, Math.round(distToPatient * 2.2))
+          : 0;
+        const etaHosp = Math.max(1, Math.round(distToHosp * 2.2));
+
+        const baseSpeed = 46;
+        const jitter = Math.sin(Date.now() / 1500) * 5;
+        const speed = Math.round(baseSpeed + jitter);
+
+        return {
+          lat: Math.round(curLat * 100000) / 100000,
+          lng: Math.round(curLng * 100000) / 100000,
+          speedKmH: speed,
+          heading,
+          progress: nextProgress,
+          phase,
+          distanceToPatientKm: distToPatient,
+          distancePatientToHospitalKm: distPatientToHosp,
+          etaToPatientMinutes: etaPatient,
+          etaToHospitalMinutes: etaHosp,
+          vehicleNumber: 'HR-10-EM-1081',
+          driverName: 'Jagdish Kumar',
+          driverPhone: '+91 98765 43210',
+          originLat,
+          originLng,
+          pickupLat: patientLat,
+          pickupLng: patientLng,
+          hospLat,
+          hospLng
+        };
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [activeDispatch?.pickupLat, activeDispatch?.pickupLng, activeDispatch?.currentHospitalId, hospitals, userLocation]);
 
   // Keep logged-in police signal in sync with live corridor progress
   useEffect(() => {
@@ -1758,7 +1870,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       loginPoliceSignal,
       logoutPoliceSignal,
       userLocation,
-      relocateToUserLocation
+      relocateToUserLocation,
+      liveAmbulance
     }}>
       {children}
     </AppContext.Provider>

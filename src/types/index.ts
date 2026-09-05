@@ -278,3 +278,25 @@ export interface TrafficCorridorEmergency {
   automatedGreenWave: boolean;
 }
 
+export interface LiveMovingAmbulance {
+  lat: number;
+  lng: number;
+  speedKmH: number;
+  heading: number;
+  progress: number;
+  phase: 'EN_ROUTE_TO_PATIENT' | 'TRANSPORTING_TO_HOSPITAL';
+  distanceToPatientKm: number;
+  distancePatientToHospitalKm: number;
+  etaToPatientMinutes: number;
+  etaToHospitalMinutes: number;
+  vehicleNumber: string;
+  driverName: string;
+  driverPhone: string;
+  originLat: number;
+  originLng: number;
+  pickupLat: number;
+  pickupLng: number;
+  hospLat: number;
+  hospLng: number;
+}
+

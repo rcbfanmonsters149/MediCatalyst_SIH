@@ -20,6 +20,7 @@ import { useApp } from '../context/AppContext';
 import { TollFreeBanner } from '../components/TollFreeBanner';
 import { EmergencyTrackerCard } from '../components/EmergencyTrackerCard';
 import { VoiceSOSRecognitionModal } from '../components/VoiceSOSRecognitionModal';
+import { LeafletMap } from '../components/LeafletMap';
 import { Link } from 'react-router-dom';
 
 interface EmergencyPageProps {
@@ -226,6 +227,37 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
                 </button>
               )}
             </div>
+          </div>
+
+          {/* INTERACTIVE LIVE MOVING GPS RADAR & TRACKING MAP */}
+          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping"></span>
+                <h3 className="font-bold text-slate-900 text-base font-heading">
+                  Live Dispatch Radar & Moving Ambulance Tracking
+                </h3>
+                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 font-mono">
+                  LIVE TELEMETRY
+                </span>
+              </div>
+              <span className="text-xs text-slate-500 font-medium">
+                Live distances update continuously as ambulance travels
+              </span>
+            </div>
+
+            <LeafletMap
+              hospitals={hospitals}
+              ambulances={ambulances}
+              selectedHospitalId={dispatch.currentHospitalId}
+              pickupLocation={{
+                lat: dispatch.pickupLat,
+                lng: dispatch.pickupLng,
+                label: dispatch.pickupAddress
+              }}
+              height="460px"
+              showRideHUD={true}
+            />
           </div>
 
           {/* TWO-COLUMN LIVE COORDINATION & AUDIT GRID */}
