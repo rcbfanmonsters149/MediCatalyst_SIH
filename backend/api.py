@@ -43,6 +43,10 @@ class AmbulanceAssessmentPayload(BaseModel):
     trauma: int = 1
     fast_score: int = 0
     blood_glucose: int = 110
+    consciousness_level: Optional[str] = "ALERT"
+    symptoms: Optional[List[str]] = []
+    stroke_symptoms: Optional[Dict[str, bool]] = None
+    patient_data: Optional[Dict[str, Any]] = None
     paramedic_notes: Optional[str] = None
     pain_scale: int = Field(default=0, ge=0, le=10)
 
@@ -81,12 +85,17 @@ def predict_triage(data: TelemetryPayload):
     needed_capabilities = [label for label, active in zip(cap_labels, cap_preds) if active == 1]
     
     # Clinical severity rules safety net
-    if data.ecg_stemi == 1 and 'CATH_LAB_24X7' not in needed_capabilities:
+    symptoms = data.symptoms or []
+    if (data.ecg_stemi == 1 or 'CHEST_PAIN' in symptoms) and 'CATH_LAB_24X7' not in needed_capabilities:
         needed_capabilities.append('CATH_LAB_24X7')
-    if data.gcs <= 8 and 'MECHANICAL_VENTILATOR' not in needed_capabilities:
+    if (data.gcs <= 8 or 'DIFFICULTY_BREATHING' in symptoms or 'SEVERE_ALLERGIC_REACTION' in symptoms) and 'MECHANICAL_VENTILATOR' not in needed_capabilities:
         needed_capabilities.append('MECHANICAL_VENTILATOR')
-    if data.trauma == 1 and data.gcs <= 9 and 'NEURO_SURGERY_ICU' not in needed_capabilities:
+    if (data.trauma == 1 or 'MAJOR_TRAUMA' in symptoms or 'SEVERE_BLEEDING' in symptoms) and 'TRAUMA_OT' not in needed_capabilities:
+        needed_capabilities.append('TRAUMA_OT')
+    if (data.trauma == 1 and data.gcs <= 9 or 'STROKE_LIKE' in symptoms or 'LOSS_OF_CONSCIOUSNESS' in symptoms) and 'NEURO_SURGERY_ICU' not in needed_capabilities:
         needed_capabilities.append('NEURO_SURGERY_ICU')
+    if 'PREGNANCY_RELATED' in symptoms and 'MATERNITY_SURGICAL' not in needed_capabilities:
+        needed_capabilities.append('MATERNITY_SURGICAL')
 
     return {
         "acuity_level": acuity,

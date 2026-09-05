@@ -1,4 +1,4 @@
-import { CapabilityType, Hospital, AmbulanceAssessmentForm, TelemetryVitals } from '../types';
+import { CapabilityType, Hospital, AmbulanceAssessmentForm, TelemetryVitals, EmergencySymptomType } from '../types';
 
 export interface TriagePrediction {
   acuity: 'ESI-1' | 'ESI-2' | 'ESI-3' | 'ESI-4';
@@ -17,38 +17,104 @@ export interface CapabilityMatchResult {
 
 /**
  * High-precision In-Ambulance Clinical Triage Evaluator
- * Evaluates vital signs and clinical assessment from the ambulance form.
+ * Evaluates essential vital signs, clinical symptoms, and auto-transferred medical history.
  */
 export function evaluateAmbulanceAssessment(vitals: AmbulanceAssessmentForm): TriagePrediction {
   const risks: string[] = [];
   const requiredCaps: CapabilityType[] = [];
+  const symptoms = vitals.symptoms || [];
+  const stroke = vitals.strokeSymptoms || { facialDrooping: false, armWeakness: false, speechDifficulty: false };
 
-  // Cardiac / STEMI evaluation
-  if (vitals.ecg_stemi === 1) {
-    risks.push('ST-Elevation Myocardial Infarction (STEMI) confirmed on 12-lead ECG');
-    requiredCaps.push('CATH_LAB_24X7');
+  // --- 1. ESSENTIAL VITALS EVALUATION (Measure These First) ---
+
+  // Heart Rate (HR) - Indicates cardiovascular stress (Emergency relevance: Very high)
+  if (vitals.heart_rate > 130 || (vitals.heart_rate < 40 && vitals.heart_rate > 0)) {
+    risks.push(`Extreme cardiovascular instability / Arrhythmia danger (HR: ${vitals.heart_rate} bpm)`);
+  } else if (vitals.heart_rate > 105) {
+    risks.push(`Tachycardia indicating hemodynamic strain (HR: ${vitals.heart_rate} bpm)`);
+  } else if (vitals.heart_rate < 55 && vitals.heart_rate > 0) {
+    risks.push(`Bradycardia alert (HR: ${vitals.heart_rate} bpm)`);
   }
 
-  // Airway & Ventilator evaluation
-  if (vitals.spo2 < 86 || vitals.gcs <= 8 || vitals.resp_rate > 38 || vitals.resp_rate < 8) {
-    risks.push(`Severe respiratory/neurological compromise (SpO2: ${vitals.spo2}%, GCS: ${vitals.gcs})`);
+  // SpO2 - Indicates oxygenation (Emergency relevance: Very high)
+  if (vitals.spo2 < 85 && vitals.spo2 > 0) {
+    risks.push(`Critical life-threatening hypoxemia (SpO2: ${vitals.spo2}%) - Mechanical ventilation required`);
+    requiredCaps.push('MECHANICAL_VENTILATOR');
+  } else if (vitals.spo2 < 90 && vitals.spo2 > 0) {
+    risks.push(`Severe hypoxia (SpO2: ${vitals.spo2}%) - High-flow oxygen / CPAP needed`);
     requiredCaps.push('MECHANICAL_VENTILATOR');
   }
 
-  // Neurological & Head Trauma evaluation
-  if (vitals.trauma === 1 && vitals.gcs <= 10) {
-    risks.push(`Severe Polytrauma with acute Intracranial / GCS depression (${vitals.gcs}/15)`);
+  // Blood Pressure - Detects hypotension/hypertension (Emergency relevance: Very high)
+  if (vitals.systolic_bp < 80 && vitals.systolic_bp > 0) {
+    risks.push(`Profound hypotensive shock (BP: ${vitals.systolic_bp}/${vitals.diastolic_bp} mmHg)`);
+    requiredCaps.push('BLOOD_BANK_O_NEG');
+  } else if (vitals.systolic_bp < 90 && vitals.systolic_bp > 0) {
+    risks.push(`Hypotension detected (BP: ${vitals.systolic_bp}/${vitals.diastolic_bp} mmHg)`);
+  } else if (vitals.systolic_bp > 190 || vitals.diastolic_bp > 115) {
+    risks.push(`Hypertensive crisis urgency (BP: ${vitals.systolic_bp}/${vitals.diastolic_bp} mmHg)`);
+  }
+
+  // Respiratory Rate (RR) - General deterioration indicator (Emergency relevance: Very high)
+  if (vitals.resp_rate > 35 || (vitals.resp_rate < 8 && vitals.resp_rate > 0)) {
+    risks.push(`Imminent respiratory failure / Apnea threat (RR: ${vitals.resp_rate}/min)`);
+    requiredCaps.push('MECHANICAL_VENTILATOR');
+  } else if (vitals.resp_rate > 26) {
+    risks.push(`Tachypnea / Respiratory distress (RR: ${vitals.resp_rate}/min)`);
+  }
+
+  // Temperature - Infection/sepsis indicator (Emergency relevance: Medium)
+  if (vitals.body_temp > 39.4) {
+    risks.push(`Hyperpyrexia / Severe sepsis fever alert (Temp: ${vitals.body_temp}°C)`);
+  } else if (vitals.body_temp < 35.0 && vitals.body_temp > 0) {
+    risks.push(`Severe hypothermia warning (Temp: ${vitals.body_temp}°C)`);
+  }
+
+  // Blood Glucose - Altered consciousness, diabetes (Emergency relevance: High)
+  if (vitals.blood_glucose < 60 && vitals.blood_glucose > 0) {
+    risks.push(`Severe hypoglycemia danger (RBS: ${vitals.blood_glucose} mg/dL) - Coma / seizure risk`);
+  } else if (vitals.blood_glucose > 350) {
+    risks.push(`Severe hyperglycemia derangement (RBS: ${vitals.blood_glucose} mg/dL) - DKA / HHS risk`);
+  }
+
+  // Level of Consciousness - Neurological/systemic deterioration (Emergency relevance: Very high)
+  const isUnresponsive = vitals.consciousnessLevel === 'UNRESPONSIVE' || vitals.gcs <= 8;
+  const isPainResponsive = vitals.consciousnessLevel === 'PAIN' || (vitals.gcs >= 9 && vitals.gcs <= 11);
+  if (isUnresponsive) {
+    risks.push(`Patient Comatose / Unresponsive (GCS: ${vitals.gcs}/15, AVPU: ${vitals.consciousnessLevel || 'U'}) - Loss of airway protection reflexes`);
+    requiredCaps.push('MECHANICAL_VENTILATOR');
     requiredCaps.push('NEURO_SURGERY_ICU');
-    requiredCaps.push('TRAUMA_OT');
-  } else if (vitals.trauma === 1) {
-    risks.push('High-velocity traumatic injury requiring emergency surgical OT');
+  } else if (isPainResponsive) {
+    risks.push(`Severe neurological depression / Responding to Pain only (GCS: ${vitals.gcs}/15)`);
+  }
+
+  // --- 2. CLINICAL SYMPTOMS EVALUATION (Vitals Alone Aren't Enough) ---
+
+  // Chest pain / STEMI
+  const hasChestPain = symptoms.includes('CHEST_PAIN') || vitals.ecg_stemi === 1;
+  if (hasChestPain) {
+    risks.push('Acute Coronary Syndrome / Ischemic Chest Pain Presentation - Cath Lab / Primary PCI pathway');
+    requiredCaps.push('CATH_LAB_24X7');
+  }
+
+  // Difficulty breathing
+  if (symptoms.includes('DIFFICULTY_BREATHING')) {
+    risks.push('Acute respiratory distress symptom - Supplemental airway / ventilator readiness');
+    requiredCaps.push('MECHANICAL_VENTILATOR');
+  }
+
+  // Severe bleeding
+  if (symptoms.includes('SEVERE_BLEEDING')) {
+    risks.push('Severe external / internal hemorrhage - Massive transfusion protocol & Trauma OT');
+    requiredCaps.push('BLOOD_BANK_O_NEG');
     requiredCaps.push('TRAUMA_OT');
   }
 
-  // Stroke FAST score evaluation
-  if (vitals.fast_score >= 2) {
-    risks.push(`Acute Stroke symptoms (FAST Score: ${vitals.fast_score}/3) - Thrombolysis / Stroke ICU required`);
-    if (!requiredCaps.includes('NEURO_SURGERY_ICU')) {
+  // Major trauma
+  if (symptoms.includes('MAJOR_TRAUMA') || vitals.trauma === 1) {
+    risks.push('High-velocity polytrauma / blunt force injury requiring Level-1 Emergency OT');
+    requiredCaps.push('TRAUMA_OT');
+    if (vitals.gcs <= 10 || isUnresponsive || isPainResponsive) {
       requiredCaps.push('NEURO_SURGERY_ICU');
     }
   }
@@ -59,28 +125,121 @@ export function evaluateAmbulanceAssessment(vitals: AmbulanceAssessmentForm): Tr
     requiredCaps.push('MECHANICAL_VENTILATOR');
   }
 
-  // Pediatric Emergency
-  if (vitals.is_pediatric === 1 && (vitals.spo2 < 90 || vitals.gcs < 12 || vitals.trauma === 1)) {
-    risks.push('Pediatric emergency resuscitation protocol activated');
+  // Stroke-like symptoms (facial drooping, arm weakness, speech difficulty)
+  const hasStrokeSigns = 
+    symptoms.includes('STROKE_LIKE') || 
+    vitals.fast_score >= 1 || 
+    stroke.facialDrooping || 
+    stroke.armWeakness || 
+    stroke.speechDifficulty;
+
+  if (hasStrokeSigns) {
+    const signs = [];
+    if (stroke.facialDrooping) signs.push('facial drooping');
+    if (stroke.armWeakness) signs.push('arm weakness');
+    if (stroke.speechDifficulty) signs.push('speech difficulty');
+    const signsText = signs.length > 0 ? ` (${signs.join(', ')})` : '';
+    risks.push(`Acute Stroke symptoms identified${signsText} - Hyperacute stroke unit / Neuro-intervention needed`);
+    requiredCaps.push('NEURO_SURGERY_ICU');
+  }
+
+  // Loss of consciousness & Seizures
+  if (symptoms.includes('LOSS_OF_CONSCIOUSNESS')) {
+    risks.push('Sudden loss of consciousness / Syncope with persistent depression');
+    requiredCaps.push('NEURO_SURGERY_ICU');
+  }
+  if (symptoms.includes('SEIZURE')) {
+    risks.push('Acute ongoing or post-ictal seizure presentation - Status epilepticus protocol');
+    requiredCaps.push('NEURO_SURGERY_ICU');
+  }
+
+  // Severe abdominal pain
+  if (symptoms.includes('SEVERE_ABDOMINAL_PAIN')) {
+    risks.push('Acute surgical abdomen / Visceral perforation or peritonitis concern');
+    requiredCaps.push('TRAUMA_OT');
+  }
+
+  // Burns
+  if (symptoms.includes('BURNS')) {
+    risks.push('Major thermal/inhalation burn injury - Specialized trauma OT & resuscitation');
+    requiredCaps.push('TRAUMA_OT');
+  }
+
+  // Severe allergic reaction
+  if (symptoms.includes('SEVERE_ALLERGIC_REACTION')) {
+    risks.push('Systemic anaphylaxis - Impending laryngeal edema & vascular collapse');
+    requiredCaps.push('MECHANICAL_VENTILATOR');
+  }
+
+  // Poisoning / overdose
+  if (symptoms.includes('POISONING_OVERDOSE')) {
+    risks.push('Toxicological overdose / Acute poisoning ingestion');
+  }
+
+  // High fever with confusion
+  if (symptoms.includes('HIGH_FEVER_WITH_CONFUSION')) {
+    risks.push('Febrile encephalopathy / Septic meningitis presentation');
+    requiredCaps.push('NEURO_SURGERY_ICU');
+  }
+
+  // Pregnancy-related emergency
+  if (symptoms.includes('PREGNANCY_RELATED')) {
+    risks.push('Acute maternal/obstetric emergency (Eclampsia / Antepartum hemorrhage) - Urgent C-Section surgery required');
+    requiredCaps.push('MATERNITY_SURGICAL');
+  }
+
+  // Pediatric emergency
+  if (vitals.is_pediatric === 1 && (vitals.spo2 < 92 || vitals.gcs < 13 || vitals.trauma === 1 || symptoms.length > 0)) {
+    risks.push('Pediatric high-acuity resuscitation protocol');
     requiredCaps.push('PEDIATRIC_ICU');
   }
 
-  // Determine ESI Acuity level
+  // --- 3. AUTO-TRANSFERRED PATIENT MEDICAL RECORD CONTEXT ---
+  if (vitals.patientData) {
+    if (vitals.patientData.allergies && vitals.patientData.allergies.length > 0) {
+      const severeAllergies = vitals.patientData.allergies.map(a => a.allergen).join(', ');
+      risks.push(`Transferred EHR Alert: Known severe allergy to [${severeAllergies}]. Verify before medication!`);
+    }
+  }
+
+  // --- 4. COMPUTE OVERALL ACUITY LEVEL (ESI 1-4) ---
   let acuity: 'ESI-1' | 'ESI-2' | 'ESI-3' | 'ESI-4' = 'ESI-3';
   let acuityLabel = 'ESI-3: Urgent (Moderate Risk)';
 
-  if (vitals.gcs <= 8 || vitals.spo2 < 82 || (vitals.systolic_bp < 75) || (vitals.ecg_stemi === 1 && vitals.systolic_bp < 85)) {
+  const isEsi1 = 
+    isUnresponsive ||
+    vitals.spo2 < 84 ||
+    vitals.systolic_bp < 75 ||
+    (vitals.ecg_stemi === 1 && vitals.systolic_bp < 85) ||
+    symptoms.includes('SEVERE_ALLERGIC_REACTION') ||
+    (symptoms.includes('SEVERE_BLEEDING') && vitals.systolic_bp < 85);
+
+  const isEsi2 = 
+    hasChestPain ||
+    hasStrokeSigns ||
+    symptoms.includes('LOSS_OF_CONSCIOUSNESS') ||
+    symptoms.includes('SEIZURE') ||
+    symptoms.includes('PREGNANCY_RELATED') ||
+    symptoms.includes('MAJOR_TRAUMA') ||
+    symptoms.includes('BURNS') ||
+    symptoms.includes('HIGH_FEVER_WITH_CONFUSION') ||
+    (vitals.trauma === 1 && vitals.gcs <= 12) ||
+    vitals.spo2 < 91 ||
+    vitals.systolic_bp < 90 ||
+    vitals.blood_glucose < 60;
+
+  if (isEsi1) {
     acuity = 'ESI-1';
     acuityLabel = 'ESI-1: Resuscitation (Immediate Life Threat)';
-  } else if (vitals.ecg_stemi === 1 || vitals.fast_score >= 2 || (vitals.trauma === 1 && vitals.gcs <= 12) || vitals.spo2 < 90) {
+  } else if (isEsi2) {
     acuity = 'ESI-2';
-    acuityLabel = 'ESI-2: Emergent (High Risk / Time-Critical)';
-  } else if (vitals.heart_rate > 105 || vitals.systolic_bp < 95) {
+    acuityLabel = 'ESI-2: Emergent (Time-Critical / High Acuity)';
+  } else if (vitals.heart_rate > 105 || vitals.systolic_bp < 95 || symptoms.length > 0) {
     acuity = 'ESI-3';
     acuityLabel = 'ESI-3: Urgent';
   } else {
     acuity = 'ESI-4';
-    acuityLabel = 'ESI-4: Less Urgent';
+    acuityLabel = 'ESI-4: Less Urgent / Stable';
   }
 
   return {
@@ -168,3 +327,123 @@ export function getCapabilityFriendlyName(cap: CapabilityType): string {
 }
 
 export const evaluateAmbulanceTelemetry = evaluateAmbulanceAssessment;
+
+export interface SymptomConfig {
+  id: EmergencySymptomType;
+  label: string;
+  relevance: 'Very high' | 'High' | 'Medium';
+  urgency: 'CRITICAL' | 'HIGH';
+  description: string;
+  emoji: string;
+}
+
+export const EMERGENCY_SYMPTOMS_CONFIG: SymptomConfig[] = [
+  {
+    id: 'CHEST_PAIN',
+    label: 'Chest pain',
+    relevance: 'Very high',
+    urgency: 'CRITICAL',
+    description: 'Crushing or radiating chest discomfort, potential STEMI / ACS',
+    emoji: '💔'
+  },
+  {
+    id: 'DIFFICULTY_BREATHING',
+    label: 'Difficulty breathing',
+    relevance: 'Very high',
+    urgency: 'CRITICAL',
+    description: 'Severe dyspnea, stridor, air hunger or impending respiratory arrest',
+    emoji: '🫁'
+  },
+  {
+    id: 'SEVERE_BLEEDING',
+    label: 'Severe bleeding',
+    relevance: 'Very high',
+    urgency: 'CRITICAL',
+    description: 'Arterial spurting, uncontrollable hemorrhage or massive bleeding',
+    emoji: '🩸'
+  },
+  {
+    id: 'LOSS_OF_CONSCIOUSNESS',
+    label: 'Loss of consciousness',
+    relevance: 'Very high',
+    urgency: 'CRITICAL',
+    description: 'Syncope, unresponsive episode, acute collapse or coma',
+    emoji: '😵'
+  },
+  {
+    id: 'SEIZURE',
+    label: 'Seizure',
+    relevance: 'Very high',
+    urgency: 'HIGH',
+    description: 'Active tonic-clonic convulsions or status epilepticus',
+    emoji: '⚡'
+  },
+  {
+    id: 'STROKE_LIKE',
+    label: 'Stroke-like symptoms',
+    relevance: 'Very high',
+    urgency: 'CRITICAL',
+    description: 'Acute neurological signs: facial drooping, arm weakness, speech difficulty',
+    emoji: '🧠'
+  },
+  {
+    id: 'SEVERE_ABDOMINAL_PAIN',
+    label: 'Severe abdominal pain',
+    relevance: 'High',
+    urgency: 'HIGH',
+    description: 'Acute surgical abdomen, rigid guarding, potential rupture',
+    emoji: '⚡'
+  },
+  {
+    id: 'MAJOR_TRAUMA',
+    label: 'Major trauma',
+    relevance: 'Very high',
+    urgency: 'CRITICAL',
+    description: 'High-speed motor collision, fall from height, penetrating injury',
+    emoji: '🚑'
+  },
+  {
+    id: 'BURNS',
+    label: 'Burns',
+    relevance: 'High',
+    urgency: 'HIGH',
+    description: 'Severe thermal, electrical or chemical burns with shock',
+    emoji: '🔥'
+  },
+  {
+    id: 'SEVERE_ALLERGIC_REACTION',
+    label: 'Severe allergic reaction',
+    relevance: 'Very high',
+    urgency: 'CRITICAL',
+    description: 'Systemic anaphylaxis, throat swelling, airway compromise',
+    emoji: '⚠️'
+  },
+  {
+    id: 'POISONING_OVERDOSE',
+    label: 'Poisoning/overdose',
+    relevance: 'High',
+    urgency: 'HIGH',
+    description: 'Acute toxic ingestion, drug intoxication or pesticide poisoning',
+    emoji: '🧪'
+  },
+  {
+    id: 'HIGH_FEVER_WITH_CONFUSION',
+    label: 'High fever with confusion',
+    relevance: 'High',
+    urgency: 'HIGH',
+    description: 'Febrile delirium, severe sepsis or acute CNS infection',
+    emoji: '🌡️'
+  },
+  {
+    id: 'PREGNANCY_RELATED',
+    label: 'Pregnancy-related emergency',
+    relevance: 'Very high',
+    urgency: 'CRITICAL',
+    description: 'Maternal distress, eclampsia, antepartum hemorrhage or labor emergency',
+    emoji: '🤰'
+  }
+];
+
+export function getSymptomConfig(id: EmergencySymptomType): SymptomConfig | undefined {
+  return EMERGENCY_SYMPTOMS_CONFIG.find(s => s.id === id);
+}

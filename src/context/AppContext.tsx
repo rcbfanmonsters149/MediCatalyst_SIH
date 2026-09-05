@@ -10,6 +10,7 @@ import {
   WaterfallHop,
   DoctorOnDuty,
   PatientRecord,
+  TransferredPatientData,
   TrafficCorridorEmergency,
   TrafficSignal,
   SignalLightState,
@@ -78,7 +79,8 @@ interface AppContextType {
   updateVitals: (partial: Partial<AmbulanceAssessmentForm>) => void;
   uploadAmbulanceAssessment: (form?: AmbulanceAssessmentForm) => void;
   executeDynamicReroute: () => void;
-  loadPresetScenario: (scenario: 'BIKE_HEAD_TRAUMA' | 'ACUTE_STEMI_HEART' | 'MILD_FEVER_CLINIC') => void;
+  loadPresetScenario: (scenario: 'BIKE_HEAD_TRAUMA' | 'ACUTE_STEMI_HEART' | 'MILD_FEVER_CLINIC' | 'STROKE_FAST' | 'PREGNANCY_EMERGENCY') => void;
+  transferPatientDataToAssessment: (customUser?: UserBioData) => void;
 
   // Public Workers (Police, Traffic, ASHA)
   workerReports: PublicWorkerReport[];
@@ -261,6 +263,76 @@ const INITIAL_HOSPITALS: Hospital[] = [
       { id: 'spec-6', name: 'Dr. Arvind Singhal', specialty: 'Interventional Cardiology', visitingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'], timing: '24x7 Cath Lab', isVisitingToday: true },
       { id: 'spec-7', name: 'Dr. Tanya Bose', specialty: 'Neurosurgery & Stroke', visitingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'], timing: '24x7 Neuro-OT', isVisitingToday: true }
     ]
+  },
+  {
+    id: 'hosp-janani-mch',
+    name: 'Janani Maternal & Pediatric Care Center',
+    type: 'Sub-District Hospital',
+    address: 'Near Old Tehsil Road, Rampur Sector 4',
+    distanceKm: 4.8,
+    etaMinutes: 10,
+    phone: '+91 11 2894 2555',
+    lat: 28.6950,
+    lng: 77.1180,
+    is24x7Emergency: true,
+    hasAmbulanceService: true,
+    openingHours: '24 Hours Open (Maternity & Pediatric ER)',
+    generalBedsTotal: 50,
+    generalBedsAvail: 16,
+    icuBedsTotal: 8,
+    icuBedsAvail: 3,
+    maternityBedsTotal: 25,
+    maternityBedsAvail: 8,
+    oxygenBedsAvail: 18,
+    ventilatorsAvail: 4,
+    dialysisAvail: 0,
+    ecgAvail: 5,
+    ctScannerAvail: 1,
+    defibrillatorAvail: 3,
+    mriAvail: 0,
+    capabilities: ['MATERNITY_SURGICAL', 'PEDIATRIC_ICU', 'MECHANICAL_VENTILATOR', 'BLOOD_BANK_O_NEG'],
+    doctorsOnDuty: [
+      { id: 'doc-mch-1', name: 'Dr. Suniti Deshmukh', designation: 'Senior Obstetrician & Gynecologist', department: 'Maternity & C-Section OT', shift: 'Day Shift (08:00 - 16:00)', available: true, statusDetail: 'AVAILABLE', roomNumber: 'Maternity Bay 1' },
+      { id: 'doc-mch-2', name: 'Dr. Rohan Mathur', designation: 'Neonatal / Pediatric Specialist', department: 'Pediatric ICU (NICU)', shift: '24x7 On-Duty', available: true, statusDetail: 'AVAILABLE', roomNumber: 'NICU 2' }
+    ],
+    visitingSpecialists: [
+      { id: 'spec-mch-1', name: 'Dr. Neha Kapoor', specialty: 'Fetal Medicine Expert', visitingDays: ['Tuesday', 'Friday'], timing: '10:00 AM - 02:00 PM', isVisitingToday: true }
+    ]
+  },
+  {
+    id: 'hosp-greenfield-sdh',
+    name: 'Greenfield Sub-District Civil Hospital',
+    type: 'Sub-District Hospital',
+    address: 'Greenfield Complex, West Crossing',
+    distanceKm: 7.2,
+    etaMinutes: 14,
+    phone: '+91 11 2894 3444',
+    lat: 28.7380,
+    lng: 77.1350,
+    is24x7Emergency: true,
+    hasAmbulanceService: true,
+    openingHours: '24 Hours Open (Emergency & Day Care)',
+    generalBedsTotal: 90,
+    generalBedsAvail: 22,
+    icuBedsTotal: 12,
+    icuBedsAvail: 4,
+    maternityBedsTotal: 15,
+    maternityBedsAvail: 5,
+    oxygenBedsAvail: 22,
+    ventilatorsAvail: 3,
+    dialysisAvail: 6,
+    ecgAvail: 8,
+    ctScannerAvail: 1,
+    defibrillatorAvail: 4,
+    mriAvail: 0,
+    capabilities: ['TRAUMA_OT', 'BLOOD_BANK_O_NEG', 'MECHANICAL_VENTILATOR', 'MATERNITY_SURGICAL'],
+    doctorsOnDuty: [
+      { id: 'doc-sdh-1', name: 'Dr. Ajay Bhatt', designation: 'Consultant Physician & Intensivist', department: 'Emergency Medicine', shift: 'Morning (08:00 - 16:00)', available: true, statusDetail: 'AVAILABLE', roomNumber: 'ER OPD 4' },
+      { id: 'doc-sdh-2', name: 'Dr. Pooja Aggarwal', designation: 'Anesthesiologist', department: 'Critical OT', shift: 'Night Shift (20:00 - 08:00)', available: false, statusDetail: 'OFF_DUTY', roomNumber: 'OT Suite A' }
+    ],
+    visitingSpecialists: [
+      { id: 'spec-sdh-1', name: 'Dr. R. C. Sen', specialty: 'Nephrologist', visitingDays: ['Monday', 'Thursday'], timing: '11:00 AM - 03:00 PM', isVisitingToday: false }
+    ]
   }
 ];
 
@@ -408,12 +480,35 @@ const INITIAL_ASSESSMENT: AmbulanceAssessmentForm = {
   diastolic_bp: 56,
   spo2: 89,
   resp_rate: 26,
-  gcs: 8, // Severe head injury / comatose threshold
   body_temp: 36.5,
+  blood_glucose: 128,
+  consciousnessLevel: 'PAIN',
+  gcs: 8, // Severe head injury / comatose threshold
   ecg_stemi: 0,
   trauma: 1, // Polytrauma bike crash
   fast_score: 0,
-  blood_glucose: 128,
+  symptoms: ['MAJOR_TRAUMA', 'SEVERE_BLEEDING', 'LOSS_OF_CONSCIOUSNESS'],
+  strokeSymptoms: {
+    facialDrooping: false,
+    armWeakness: false,
+    speechDifficulty: false
+  },
+  patientDataTransferred: true,
+  patientData: {
+    patientId: INITIAL_USER.id,
+    fullName: INITIAL_USER.fullName,
+    healthId: INITIAL_USER.healthId,
+    bloodGroup: INITIAL_USER.bloodGroup,
+    age: INITIAL_USER.age,
+    gender: INITIAL_USER.gender,
+    address: INITIAL_USER.address,
+    emergencyContacts: INITIAL_USER.emergencyContacts,
+    allergies: INITIAL_USER.allergies,
+    chronicConditions: INITIAL_USER.chronicConditions,
+    currentMedications: INITIAL_USER.currentMedications,
+    pastRecordsSummary: INITIAL_USER.pastRecords.map(r => `${r.date} (${r.hospitalName}): ${r.diagnosis} - ${r.prescriptionSummary}`),
+    transferredAt: 'Live Synced via ABHA'
+  },
   paramedicNotes: 'Patient semi-conscious following highway bike crash. Forehead laceration, pupils unequal.',
   uploadedAt: '01:35 AM',
   uploadedBy: 'Paramedic Crew (Unit HR-10-EM-1081)',
@@ -438,6 +533,8 @@ function createLocalizedHospitals(baseLat: number, baseLng: number, areaName: st
   const t1 = template[1] || INITIAL_HOSPITALS[1];
   const t2 = template[2] || INITIAL_HOSPITALS[2];
   const t3 = template[3] || INITIAL_HOSPITALS[3];
+  const t4 = template[4] || INITIAL_HOSPITALS[4];
+  const t5 = template[5] || INITIAL_HOSPITALS[5];
 
   const h1Lat = Math.round((baseLat + 0.0090) * 10000) / 10000;
   const h1Lng = Math.round((baseLng + 0.0075) * 10000) / 10000;
@@ -447,13 +544,21 @@ function createLocalizedHospitals(baseLat: number, baseLng: number, areaName: st
   const h2Lng = Math.round((baseLng + 0.0150) * 10000) / 10000;
   const h2Dist = calculateHaversineKm(baseLat, baseLng, h2Lat, h2Lng);
 
-  const h3Lat = Math.round((baseLat + 0.0270) * 10000) / 10000;
-  const h3Lng = Math.round((baseLng - 0.0230) * 10000) / 10000;
+  const h3Lat = Math.round((baseLat - 0.0110) * 10000) / 10000;
+  const h3Lng = Math.round((baseLng - 0.0130) * 10000) / 10000;
   const h3Dist = calculateHaversineKm(baseLat, baseLng, h3Lat, h3Lng);
 
-  const h4Lat = Math.round((baseLat - 0.0410) * 10000) / 10000;
-  const h4Lng = Math.round((baseLng + 0.0360) * 10000) / 10000;
+  const h4Lat = Math.round((baseLat + 0.0190) * 10000) / 10000;
+  const h4Lng = Math.round((baseLng - 0.0180) * 10000) / 10000;
   const h4Dist = calculateHaversineKm(baseLat, baseLng, h4Lat, h4Lng);
+
+  const h5Lat = Math.round((baseLat + 0.0340) * 10000) / 10000;
+  const h5Lng = Math.round((baseLng + 0.0260) * 10000) / 10000;
+  const h5Dist = calculateHaversineKm(baseLat, baseLng, h5Lat, h5Lng);
+
+  const h6Lat = Math.round((baseLat - 0.0450) * 10000) / 10000;
+  const h6Lng = Math.round((baseLng + 0.0380) * 10000) / 10000;
+  const h6Dist = calculateHaversineKm(baseLat, baseLng, h6Lat, h6Lng);
 
   return [
     {
@@ -478,23 +583,43 @@ function createLocalizedHospitals(baseLat: number, baseLng: number, areaName: st
     },
     {
       ...t2,
-      id: 'hosp-sonipat-district',
-      name: `${areaName} District Civil Hospital & Trauma Unit`,
-      address: `Civil Lines Road, ${areaName}`,
+      id: 'hosp-janani-mch',
+      name: `${areaName} Mother & Pediatric Care Center`,
+      address: `Tehsil Road, ${areaName}`,
       lat: h3Lat,
       lng: h3Lng,
       distanceKm: h3Dist,
-      etaMinutes: Math.max(6, Math.round(h3Dist * 2.2)),
+      etaMinutes: Math.max(5, Math.round(h3Dist * 2.2)),
     },
     {
       ...t3,
-      id: 'hosp-apex-multispecialty',
-      name: `Apex MedCatalyst Multi-Specialty & Level-1 Trauma Center (${areaName})`,
-      address: `Super Highway Ring Road, ${areaName}`,
+      id: 'hosp-greenfield-sdh',
+      name: `${areaName} Greenfield Sub-District Hospital`,
+      address: `West Ring Corridor, ${areaName}`,
       lat: h4Lat,
       lng: h4Lng,
       distanceKm: h4Dist,
-      etaMinutes: Math.max(10, Math.round(h4Dist * 2.2)),
+      etaMinutes: Math.max(7, Math.round(h4Dist * 2.2)),
+    },
+    {
+      ...t4,
+      id: 'hosp-sonipat-district',
+      name: `${areaName} District Civil Hospital & Trauma Unit`,
+      address: `Civil Lines Road, ${areaName}`,
+      lat: h5Lat,
+      lng: h5Lng,
+      distanceKm: h5Dist,
+      etaMinutes: Math.max(10, Math.round(h5Dist * 2.2)),
+    },
+    {
+      ...t5,
+      id: 'hosp-apex-multispecialty',
+      name: `Apex MedCatalyst Multi-Specialty & Level-1 Trauma Center (${areaName})`,
+      address: `Super Highway Ring Road, ${areaName}`,
+      lat: h6Lat,
+      lng: h6Lng,
+      distanceKm: h6Dist,
+      etaMinutes: Math.max(14, Math.round(h6Dist * 2.2)),
     }
   ];
 }
@@ -539,17 +664,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (saved) {
       try {
         const parsed: Hospital[] = JSON.parse(saved);
-        return parsed.map(h => {
-          const initMatch = INITIAL_HOSPITALS.find(ih => ih.id === h.id);
-          return {
-            ...h,
-            dialysisAvail: h.dialysisAvail ?? (initMatch?.dialysisAvail ?? 0),
-            ecgAvail: h.ecgAvail ?? (initMatch?.ecgAvail ?? 0),
-            ctScannerAvail: h.ctScannerAvail ?? (initMatch?.ctScannerAvail ?? 0),
-            defibrillatorAvail: h.defibrillatorAvail ?? (initMatch?.defibrillatorAvail ?? 0),
-            mriAvail: h.mriAvail ?? (initMatch?.mriAvail ?? 0),
-          };
-        });
+        if (parsed.length >= INITIAL_HOSPITALS.length) {
+          return parsed.map(h => {
+            const initMatch = INITIAL_HOSPITALS.find(ih => ih.id === h.id);
+            return {
+              ...h,
+              dialysisAvail: h.dialysisAvail ?? (initMatch?.dialysisAvail ?? 0),
+              ecgAvail: h.ecgAvail ?? (initMatch?.ecgAvail ?? 0),
+              ctScannerAvail: h.ctScannerAvail ?? (initMatch?.ctScannerAvail ?? 0),
+              defibrillatorAvail: h.defibrillatorAvail ?? (initMatch?.defibrillatorAvail ?? 0),
+              mriAvail: h.mriAvail ?? (initMatch?.mriAvail ?? 0),
+            };
+          });
+        }
       } catch (e) {
         console.error(e);
       }
@@ -578,7 +705,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const savedHosp = hospitals.find(h => h.id === savedHospId);
       if (savedHosp) return savedHosp;
     }
-    return null;
+    return hospitals[0];
   });
 
   // Cross-tab real-time sync for hospitals, doctors, and user medical records
@@ -1346,7 +1473,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           note: `Nearest Ambulance ${nearestAmb.vehicleNumber} (${nearestAmb.distanceKm} km away, ETA ~${nearestAmb.calculatedEta}m) dispatched from ${nearestAmb.hospitalName}. Awaiting bed confirmation.`
         }
       ],
-      vitals,
+      vitals: {
+        ...ambulanceAssessment,
+        patientDataTransferred: true,
+        patientData: {
+          patientId: user.id,
+          fullName: user.fullName,
+          healthId: user.healthId,
+          bloodGroup: user.bloodGroup,
+          age: user.age,
+          gender: user.gender,
+          address: user.address,
+          emergencyContacts: user.emergencyContacts,
+          allergies: user.allergies,
+          chronicConditions: user.chronicConditions,
+          currentMedications: user.currentMedications,
+          pastRecordsSummary: (user.pastRecords || []).map(r => `${r.date} (${r.hospitalName}): ${r.diagnosis}`),
+          transferredAt: 'Auto-Transferred from EHR Registry'
+        }
+      },
+      ambulanceAssessment: {
+        ...ambulanceAssessment,
+        patientDataTransferred: true,
+        patientData: {
+          patientId: user.id,
+          fullName: user.fullName,
+          healthId: user.healthId,
+          bloodGroup: user.bloodGroup,
+          age: user.age,
+          gender: user.gender,
+          address: user.address,
+          emergencyContacts: user.emergencyContacts,
+          allergies: user.allergies,
+          chronicConditions: user.chronicConditions,
+          currentMedications: user.currentMedications,
+          pastRecordsSummary: (user.pastRecords || []).map(r => `${r.date} (${r.hospitalName}): ${r.diagnosis}`),
+          transferredAt: 'Auto-Transferred from EHR Registry'
+        }
+      },
       messages: [
         {
           sender: 'CITIZEN',
@@ -1635,7 +1799,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const loadPresetScenario = (scenario: 'BIKE_HEAD_TRAUMA' | 'ACUTE_STEMI_HEART' | 'MILD_FEVER_CLINIC') => {
+  const transferPatientDataToAssessment = (customUser?: UserBioData) => {
+    const targetUser = customUser || user;
+    const transferred: TransferredPatientData = {
+      patientId: targetUser.id,
+      fullName: targetUser.fullName,
+      healthId: targetUser.healthId,
+      bloodGroup: targetUser.bloodGroup,
+      age: targetUser.age,
+      gender: targetUser.gender,
+      address: targetUser.address,
+      emergencyContacts: targetUser.emergencyContacts,
+      allergies: targetUser.allergies,
+      chronicConditions: targetUser.chronicConditions,
+      currentMedications: targetUser.currentMedications,
+      pastRecordsSummary: (targetUser.pastRecords || []).map(r => `${r.date} (${r.hospitalName}): ${r.diagnosis}`),
+      transferredAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' (Auto-Transferred from ABHA / EHR Registry)'
+    };
+
+    updateAmbulanceAssessment({
+      age: targetUser.age,
+      patientDataTransferred: true,
+      patientData: transferred
+    });
+  };
+
+  const loadPresetScenario = (scenario: 'BIKE_HEAD_TRAUMA' | 'ACUTE_STEMI_HEART' | 'MILD_FEVER_CLINIC' | 'STROKE_FAST' | 'PREGNANCY_EMERGENCY') => {
+    const transferred: TransferredPatientData = {
+      patientId: user.id,
+      fullName: user.fullName,
+      healthId: user.healthId,
+      bloodGroup: user.bloodGroup,
+      age: user.age,
+      gender: user.gender,
+      address: user.address,
+      emergencyContacts: user.emergencyContacts,
+      allergies: user.allergies,
+      chronicConditions: user.chronicConditions,
+      currentMedications: user.currentMedications,
+      pastRecordsSummary: (user.pastRecords || []).map(r => `${r.date} (${r.hospitalName}): ${r.diagnosis}`),
+      transferredAt: 'Auto-Transferred from ABHA Network'
+    };
+
     if (scenario === 'BIKE_HEAD_TRAUMA') {
       const scenarioForm: AmbulanceAssessmentForm = {
         age: 52,
@@ -1645,12 +1850,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         diastolic_bp: 52,
         spo2: 88,
         resp_rate: 28,
-        gcs: 7, // Comatose / severe traumatic brain injury
         body_temp: 36.4,
+        blood_glucose: 125,
+        consciousnessLevel: 'PAIN',
+        gcs: 7, // Comatose / severe traumatic brain injury
         ecg_stemi: 0,
         trauma: 1,
         fast_score: 0,
-        blood_glucose: 125,
+        symptoms: ['MAJOR_TRAUMA', 'SEVERE_BLEEDING', 'LOSS_OF_CONSCIOUSNESS'],
+        strokeSymptoms: {
+          facialDrooping: false,
+          armWeakness: false,
+          speechDifficulty: false
+        },
+        patientDataTransferred: true,
+        patientData: transferred,
         paramedicNotes: 'Severe road crash, high impact head strike without helmet. Unconscious, bleeding from cranial scalp.',
         uploadedAt: undefined,
         uploadedBy: 'Ambulance Crew (Unit HR-10-EM-1081)',
@@ -1667,13 +1881,90 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         diastolic_bp: 62,
         spo2: 92,
         resp_rate: 24,
-        gcs: 14,
         body_temp: 36.7,
+        blood_glucose: 145,
+        consciousnessLevel: 'ALERT',
+        gcs: 14,
         ecg_stemi: 1, // ST-Elevation Myocardial Infarction
         trauma: 0,
         fast_score: 0,
-        blood_glucose: 145,
+        symptoms: ['CHEST_PAIN', 'DIFFICULTY_BREATHING'],
+        strokeSymptoms: {
+          facialDrooping: false,
+          armWeakness: false,
+          speechDifficulty: false
+        },
+        patientDataTransferred: true,
+        patientData: transferred,
         paramedicNotes: 'Sudden severe retrosternal squeezing chest pain radiating to left jaw and arm. Diaphoretic and pale.',
+        uploadedAt: undefined,
+        uploadedBy: 'Ambulance Crew (Unit HR-10-EM-1081)',
+        isUploaded: false
+      };
+      setAmbulanceAssessment(scenarioForm);
+      updateAmbulanceAssessment(scenarioForm);
+    } else if (scenario === 'STROKE_FAST') {
+      const scenarioForm: AmbulanceAssessmentForm = {
+        age: 64,
+        is_pediatric: 0,
+        heart_rate: 96,
+        systolic_bp: 178,
+        diastolic_bp: 104,
+        spo2: 94,
+        resp_rate: 20,
+        body_temp: 36.9,
+        blood_glucose: 132,
+        consciousnessLevel: 'VOICE',
+        gcs: 12,
+        ecg_stemi: 0,
+        trauma: 0,
+        fast_score: 3,
+        symptoms: ['STROKE_LIKE'],
+        strokeSymptoms: {
+          facialDrooping: true,
+          armWeakness: true,
+          speechDifficulty: true
+        },
+        patientDataTransferred: true,
+        patientData: transferred,
+        paramedicNotes: 'Acute onset right-sided hemiparesis, facial asymmetry, and expressive aphasia within last 45 minutes.',
+        uploadedAt: undefined,
+        uploadedBy: 'Ambulance Crew (Unit HR-10-EM-1081)',
+        isUploaded: false
+      };
+      setAmbulanceAssessment(scenarioForm);
+      updateAmbulanceAssessment(scenarioForm);
+    } else if (scenario === 'PREGNANCY_EMERGENCY') {
+      const scenarioForm: AmbulanceAssessmentForm = {
+        age: 27,
+        is_pediatric: 0,
+        heart_rate: 112,
+        systolic_bp: 154,
+        diastolic_bp: 98,
+        spo2: 96,
+        resp_rate: 22,
+        body_temp: 37.2,
+        blood_glucose: 104,
+        consciousnessLevel: 'ALERT',
+        gcs: 15,
+        ecg_stemi: 0,
+        trauma: 0,
+        fast_score: 0,
+        symptoms: ['PREGNANCY_RELATED', 'SEVERE_ABDOMINAL_PAIN', 'SEVERE_BLEEDING'],
+        strokeSymptoms: {
+          facialDrooping: false,
+          armWeakness: false,
+          speechDifficulty: false
+        },
+        patientDataTransferred: true,
+        patientData: {
+          ...transferred,
+          age: 27,
+          gender: 'Female',
+          fullName: 'Meena Devi',
+          healthId: '91-4402-9918-3410'
+        },
+        paramedicNotes: 'Gravida 2, 34 weeks gestation with severe lower abdominal cramping, active bleeding, and pre-eclamptic elevated BP.',
         uploadedAt: undefined,
         uploadedBy: 'Ambulance Crew (Unit HR-10-EM-1081)',
         isUploaded: false
@@ -1689,12 +1980,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         diastolic_bp: 78,
         spo2: 99,
         resp_rate: 16,
-        gcs: 15,
         body_temp: 37.1,
+        blood_glucose: 98,
+        consciousnessLevel: 'ALERT',
+        gcs: 15,
         ecg_stemi: 0,
         trauma: 0,
         fast_score: 0,
-        blood_glucose: 98,
+        symptoms: [],
+        strokeSymptoms: {
+          facialDrooping: false,
+          armWeakness: false,
+          speechDifficulty: false
+        },
+        patientDataTransferred: true,
+        patientData: transferred,
         paramedicNotes: 'Patient conscious, alert and oriented x4. Low-grade fever with mild dehydration. Stable vital parameters.',
         uploadedAt: undefined,
         uploadedBy: 'Ambulance Crew (Unit HR-10-EM-1081)',
@@ -1864,6 +2164,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       uploadAmbulanceAssessment,
       executeDynamicReroute,
       loadPresetScenario,
+      transferPatientDataToAssessment,
       workerReports,
       addWorkerReport,
       greenCorridorActive,

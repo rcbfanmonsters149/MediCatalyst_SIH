@@ -15,13 +15,19 @@ import {
   ShieldAlert, 
   AlertTriangle,
   Radio,
-  FileText
+  FileText,
+  Thermometer,
+  Droplet,
+  User,
+  ShieldCheck,
+  AlertCircle,
+  Pill
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { Hospital } from '../../types';
 import { EmergencyTrackerCard } from '../EmergencyTrackerCard';
 import { LeafletMap } from '../LeafletMap';
-import { evaluateAmbulanceAssessment } from '../../utils/mlTriage';
+import { evaluateAmbulanceAssessment, getSymptomConfig } from '../../utils/mlTriage';
 
 interface HospitalEmergencyTabProps {
   hospital: Hospital;
@@ -301,66 +307,191 @@ export const HospitalEmergencyTab: React.FC<HospitalEmergencyTabProps> = ({
               </div>
             )}
 
-            {/* Core Vitals Grid */}
-            <div className="grid grid-cols-2 gap-2.5 pt-1 text-xs">
-              
-              {/* Heart Rate */}
-              <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
-                <div className="flex items-center justify-between text-slate-500 text-[11px]">
-                  <span>Heart Rate</span>
-                  <Heart className="w-3.5 h-3.5 text-rose-500" />
+            {/* Auto-Transferred Patient EHR Banner */}
+            {assessment.patientData && (
+              <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl text-xs space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="font-extrabold text-blue-950 flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Auto-Transferred Patient Record</span>
+                  </div>
+                  <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-blue-100 text-blue-800">
+                    ABHA: {assessment.patientData.healthId}
+                  </span>
                 </div>
-                <div className="text-lg font-extrabold text-slate-900 mt-0.5 font-mono">
-                  {assessment.heart_rate} <span className="text-[10px] text-slate-500 font-sans font-normal">BPM</span>
+                <div className="text-[11px] text-slate-700">
+                  <strong>{assessment.patientData.fullName}</strong> ({assessment.patientData.age}y, {assessment.patientData.gender}) • Blood Group: <strong className="text-rose-700">{assessment.patientData.bloodGroup}</strong>
                 </div>
-                <span className="text-[10px] text-slate-500">
-                  {assessment.heart_rate > 100 ? 'Tachycardia' : (assessment.heart_rate < 60 ? 'Bradycardia' : 'Normal')}
-                </span>
+                {assessment.patientData.allergies && assessment.patientData.allergies.length > 0 && (
+                  <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                    <span className="text-[10px] font-bold text-rose-700">Allergies:</span>
+                    {assessment.patientData.allergies.map((a, i) => (
+                      <span key={i} className="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-red-100 text-red-800 border border-red-200">
+                        ⚠️ {a.allergen}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {assessment.patientData.chronicConditions && assessment.patientData.chronicConditions.length > 0 && (
+                  <div className="text-[10px] text-slate-500 truncate">
+                    Chronic: {assessment.patientData.chronicConditions.join(', ')}
+                  </div>
+                )}
               </div>
+            )}
 
-              {/* SpO2 */}
-              <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
-                <div className="flex items-center justify-between text-slate-500 text-[11px]">
-                  <span>Oxygen (SpO2)</span>
-                  <Wind className="w-3.5 h-3.5 text-sky-500" />
+            {/* Essential Vitals Grid (All 7 Measure First Parameters) */}
+            <div className="space-y-1.5 pt-1">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                Essential Vitals (Measured First):
+              </span>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                
+                {/* Heart Rate */}
+                <div className="p-2 bg-slate-50 rounded-xl border border-slate-200">
+                  <div className="flex items-center justify-between text-slate-500 text-[10px]">
+                    <span>Heart Rate (HR)</span>
+                    <Heart className="w-3 h-3 text-rose-500" />
+                  </div>
+                  <div className="text-base font-extrabold text-slate-900 font-mono mt-0.5">
+                    {assessment.heart_rate} <span className="text-[9px] font-normal text-slate-400">bpm</span>
+                  </div>
+                  <span className={`text-[9px] font-bold px-1 py-0.2 rounded ${
+                    assessment.heart_rate > 105 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    {assessment.heart_rate > 105 ? 'Tachycardia' : 'Normal'}
+                  </span>
                 </div>
-                <div className="text-lg font-extrabold text-sky-700 mt-0.5 font-mono">
-                  {assessment.spo2}%
+
+                {/* SpO2 */}
+                <div className="p-2 bg-slate-50 rounded-xl border border-slate-200">
+                  <div className="flex items-center justify-between text-slate-500 text-[10px]">
+                    <span>Oxygen (SpO₂)</span>
+                    <Wind className="w-3 h-3 text-sky-500" />
+                  </div>
+                  <div className="text-base font-extrabold text-sky-700 font-mono mt-0.5">
+                    {assessment.spo2}%
+                  </div>
+                  <span className={`text-[9px] font-bold px-1 py-0.2 rounded ${
+                    assessment.spo2 < 90 ? 'bg-red-100 text-red-800' : 'bg-emerald-100 text-emerald-800'
+                  }`}>
+                    {assessment.spo2 < 90 ? 'Hypoxia' : 'Normal'}
+                  </span>
                 </div>
-                <span className="text-[10px] text-slate-500">
-                  {assessment.spo2 < 88 ? 'Supplemental O2 ON' : 'Normal Saturation'}
-                </span>
+
+                {/* Blood Pressure */}
+                <div className="p-2 bg-slate-50 rounded-xl border border-slate-200">
+                  <div className="flex items-center justify-between text-slate-500 text-[10px]">
+                    <span>BP (mmHg)</span>
+                    <Activity className="w-3 h-3 text-emerald-500" />
+                  </div>
+                  <div className="text-base font-extrabold text-slate-900 font-mono mt-0.5">
+                    {assessment.systolic_bp}/{assessment.diastolic_bp}
+                  </div>
+                  <span className={`text-[9px] font-bold px-1 py-0.2 rounded ${
+                    assessment.systolic_bp < 90 ? 'bg-red-100 text-red-800' : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    {assessment.systolic_bp < 90 ? 'Hypotension' : 'Adequate'}
+                  </span>
+                </div>
+
+                {/* Respiratory Rate */}
+                <div className="p-2 bg-slate-50 rounded-xl border border-slate-200">
+                  <div className="flex items-center justify-between text-slate-500 text-[10px]">
+                    <span>Resp Rate (RR)</span>
+                    <Wind className="w-3 h-3 text-indigo-500" />
+                  </div>
+                  <div className="text-base font-extrabold text-slate-900 font-mono mt-0.5">
+                    {assessment.resp_rate} <span className="text-[9px] font-normal text-slate-400">/min</span>
+                  </div>
+                  <span className="text-[9px] text-slate-500">
+                    {assessment.resp_rate > 24 ? 'Tachypneic' : 'Normal'}
+                  </span>
+                </div>
+
+                {/* Temperature */}
+                <div className="p-2 bg-slate-50 rounded-xl border border-slate-200">
+                  <div className="flex items-center justify-between text-slate-500 text-[10px]">
+                    <span>Temp (°C)</span>
+                    <Thermometer className="w-3 h-3 text-amber-500" />
+                  </div>
+                  <div className="text-base font-extrabold text-slate-900 font-mono mt-0.5">
+                    {assessment.body_temp}°C
+                  </div>
+                  <span className="text-[9px] text-slate-500">
+                    {assessment.body_temp > 38 ? 'Febrile' : 'Normothermia'}
+                  </span>
+                </div>
+
+                {/* Blood Glucose */}
+                <div className="p-2 bg-slate-50 rounded-xl border border-slate-200">
+                  <div className="flex items-center justify-between text-slate-500 text-[10px]">
+                    <span>Glucose (RBS)</span>
+                    <Droplet className="w-3 h-3 text-rose-500" />
+                  </div>
+                  <div className="text-base font-extrabold text-slate-900 font-mono mt-0.5">
+                    {assessment.blood_glucose} <span className="text-[9px] font-normal text-slate-400">mg/dL</span>
+                  </div>
+                  <span className={`text-[9px] font-bold px-1 py-0.2 rounded ${
+                    assessment.blood_glucose < 60 ? 'bg-red-100 text-red-800' : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    {assessment.blood_glucose < 60 ? 'Hypoglycemia' : 'Adequate'}
+                  </span>
+                </div>
+
+                {/* Level of Consciousness */}
+                <div className="p-2 bg-slate-50 rounded-xl border border-slate-200 sm:col-span-3">
+                  <div className="flex items-center justify-between text-slate-500 text-[10px]">
+                    <span className="flex items-center gap-1">
+                      <Brain className="w-3 h-3 text-purple-600" />
+                      <span>Level of Consciousness: {assessment.consciousnessLevel || 'ALERT'}</span>
+                    </span>
+                    <span className="font-mono font-bold text-purple-700">GCS {assessment.gcs}/15</span>
+                  </div>
+                  <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded mt-0.5 inline-block ${
+                    assessment.gcs <= 8 ? 'bg-red-100 text-red-800' : (assessment.gcs <= 12 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800')
+                  }`}>
+                    {assessment.gcs <= 8 ? 'Severe / Comatose (Intubation Alert)' : (assessment.gcs <= 12 ? 'Moderate Impairment' : 'Minor / Alert')}
+                  </span>
+                </div>
+
               </div>
-
-              {/* Blood Pressure */}
-              <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
-                <div className="flex items-center justify-between text-slate-500 text-[11px]">
-                  <span>Blood Pressure</span>
-                  <Activity className="w-3.5 h-3.5 text-emerald-500" />
-                </div>
-                <div className="text-lg font-extrabold text-slate-900 mt-0.5 font-mono">
-                  {assessment.systolic_bp}/{assessment.diastolic_bp}
-                </div>
-                <span className="text-[10px] text-slate-500">
-                  {assessment.systolic_bp < 90 ? 'Hypotension' : 'Adequate'}
-                </span>
-              </div>
-
-              {/* GCS Coma Scale */}
-              <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
-                <div className="flex items-center justify-between text-slate-500 text-[11px]">
-                  <span>GCS Coma Score</span>
-                  <Brain className="w-3.5 h-3.5 text-purple-500" />
-                </div>
-                <div className="text-lg font-extrabold text-purple-700 mt-0.5 font-mono">
-                  {assessment.gcs} / 15
-                </div>
-                <span className="text-[10px] text-slate-500">
-                  {assessment.gcs <= 8 ? 'Severe / Comatose' : (assessment.gcs <= 12 ? 'Moderate' : 'Mild / Alert')}
-                </span>
-              </div>
-
             </div>
+
+            {/* Selected Symptoms Checklist */}
+            {assessment.symptoms && assessment.symptoms.length > 0 && (
+              <div className="space-y-1.5 pt-1 border-t border-slate-100">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                  Reported Clinical Symptoms:
+                </span>
+                <div className="flex items-center flex-wrap gap-1.5">
+                  {assessment.symptoms.map(s => {
+                    const cfg = getSymptomConfig(s);
+                    return (
+                      <span 
+                        key={s} 
+                        className="text-[10px] font-extrabold px-2.5 py-1 rounded-lg bg-rose-50 text-rose-900 border border-rose-200 flex items-center gap-1"
+                      >
+                        <span>{cfg?.emoji || '⚠️'}</span>
+                        <span>{cfg?.label || s}</span>
+                      </span>
+                    );
+                  })}
+                </div>
+
+                {/* Stroke Sub-symptoms if reported */}
+                {assessment.strokeSymptoms && (assessment.strokeSymptoms.facialDrooping || assessment.strokeSymptoms.armWeakness || assessment.strokeSymptoms.speechDifficulty) && (
+                  <div className="p-2 bg-purple-50 rounded-lg border border-purple-200 text-[10px] text-purple-950 space-y-0.5">
+                    <span className="font-bold block">🧠 Stroke FAST Signs Present:</span>
+                    <div className="flex gap-2">
+                      {assessment.strokeSymptoms.facialDrooping && <span className="font-semibold">• Facial Drooping</span>}
+                      {assessment.strokeSymptoms.armWeakness && <span className="font-semibold">• Arm Weakness</span>}
+                      {assessment.strokeSymptoms.speechDifficulty && <span className="font-semibold">• Speech Difficulty</span>}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Additional Clinical Flags & Notes */}
             <div className="space-y-2 pt-1 border-t border-slate-100 text-xs">

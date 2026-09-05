@@ -229,6 +229,17 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
       let initialBounds: L.LatLngBounds | null = null;
       if (corridorRoute && corridorRoute.length > 1) {
         initialBounds = L.latLngBounds(corridorRoute);
+      } else if (showRouteLine && destination) {
+        initialBounds = L.latLngBounds([
+          [effectiveUserCoords.lat, effectiveUserCoords.lng],
+          [destination.lat, destination.lng]
+        ]);
+      } else if (hospitals.length > 0) {
+        const allPoints: [number, number][] = [
+          [effectiveUserCoords.lat, effectiveUserCoords.lng],
+          ...hospitals.map(h => [h.lat, h.lng] as [number, number])
+        ];
+        initialBounds = L.latLngBounds(allPoints);
       } else if (destination) {
         initialBounds = L.latLngBounds([
           [effectiveUserCoords.lat, effectiveUserCoords.lng],
@@ -267,11 +278,11 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
       routeGroupRef.current = L.layerGroup().addTo(map);
       liveAmbLayerRef.current = L.layerGroup().addTo(map);
 
-      // PERFECT FIRST-TIME VIEW: Zoom in to the correct extent framing both places
+      // PERFECT FIRST-TIME VIEW: Zoom in to the correct extent framing all facilities
       if (initialBounds) {
         map.fitBounds(initialBounds, {
-          padding: [65, 65],
-          maxZoom: 15,
+          padding: [50, 50],
+          maxZoom: 13.5,
           animate: false
         });
         hasInitialFitHappenedRef.current = true;
@@ -1066,16 +1077,43 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
           <ExternalLink className="w-3 h-3 opacity-60" />
         </a>
 
+        {/* Fit All Hospitals Button */}
+        {hospitals.length > 1 && (
+          <button
+            type="button"
+            onClick={() => {
+              const map = mapInstanceRef.current;
+              if (!map) return;
+              const allPoints: [number, number][] = [
+                [effectiveUserCoords.lat, effectiveUserCoords.lng],
+                ...hospitals.map(h => [h.lat, h.lng] as [number, number])
+              ];
+              map.flyToBounds(L.latLngBounds(allPoints), {
+                padding: [50, 50],
+                maxZoom: 13.5,
+                duration: 1.0
+              });
+            }}
+            className="px-3 py-2 bg-white/95 hover:bg-white text-slate-700 hover:text-emerald-700 rounded-xl shadow-md border border-slate-200 text-xs font-bold transition flex items-center gap-1.5 backdrop-blur-sm cursor-pointer"
+            title="Fit all nearby hospitals on map"
+          >
+            <Compass className="w-3.5 h-3.5 text-emerald-600" />
+            <span className="hidden sm:inline">All ({hospitals.length})</span>
+          </button>
+        )}
+
         {/* Focus Active Trip Route Button (Google Maps Style) */}
-        <button
-          type="button"
-          onClick={() => focusActiveRoute(true)}
-          className="px-3 py-2 bg-white/95 hover:bg-white text-slate-700 hover:text-blue-700 rounded-xl shadow-md border border-slate-200 text-xs font-bold transition flex items-center gap-1.5 backdrop-blur-sm cursor-pointer"
-          title="Auto-zoom and frame active route (You ➔ Ambulance ➔ Hospital)"
-        >
-          <Navigation className="w-3.5 h-3.5 text-blue-600" />
-          <span className="hidden sm:inline">Focus Route</span>
-        </button>
+        {showRouteLine && (
+          <button
+            type="button"
+            onClick={() => focusActiveRoute(true)}
+            className="px-3 py-2 bg-white/95 hover:bg-white text-slate-700 hover:text-blue-700 rounded-xl shadow-md border border-slate-200 text-xs font-bold transition flex items-center gap-1.5 backdrop-blur-sm cursor-pointer"
+            title="Auto-zoom and frame active route (You ➔ Ambulance ➔ Hospital)"
+          >
+            <Navigation className="w-3.5 h-3.5 text-blue-600" />
+            <span className="hidden sm:inline">Focus Route</span>
+          </button>
+        )}
 
         {/* Locate My GPS Button */}
         <button
@@ -1093,8 +1131,8 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
 
       </div>
 
-      {/* TOP LEFT: Real-time User Location & Nearest Hospital Badge */}
-      <div className="absolute top-3 left-3 z-[1000] bg-white/95 backdrop-blur-sm px-3.5 py-2 rounded-xl shadow-md border border-slate-200 text-xs max-w-xs">
+      {/* TOP LEFT: Real-time User Location & Facilities Count Badge */}
+      <div className="absolute top-3 left-3 z-[1000] bg-white/95 backdrop-blur-sm px-3.5 py-2 rounded-xl shadow-md border border-slate-200 text-xs max-w-sm">
         <div className="flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-ping shrink-0"></span>
           <div className="truncate">
@@ -1102,7 +1140,7 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
               {contextUserLocation?.areaName ? `📍 Near ${contextUserLocation.areaName}` : (userLocation ? '📍 GPS Position Active' : '📍 Current Location')}
             </span>
             <span className="text-[10px] text-emerald-700 font-semibold block truncate">
-              {nearestHospital ? `Nearest: ${nearestHospital.name} (${calculateHaversineKm(effectiveUserCoords.lat, effectiveUserCoords.lng, nearestHospital.lat, nearestHospital.lng)} km)` : 'Locating nearest facility...'}
+              {hospitals.length > 1 ? `${hospitals.length} Hospitals in Range • ` : ''}{nearestHospital ? `Nearest: ${nearestHospital.name} (${calculateHaversineKm(effectiveUserCoords.lat, effectiveUserCoords.lng, nearestHospital.lat, nearestHospital.lng)} km)` : 'Locating nearest facility...'}
             </span>
           </div>
         </div>
@@ -1258,10 +1296,12 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
             <span className="w-3 h-3 rounded-md bg-blue-600 inline-block"></span>
             <span className="text-slate-700 font-medium">Apex Trauma</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full bg-rose-500 inline-block animate-pulse"></span>
-            <span className="text-slate-700 font-medium">Live Ambulance</span>
-          </div>
+          {ambulances.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-full bg-rose-500 inline-block animate-pulse"></span>
+              <span className="text-slate-700 font-medium">Live Ambulance</span>
+            </div>
+          )}
           {trafficSignals.length > 0 && (
             <>
               <div className="flex items-center gap-1 font-semibold text-slate-800">

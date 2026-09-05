@@ -154,20 +154,87 @@ export interface Ambulance {
   etaMinutes: number;
 }
 
-export interface AmbulanceAssessmentForm {
+export type ConsciousnessLevel = 'ALERT' | 'VOICE' | 'PAIN' | 'UNRESPONSIVE';
+
+export interface StrokeSymptoms {
+  facialDrooping: boolean;
+  armWeakness: boolean;
+  speechDifficulty: boolean;
+}
+
+export type EmergencySymptomType = 
+  | 'CHEST_PAIN'
+  | 'DIFFICULTY_BREATHING'
+  | 'SEVERE_BLEEDING'
+  | 'LOSS_OF_CONSCIOUSNESS'
+  | 'SEIZURE'
+  | 'STROKE_LIKE'
+  | 'SEVERE_ABDOMINAL_PAIN'
+  | 'MAJOR_TRAUMA'
+  | 'BURNS'
+  | 'SEVERE_ALLERGIC_REACTION'
+  | 'POISONING_OVERDOSE'
+  | 'HIGH_FEVER_WITH_CONFUSION'
+  | 'PREGNANCY_RELATED';
+
+export interface TransferredPatientData {
+  patientId: string;
+  fullName: string;
+  healthId: string;
+  bloodGroup: string;
   age: number;
-  is_pediatric: number;
+  gender: string;
+  address?: string;
+  emergencyContacts?: {
+    name: string;
+    relation: string;
+    phone: string;
+  }[];
+  allergies: {
+    allergen: string;
+    severity: 'MILD' | 'MODERATE' | 'SEVERE_ANAPHYLAXIS';
+    reaction: string;
+  }[];
+  chronicConditions: string[];
+  currentMedications: {
+    name: string;
+    dosage: string;
+    frequency: string;
+    purpose: string;
+  }[];
+  pastRecordsSummary?: string[];
+  transferredAt?: string;
+}
+
+export interface AmbulanceAssessmentForm {
+  // Essential Vitals (Measure These First)
   heart_rate: number;
+  spo2: number;
   systolic_bp: number;
   diastolic_bp: number;
-  spo2: number;
   resp_rate: number;
-  gcs: number; // 3 to 15
   body_temp: number;
+  blood_glucose: number;
+  consciousnessLevel: ConsciousnessLevel;
+  gcs: number; // 3 to 15
+
+  // Patient metadata
+  age: number;
+  is_pediatric: number;
+
+  // Clinical emergency flags
   ecg_stemi: number; // 0 or 1
   trauma: number; // 0 or 1
   fast_score: number; // 0 to 3 (Stroke scale)
-  blood_glucose: number;
+
+  // Clinical symptoms
+  symptoms: EmergencySymptomType[];
+  strokeSymptoms: StrokeSymptoms;
+
+  // Auto-transferred patient medical history
+  patientDataTransferred: boolean;
+  patientData?: TransferredPatientData;
+
   paramedicNotes?: string;
   uploadedAt?: string;
   uploadedBy?: string;
