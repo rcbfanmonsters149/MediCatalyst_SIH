@@ -42,10 +42,6 @@ export const BioDataPage: React.FC = () => {
 
   const handleDownloadPrescriptionPdf = (rec: PatientRecord) => {
     const printWindow = window.open('', '_blank', 'width=850,height=950');
-    if (!printWindow) {
-      alert('Please allow popups in your browser to print / save your prescription PDF.');
-      return;
-    }
 
     const medRows = (rec.medications && rec.medications.length > 0)
       ? rec.medications.map((m, idx) => `
@@ -188,6 +184,16 @@ export const BioDataPage: React.FC = () => {
         </body>
       </html>
     `;
+
+    if (!printWindow || printWindow.closed) {
+      const blob = new Blob([htmlContent], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const fallbackWindow = window.open(url, '_blank');
+      if (!fallbackWindow) {
+        alert('Please allow popups in your browser to print / save your prescription PDF.');
+      }
+      return;
+    }
 
     printWindow.document.open();
     printWindow.document.write(htmlContent);

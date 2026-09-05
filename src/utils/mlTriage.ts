@@ -56,6 +56,7 @@ export function evaluateAmbulanceAssessment(vitals: AmbulanceAssessmentForm): Tr
   // Hemodynamic Shock
   if (vitals.systolic_bp < 85 && vitals.heart_rate > 115) {
     risks.push(`Severe Hemodynamic Shock (BP: ${vitals.systolic_bp}/${vitals.diastolic_bp}, HR: ${vitals.heart_rate})`);
+    requiredCaps.push('MECHANICAL_VENTILATOR');
   }
 
   // Pediatric Emergency

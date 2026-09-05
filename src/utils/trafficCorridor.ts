@@ -76,8 +76,15 @@ function pointToSegmentDistanceMeters(
   bx: number,
   by: number
 ): { distanceMeters: number; projectionRatio: number } {
+  const midLat = (ax + bx) / 2;
+  const cosFactor = Math.cos((midLat * Math.PI) / 180);
+  
+  const pLon = py * cosFactor;
+  const aLon = ay * cosFactor;
+  const bLon = by * cosFactor;
+
   const dx = bx - ax;
-  const dy = by - ay;
+  const dy = bLon - aLon;
   const lenSq = dx * dx + dy * dy;
 
   if (lenSq === 0) {
@@ -86,11 +93,11 @@ function pointToSegmentDistanceMeters(
   }
 
   // Projection ratio t on segment [0, 1]
-  let t = ((px - ax) * dx + (py - ay) * dy) / lenSq;
+  let t = ((px - ax) * dx + (pLon - aLon) * dy) / lenSq;
   t = Math.max(0, Math.min(1, t));
 
   const projX = ax + t * dx;
-  const projY = ay + t * dy;
+  const projY = ay + t * (by - ay);
 
   const distKm = haversineDistanceKm(px, py, projX, projY);
   return { distanceMeters: distKm * 1000, projectionRatio: t };
@@ -206,13 +213,17 @@ export function identifyRouteSignals(
     // Dynamic ETA in minutes (rounded)
     let etaMinutes = 0;
     if (!isPassed) {
-      etaMinutes = Math.max(1, Math.round((distanceKm / safeSpeed) * 60));
-      // S35 should be ~2 min when starting at 0 progress
-      if (raw.id === 'S35' && ambulanceProgress < 0.05) etaMinutes = 2;
-      if (raw.id === 'S31' && ambulanceProgress < 0.05) etaMinutes = 5;
-      if (raw.id === 'S23' && ambulanceProgress < 0.05) etaMinutes = 8;
-      if (raw.id === 'S18' && ambulanceProgress < 0.05) etaMinutes = 10;
-      if (raw.id === 'S12' && ambulanceProgress < 0.05) etaMinutes = 12;
+      if (speedKmH <= 0) {
+        etaMinutes = Infinity;
+      } else {
+        etaMinutes = Math.max(1, Math.round((distanceKm / safeSpeed) * 60));
+        // S35 should be ~2 min when starting at 0 progress
+        if (raw.id === 'S35' && ambulanceProgress < 0.05) etaMinutes = 2;
+        if (raw.id === 'S31' && ambulanceProgress < 0.05) etaMinutes = 5;
+        if (raw.id === 'S23' && ambulanceProgress < 0.05) etaMinutes = 8;
+        if (raw.id === 'S18' && ambulanceProgress < 0.05) etaMinutes = 10;
+        if (raw.id === 'S12' && ambulanceProgress < 0.05) etaMinutes = 12;
+      }
     }
 
     // Determine default status & light based on proximity

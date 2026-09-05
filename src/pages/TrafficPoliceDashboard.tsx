@@ -28,10 +28,21 @@ export const TrafficPoliceDashboard: React.FC = () => {
   // Find the next upcoming signal along the route
   const nextSignal =
     trafficCorridor.signals.find(s => s.status !== 'CLEARED') ||
-    trafficCorridor.signals[trafficCorridor.signals.length - 1];
+    (trafficCorridor.signals.length > 0 ? trafficCorridor.signals[trafficCorridor.signals.length - 1] : null);
 
   // Specific signal to show telemetry for (user's logged in post, or next upcoming)
   const targetSignal = policeUserSignal || nextSignal;
+
+  if (!nextSignal) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center font-sans">
+        <div className="text-center p-8 bg-white border border-slate-200 rounded-2xl shadow-sm">
+          <h2 className="text-xl font-bold text-slate-800 mb-2">No Active Route</h2>
+          <p className="text-slate-500">There are no traffic signals on the current active route.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white text-slate-900 flex flex-col font-sans">

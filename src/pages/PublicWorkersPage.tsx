@@ -39,21 +39,25 @@ export const PublicWorkersPage: React.FC = () => {
   const [activeWorkerTab, setActiveWorkerTab] = useState<'POLICE' | 'TRAFFIC' | 'ASHA'>('POLICE');
 
   // Police Accident Form State
-  const [accidentLocation, setAccidentLocation] = useState('NH-44 Flyover Exit 12, Rampur Bypass');
+  const [accidentLocation, setAccidentLocation] = useState('');
   const [accidentVictims, setAccidentVictims] = useState(1);
-  const [accidentDescription, setAccidentDescription] = useState('Two-wheeler collided with truck, driver unconscious with head laceration');
+  const [accidentDescription, setAccidentDescription] = useState('');
   const [policeSosSent, setPoliceSosSent] = useState(false);
 
   // ASHA Survey Form State
-  const [ashaMotherName, setAshaMotherName] = useState('Meena Devi');
-  const [ashaVillage, setAshaVillage] = useState('Kalyanpur');
-  const [ashaGestationalWeeks, setAshaGestationalWeeks] = useState(24);
-  const [ashaHb, setAshaHb] = useState(7.1);
-  const [ashaBp, setAshaBp] = useState('140/90');
+  const [ashaMotherName, setAshaMotherName] = useState('');
+  const [ashaVillage, setAshaVillage] = useState('');
+  const [ashaGestationalWeeks, setAshaGestationalWeeks] = useState<number | ''>('');
+  const [ashaHb, setAshaHb] = useState<number | ''>('');
+  const [ashaBp, setAshaBp] = useState('');
   const [ashaSaved, setAshaSaved] = useState(false);
 
   const handlePoliceSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!accidentLocation || !accidentDescription) {
+      alert('Please fill out all required fields');
+      return;
+    }
     addWorkerReport({
       workerType: 'POLICE',
       workerName: 'Sub-Inspector Vikram Rathore',
@@ -80,7 +84,11 @@ export const PublicWorkersPage: React.FC = () => {
 
   const handleAshaSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const isHighRisk = ashaHb < 8.0 || parseInt(ashaBp.split('/')[0]) >= 140;
+    if (!ashaMotherName || !ashaVillage || ashaGestationalWeeks === '' || ashaHb === '' || !ashaBp) {
+      alert('Please fill out all required fields');
+      return;
+    }
+    const isHighRisk = (typeof ashaHb === 'number' && ashaHb < 8.0) || parseInt(ashaBp.split('/')[0]) >= 140;
 
     addWorkerReport({
       workerType: 'ASHA',
@@ -478,7 +486,7 @@ export const PublicWorkersPage: React.FC = () => {
                   <input
                     type="number"
                     value={ashaGestationalWeeks}
-                    onChange={(e) => setAshaGestationalWeeks(parseInt(e.target.value))}
+                    onChange={(e) => setAshaGestationalWeeks(e.target.value ? parseInt(e.target.value) : '')}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold"
                   />
                   <span className="text-[10px] text-slate-400">Weeks</span>
@@ -492,12 +500,12 @@ export const PublicWorkersPage: React.FC = () => {
                     type="number"
                     step="0.1"
                     value={ashaHb}
-                    onChange={(e) => setAshaHb(parseFloat(e.target.value))}
+                    onChange={(e) => setAshaHb(e.target.value ? parseFloat(e.target.value) : '')}
                     className={`w-full px-3 py-2 border rounded-xl text-xs font-semibold ${
-                      ashaHb < 8.0 ? 'bg-rose-50 border-rose-300 text-rose-800' : 'bg-slate-50 border-slate-200'
+                      typeof ashaHb === 'number' && ashaHb < 8.0 ? 'bg-rose-50 border-rose-300 text-rose-800' : 'bg-slate-50 border-slate-200'
                     }`}
                   />
-                  <span className="text-[10px] text-slate-400">{ashaHb < 8.0 ? '⚠️ Severe Anemia' : 'g/dL'}</span>
+                  <span className="text-[10px] text-slate-400">{typeof ashaHb === 'number' && ashaHb < 8.0 ? '⚠️ Severe Anemia' : 'g/dL'}</span>
                 </div>
 
                 <div>

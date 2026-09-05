@@ -20,7 +20,7 @@ interface AmbulanceLoginPageProps {
 export const AmbulanceLoginPage: React.FC<AmbulanceLoginPageProps> = ({ onSuccess }) => {
   const { loginAmbulance, ambulances } = useApp();
   const [vehicleNumberInput, setVehicleNumberInput] = useState('');
-  const [passcode, setPasscode] = useState('108108');
+  const [passcode, setPasscode] = useState('');
   const [error, setError] = useState('');
 
   const handleLogin = (vehNumberToUse?: string) => {

@@ -14,15 +14,12 @@ import {
   Zap,
   Scan,
   Disc,
-  Mic,
-  Truck,
-  Building2
+  Mic
 } from 'lucide-react';
 import { useApp, calculateHaversineKm } from '../context/AppContext';
 import { LeafletMap } from '../components/LeafletMap';
 import { getCapabilityFriendlyName } from '../utils/mlTriage';
 import { VoiceSOSRecognitionModal } from '../components/VoiceSOSRecognitionModal';
-import { Link } from 'react-router-dom';
 
 interface CitizenPageProps {
   onOpenEmergency: () => void;
@@ -94,98 +91,12 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
         </div>
       </div>
 
-      {/* Stakeholder Operations Portals Quick Switcher */}
-      <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-100">
-          <div>
-            <h2 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
-              <span>🚀 Operational Role Portals</span>
-              <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-200">
-                Connected SIH Network
-              </span>
-            </h2>
-            <p className="text-xs text-slate-500">
-              Direct access for emergency paramedics, hospital administrators, traffic controllers, and frontline ASHA health workers.
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Link
-            to="/ambulance"
-            className="p-3.5 rounded-xl border border-emerald-200/80 bg-emerald-50/40 hover:bg-emerald-50 hover:border-emerald-300 transition group flex flex-col justify-between shadow-2xs"
-          >
-            <div className="flex items-center justify-between">
-              <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition">
-                <Truck className="w-4 h-4" />
-              </div>
-              <span className="text-[10px] font-bold text-emerald-700 bg-white px-2 py-0.5 rounded-md border border-emerald-200 shadow-2xs">
-                108 Fleet
-              </span>
-            </div>
-            <div className="mt-2.5">
-              <span className="font-bold text-xs text-slate-900 block group-hover:text-emerald-700 transition">Ambulance Cockpit</span>
-              <span className="text-[10px] text-slate-500 block">Driver route & telemetry</span>
-            </div>
-          </Link>
-
-          <Link
-            to="/hospital"
-            className="p-3.5 rounded-xl border border-blue-200/80 bg-blue-50/40 hover:bg-blue-50 hover:border-blue-300 transition group flex flex-col justify-between shadow-2xs"
-          >
-            <div className="flex items-center justify-between">
-              <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition">
-                <Building2 className="w-4 h-4" />
-              </div>
-              <span className="text-[10px] font-bold text-blue-700 bg-white px-2 py-0.5 rounded-md border border-blue-200 shadow-2xs">
-                Hospital
-              </span>
-            </div>
-            <div className="mt-2.5">
-              <span className="font-bold text-xs text-slate-900 block group-hover:text-blue-700 transition">Hospital Staff Desk</span>
-              <span className="text-[10px] text-slate-500 block">Emergency ER & bed status</span>
-            </div>
-          </Link>
-
-          <Link
-            to="/police"
-            className="p-3.5 rounded-xl border border-amber-200/80 bg-amber-50/40 hover:bg-amber-50 hover:border-amber-300 transition group flex flex-col justify-between shadow-2xs"
-          >
-            <div className="flex items-center justify-between">
-              <div className="w-8 h-8 rounded-lg bg-amber-600 text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition">
-                <ShieldCheck className="w-4 h-4" />
-              </div>
-              <span className="text-[10px] font-bold text-amber-800 bg-white px-2 py-0.5 rounded-md border border-amber-200 shadow-2xs">
-                Traffic ITMS
-              </span>
-            </div>
-            <div className="mt-2.5">
-              <span className="font-bold text-xs text-slate-900 block group-hover:text-amber-800 transition">Traffic Police Post</span>
-              <span className="text-[10px] text-slate-500 block">Signal green corridor wave</span>
-            </div>
-          </Link>
-
-          <Link
-            to="/workers"
-            className="p-3.5 rounded-xl border border-purple-200/80 bg-purple-50/40 hover:bg-purple-50 hover:border-purple-300 transition group flex flex-col justify-between shadow-2xs"
-          >
-            <div className="flex items-center justify-between">
-              <div className="w-8 h-8 rounded-lg bg-purple-600 text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition">
-                <HeartPulse className="w-4 h-4" />
-              </div>
-              <span className="text-[10px] font-bold text-purple-700 bg-white px-2 py-0.5 rounded-md border border-purple-200 shadow-2xs">
-                Community
-              </span>
-            </div>
-            <div className="mt-2.5">
-              <span className="font-bold text-xs text-slate-900 block group-hover:text-purple-700 transition">ASHA & Frontline</span>
-              <span className="text-[10px] text-slate-500 block">Maternal health & police SOS</span>
-            </div>
-          </Link>
-        </div>
-      </div>
-
       {/* 2. Map Section (Directly after Emergency Button at the Top) */}
+      {!userLocation && (
+        <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-center gap-2">
+          <span>📍 Location access unavailable — showing default area. Enable GPS for accurate results.</span>
+        </div>
+      )}
       <div id="map-section" className="bg-white p-4 sm:p-5 rounded-2xl shadow-xs border border-slate-200 space-y-3">
         <div className="flex items-center justify-between pb-2 border-b border-slate-100">
           <div className="flex items-center gap-2">
@@ -222,12 +133,20 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
         <div className="grid grid-cols-1 gap-4">
           {sortedHospitals.map(hosp => {
             const isSelected = hosp.id === selectedHospitalId;
-            const availableDoctors = hosp.doctorsOnDuty.filter(d => d.available);
+            const availableDoctors = hosp.doctorsOnDuty.filter(d => d.statusDetail === 'AVAILABLE');
 
             return (
               <div
                 key={hosp.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => setSelectedHospitalId(hosp.id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setSelectedHospitalId(hosp.id);
+                  }
+                }}
                 className={`p-5 rounded-2xl bg-white border transition shadow-xs hover:shadow-md cursor-pointer ${
                   isSelected 
                     ? 'border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-50/20' 
@@ -367,9 +286,18 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
                 {/* Interactive On-Duty Doctors & Medical Staff Roster */}
                 <div className="mt-3 space-y-2">
                   <div 
+                    role="button"
+                    tabIndex={0}
                     onClick={(e) => {
                       e.stopPropagation();
                       setExpandedDoctorHospId(expandedDoctorHospId === hosp.id ? null : hosp.id);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setExpandedDoctorHospId(expandedDoctorHospId === hosp.id ? null : hosp.id);
+                      }
                     }}
                     className="p-3 bg-emerald-50/80 hover:bg-emerald-100/90 text-emerald-950 rounded-xl border border-emerald-200 cursor-pointer transition flex items-center justify-between group shadow-2xs"
                   >

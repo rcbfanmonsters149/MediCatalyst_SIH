@@ -40,60 +40,31 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
   const [chatMessage, setChatMessage] = useState('');
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
 
-  // Fallback guaranteed live incident disp-2026-9041
-  const fallbackDispatch = {
-    id: 'disp-2026-9041',
-    callerName: 'Rameshwar Singh',
-    callerPhone: '+91 98765 43210',
-    callerVoiceTranscript: 'Road bike accident, head impact with helmet cracked, patient groaning with low consciousness',
-    callerIssue: 'Road bike accident, head impact with helmet cracked, patient groaning with low consciousness',
-    urgencyLevel: 'CRITICAL' as const,
-    patientCount: 1,
-    currentStep: 4,
-    pickupAddress: 'Near Milestone 34, Old GT Road, Rampur Outskirts',
-    pickupLat: 28.7080,
-    pickupLng: 77.0980,
-    createdAt: new Date().toLocaleTimeString(),
-    status: 'ACCEPTED' as const,
-    currentHospitalId: 'hosp-rampur-phc',
-    assignedAmbulanceId: 'amb-01',
-    timeoutSecondsRemaining: 92,
-    waterfallHistory: [
-      {
-        hospitalId: 'hosp-rampur-phc',
-        hospitalName: 'Rampur Primary Health Center (PHC)',
-        sentAt: '01:31 AM',
-        status: 'ACCEPTED' as const,
-        responseTimeSeconds: 28,
-        note: 'Nearest Ambulance HR-10-EM-1081 (0.4 km away) dispatched first; Rampur PHC confirmed trauma intake'
-      }
-    ],
-    vitals: {
-      age: 48,
-      is_pediatric: 0,
-      heart_rate: 112,
-      systolic_bp: 88,
-      diastolic_bp: 56,
-      spo2: 90,
-      resp_rate: 26,
-      gcs: 8,
-      body_temp: 36.6,
-      ecg_stemi: 0,
-      trauma: 1,
-      fast_score: 0,
-      blood_glucose: 110
-    },
-    mlAcuity: 'ESI-1' as const,
-    mlRequiredCapabilities: ['NEURO_SURGERY_ICU', 'TRAUMA_OT', 'MECHANICAL_VENTILATOR'],
-    messages: [
-      { sender: 'CITIZEN' as const, text: 'Road bike accident, head impact with helmet cracked, patient groaning with low consciousness. Please hurry!', timestamp: '01:31 AM', type: 'VOICE' as const },
-      { sender: 'PARAMEDIC' as const, text: '🚨 Nearest Ambulance HR-10-EM-1081 (0.4 km away, ETA 2 mins) dispatched immediately to your coordinates! Driver: Jagdish Kumar.', timestamp: '01:31 AM', type: 'TEXT' as const },
-      { sender: 'HOSPITAL' as const, text: 'Rampur PHC confirmed bed readiness. Trauma OT and Dr. Kavita Sharma alerted.', timestamp: '01:32 AM', type: 'TEXT' as const },
-      { sender: 'PARAMEDIC' as const, text: 'Patient onboard. Vitals recorded: GCS 8, SpO2 89%. Telemetry active.', timestamp: '01:35 AM', type: 'TEXT' as const }
-    ]
-  };
+  const dispatch = activeDispatch;
 
-  const dispatch = activeDispatch || fallbackDispatch;
+  if (!dispatch) {
+    return (
+      <div className="space-y-6">
+        <TollFreeBanner />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center space-y-4">
+          <ShieldAlert className="w-16 h-16 text-slate-300 mx-auto" />
+          <h2 className="text-xl font-bold text-slate-700">No active emergency dispatch.</h2>
+          <p className="text-sm text-slate-500">Use the SOS button to request an ambulance.</p>
+          <button 
+            onClick={() => setIsVoiceModalOpen(true)}
+            className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md transition"
+          >
+            Trigger Emergency SOS
+          </button>
+        </div>
+        <VoiceSOSRecognitionModal
+          isOpen={isVoiceModalOpen}
+          onClose={() => setIsVoiceModalOpen(false)}
+          initialLanguage="hi-IN"
+        />
+      </div>
+    );
+  }
 
   const memoizedPickup = useMemo(() => ({
     lat: dispatch.pickupLat,

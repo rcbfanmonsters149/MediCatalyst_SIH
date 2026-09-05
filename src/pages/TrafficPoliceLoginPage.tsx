@@ -19,7 +19,7 @@ interface TrafficPoliceLoginPageProps {
 export const TrafficPoliceLoginPage: React.FC<TrafficPoliceLoginPageProps> = ({ onSuccess }) => {
   const { loginPoliceSignal, trafficCorridor } = useApp();
   const [signalIdInput, setSignalIdInput] = useState('');
-  const [pinCode, setPinCode] = useState('108');
+  const [pinCode, setPinCode] = useState('');
   const [error, setError] = useState('');
 
   const handleLogin = (idToUse?: string) => {

@@ -69,6 +69,7 @@ export const VoiceSOSRecognitionModal: React.FC<VoiceSOSRecognitionModalProps> =
   initialLanguage = 'hi-IN',
   onTranscriptSubmitted
 }) => {
+  const isSpeechSupported = typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
   const { sendDispatchMessage } = useApp();
 
   const [selectedLang, setSelectedLang] = useState<VoiceLanguage>(initialLanguage);
@@ -176,6 +177,9 @@ export const VoiceSOSRecognitionModal: React.FC<VoiceSOSRecognitionModalProps> =
     if (isListening) {
       stopListening();
     } else {
+      const unlock = new SpeechSynthesisUtterance('');
+      unlock.volume = 0;
+      window.speechSynthesis.speak(unlock);
       startListening();
     }
   };
@@ -339,28 +343,34 @@ export const VoiceSOSRecognitionModal: React.FC<VoiceSOSRecognitionModalProps> =
               </>
             )}
 
-            <button
-              type="button"
-              onClick={handleToggleListening}
-              className={`w-24 h-24 sm:w-28 sm:h-28 rounded-full flex flex-col items-center justify-center shadow-xl transition-all transform hover:scale-105 active:scale-95 cursor-pointer z-10 ${
-                isListening
-                  ? 'bg-red-600 text-white ring-8 ring-red-200 animate-pulse'
-                  : 'bg-gradient-to-tr from-emerald-600 to-teal-700 text-white hover:from-emerald-700 hover:to-teal-800'
-              }`}
-              aria-label={isListening ? 'Stop listening' : 'Start speaking'}
-            >
-              {isListening ? (
-                <>
-                  <MicOff className="w-9 h-9 sm:w-10 sm:h-10 animate-bounce" />
-                  <span className="text-[10px] font-black uppercase tracking-wider mt-1">Listening...</span>
-                </>
-              ) : (
-                <>
-                  <Mic className="w-9 h-9 sm:w-10 sm:h-10" />
-                  <span className="text-[10px] font-black uppercase tracking-wider mt-1">Tap to Speak</span>
-                </>
-              )}
-            </button>
+            {isSpeechSupported ? (
+              <button
+                type="button"
+                onClick={handleToggleListening}
+                className={`w-24 h-24 sm:w-28 sm:h-28 rounded-full flex flex-col items-center justify-center shadow-xl transition-all transform hover:scale-105 active:scale-95 cursor-pointer z-10 ${
+                  isListening
+                    ? 'bg-red-600 text-white ring-8 ring-red-200 animate-pulse'
+                    : 'bg-gradient-to-tr from-emerald-600 to-teal-700 text-white hover:from-emerald-700 hover:to-teal-800'
+                }`}
+                aria-label={isListening ? 'Stop listening' : 'Start speaking'}
+              >
+                {isListening ? (
+                  <>
+                    <MicOff className="w-9 h-9 sm:w-10 sm:h-10 animate-bounce" />
+                    <span className="text-[10px] font-black uppercase tracking-wider mt-1">Listening...</span>
+                  </>
+                ) : (
+                  <>
+                    <Mic className="w-9 h-9 sm:w-10 sm:h-10" />
+                    <span className="text-[10px] font-black uppercase tracking-wider mt-1">Tap to Speak</span>
+                  </>
+                )}
+              </button>
+            ) : (
+              <div className="text-center p-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-500 text-sm">
+                Voice recognition is not supported in this browser. Please use the preset phrases below.
+              </div>
+            )}
           </div>
 
           <div className="text-center">
