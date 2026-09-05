@@ -89,7 +89,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
                 setTimeout(() => {
                   const el = document.getElementById('map-section') || document.querySelector('.leaflet-container');
                   if (el) el.scrollIntoView({ behavior: 'smooth' });
-                }, 100);
+                }, 300);
               }}
               className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-bold bg-blue-50/90 hover:bg-blue-100 text-blue-700 border border-blue-200 transition shadow-2xs group cursor-pointer"
               title="View live GPS hospital radar & moving ambulance tracker"
@@ -221,13 +221,19 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
               }`}
               title="Click to view your personal health profile, ABHA ID, and records"
             >
-              <div className="w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shadow-2xs">
-                {user.fullName.charAt(0)}
-              </div>
-              <div className="hidden sm:block">
-                <p className="font-bold text-slate-800 leading-none">{user.fullName}</p>
-                <p className="text-[10px] text-slate-500 leading-tight mt-0.5">ABHA: {user.healthId.slice(0, 7)}...</p>
-              </div>
+              {user ? (
+                <>
+                  <div className="w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shadow-2xs">
+                    {user?.fullName?.charAt(0)}
+                  </div>
+                  <div className="hidden sm:block">
+                    <p className="font-bold text-slate-800 leading-none">{user?.fullName}</p>
+                    <p className="text-[10px] text-slate-500 leading-tight mt-0.5">ABHA: {user?.healthId?.slice(0, 7)}...</p>
+                  </div>
+                </>
+              ) : (
+                <div className="hidden sm:block"><p className="font-bold text-slate-800 leading-none">Profile</p></div>
+              )}
             </button>
           </div>
 
@@ -249,7 +255,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
               setTimeout(() => {
                 const el = document.getElementById('map-section') || document.querySelector('.leaflet-container');
                 if (el) el.scrollIntoView({ behavior: 'smooth' });
-              }, 100);
+              }, 300);
             }}
             className="flex-1 py-1.5 text-center font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg transition"
           >

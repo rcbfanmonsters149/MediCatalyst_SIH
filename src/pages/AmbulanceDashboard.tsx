@@ -53,7 +53,7 @@ export const AmbulanceDashboard: React.FC = () => {
 
   const isRerouted = activeDispatch?.status === 'REROUTED';
   const targetHospital = isRerouted 
-    ? (hospitals.find(h => h.id === activeDispatch.currentHospitalId) || hospitals[3])
+    ? (hospitals.find(h => h.id === activeDispatch.currentHospitalId) || hospitals[0])
     : currentHospital;
 
   const triggerNotify = (msg: string) => {

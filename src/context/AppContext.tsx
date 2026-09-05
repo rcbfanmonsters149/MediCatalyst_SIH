@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   Hospital, 
   UserBioData, 
@@ -879,8 +879,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const hospLng = targetHosp.lng;
 
         // Origin ambulance station/depot
-        const originLat = patientLat + 0.0075;
-        const originLng = patientLng + 0.0065;
+        const assignedAmb = ambulances.find(a => a.id === activeDispatch?.assignedAmbulanceId);
+        const originLat = assignedAmb?.currentLat ?? (patientLat + 0.0075);
+        const originLng = assignedAmb?.currentLng ?? (patientLng + 0.0065);
 
         let nextProgress = prev.progress + 0.008;
         if (nextProgress >= 1.0) nextProgress = 0.0;
@@ -952,7 +953,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     if (!policeUserSignal) return;
     const current = trafficCorridor.signals.find(s => s.id === policeUserSignal.id);
-    if (current && (current.etaMinutes !== policeUserSignal.etaMinutes || current.distanceKm !== policeUserSignal.distanceKm || current.status !== policeUserSignal.status)) {
+    if (current && (current.etaMinutes !== policeUserSignal.etaMinutes || current.distanceKm !== policeUserSignal.distanceKm || current.status !== policeUserSignal.status || current.lightState !== policeUserSignal.lightState)) {
       setPoliceUserSignal(current);
     }
   }, [trafficCorridor.signals, policeUserSignal]);
@@ -1022,7 +1023,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Reactive 2-Minute SLA Countdown Timer for Emergency Waterfall Dispatch
   useEffect(() => {
-    if (!activeDispatch || activeDispatch.status !== 'PENDING_HOSPITAL_ACCEPT') return;
+    if (activeDispatch?.status !== 'PENDING_HOSPITAL_ACCEPT') return;
 
     const timer = setInterval(() => {
       setActiveDispatch(prev => {
@@ -1073,7 +1074,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [activeDispatch, hospitals]);
+  }, [activeDispatch?.id, activeDispatch?.status, hospitals]);
 
   const updateHospitalBeds = (hospitalId: string, bedType: HospitalResourceType, delta: number) => {
     setHospitals(prev => {
@@ -1287,8 +1288,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const createEmergencyDispatch = (issueText: string, voiceTranscript?: string, urgency: 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL' = 'CRITICAL') => {
-    const pickupLat = 28.7080;
-    const pickupLng = 77.0980;
+    const pickupLat = userLocation?.lat ?? 28.7080;
+    const pickupLng = userLocation?.lng ?? 77.0980;
 
     // 1. NEAREST AMBULANCE FIRST ARCHITECTURE:
     // Compute spherical distance (Haversine) from patient's GPS coordinates to ALL available fleet ambulances
@@ -1828,8 +1829,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.removeItem('medcatalyst_police_signal');
   };
 
-  return (
-    <AppContext.Provider value={{
+  const contextValue = useMemo(() => ({
       hospitals,
       updateHospitalBeds,
       selectedHospitalId,
@@ -1883,7 +1883,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       userLocation,
       relocateToUserLocation,
       liveAmbulance
-    }}>
+    }), [
+      hospitals,
+      selectedHospitalId,
+      hospitalUser,
+      user,
+      isLoggedIn,
+      ambulances,
+      ambulanceUser,
+      activeDispatch,
+      ambulanceAssessment,
+      workerReports,
+      greenCorridorActive,
+      clearedJunctions,
+      trafficCorridor,
+      policeUserSignal,
+      userLocation,
+      liveAmbulance,
+      relocateToUserLocation
+    ]);
+
+  return (
+    <AppContext.Provider value={contextValue}>
       {children}
     </AppContext.Provider>
   );

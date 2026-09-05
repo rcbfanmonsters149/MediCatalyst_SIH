@@ -31,7 +31,10 @@ export const HospitalDashboard: React.FC = () => {
 
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
-  const initialTab = (searchParams.get('tab') as HospitalSubTab) || 'management';
+  const validTabs: HospitalSubTab[] = ['management', 'emergency', 'ambulance'];
+  const initialTab = validTabs.includes(searchParams.get('tab') as HospitalSubTab) 
+    ? (searchParams.get('tab') as HospitalSubTab) 
+    : 'management';
 
   const [activeSubTab, setActiveSubTab] = useState<HospitalSubTab>(initialTab);
   const [notification, setNotification] = useState<string | null>(null);
@@ -98,14 +101,14 @@ export const HospitalDashboard: React.FC = () => {
       {/* Main Content Container */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
-        {/* Live Notification Banner */}
+        {/* Live Notification Floating Toast */}
         {notification && (
-          <div className="p-4 bg-emerald-600 text-white rounded-2xl shadow-lg flex items-center justify-between animate-in fade-in slide-in-from-top-2">
-            <div className="flex items-center gap-2 text-sm font-bold">
-              <CheckCircle2 className="w-5 h-5" />
-              <span>{notification}</span>
+          <div className="fixed top-20 right-6 z-50 p-4 bg-emerald-600 text-white rounded-2xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2 border border-emerald-500 max-w-md">
+            <CheckCircle2 className="w-5 h-5 shrink-0" />
+            <div>
+              <p className="text-sm font-bold">{notification}</p>
+              <span className="text-[10px] text-emerald-100 font-mono">Live Broadcast Active</span>
             </div>
-            <span className="text-xs text-emerald-100 font-mono">Live Broadcast Active</span>
           </div>
         )}
 

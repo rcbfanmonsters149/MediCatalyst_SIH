@@ -292,14 +292,19 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
 
       const container = mapContainerRef.current;
       const onWheel = (e: WheelEvent) => {
+        // Allow normal page scrolling when mouse wheel is used over map.
+        // Only zoom map if user holds Ctrl/Cmd (standard map gesture behavior) or pinches.
+        const isPinchOrCtrl = e.ctrlKey || e.metaKey;
+        if (!isPinchOrCtrl) {
+          return; // Let the browser scroll the page normally!
+        }
+
         e.preventDefault();
         e.stopPropagation();
 
         hasUserInteractedRef.current = true;
 
-        // macOS Chrome trackpad pinch triggers wheel with e.ctrlKey = true
-        const isPinch = e.ctrlKey;
-        const zoomDelta = isPinch ? e.deltaY * -0.015 : e.deltaY * -0.0012;
+        const zoomDelta = e.deltaY * -0.015;
         const currentZoom = map.getZoom();
         targetZoom = Math.min(18, Math.max(10, (zoomRafId !== null ? targetZoom : currentZoom) + zoomDelta));
 
@@ -348,6 +353,10 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
         container.removeEventListener('gesturechange', onGestureChange);
         container.removeEventListener('gestureend', onGestureEnd);
         if (zoomRafId !== null) cancelAnimationFrame(zoomRafId);
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.remove();
+          mapInstanceRef.current = null;
+        }
       };
     }
 
@@ -1036,10 +1045,10 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
   }, [liveAmbulance]);
 
   return (
-    <div className="relative w-full rounded-2xl overflow-hidden border border-slate-200 shadow-sm" style={{ height, touchAction: 'none' }}>
+    <div className="relative w-full rounded-2xl overflow-hidden border border-slate-200 shadow-sm" style={{ height }}>
       
       {/* Map Container */}
-      <div ref={mapContainerRef} className="w-full h-full z-0" style={{ touchAction: 'none' }} />
+      <div ref={mapContainerRef} className="w-full h-full z-0" />
 
       {/* TOP FLOATING CONTROLS BAR: OpenStreetMap Controls + Focus Route + Locate Me */}
       <div className="absolute top-3 right-3 z-[1000] flex items-center gap-2">
@@ -1073,12 +1082,10 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
           type="button"
           onClick={() => detectUserLocation(true)}
           disabled={isLocating}
-          className={`p-2 bg-white/95 hover:bg-white text-slate-700 rounded-xl shadow-md border border-slate-200 text-xs font-bold transition flex items-center gap-1.5 backdrop-blur-sm cursor-pointer ${
-            isLocating ? 'text-blue-600 animate-spin' : 'hover:text-blue-600'
-          }`}
+          className="p-2 bg-white/95 hover:bg-white text-slate-700 hover:text-blue-600 rounded-xl shadow-md border border-slate-200 text-xs font-bold transition flex items-center gap-1.5 backdrop-blur-sm cursor-pointer disabled:opacity-60"
           title="Center on my current GPS location"
         >
-          <Locate className={`w-4 h-4 ${isLocating ? 'animate-spin text-blue-600' : 'text-blue-600'}`} />
+          <Locate className="w-4 h-4 text-blue-600" />
           <span className="text-[11px] font-bold hidden md:inline">
             {isLocating ? 'Locating...' : 'My Location'}
           </span>

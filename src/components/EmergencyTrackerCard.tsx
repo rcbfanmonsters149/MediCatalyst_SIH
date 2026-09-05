@@ -92,6 +92,13 @@ export const EmergencyTrackerCard: React.FC<EmergencyTrackerCardProps> = ({
     return () => clearInterval(timer);
   }, [isPlaying, onStepChange]);
 
+  // Keep internal step in sync when parent controls it
+  useEffect(() => {
+    if (controlledStep !== undefined) {
+      setInternalStep(controlledStep);
+    }
+  }, [controlledStep]);
+
   return (
     <div className={`bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xs max-w-2xl font-sans ${className}`}>
       

@@ -198,8 +198,10 @@ export const HospitalEmergencyTab: React.FC<HospitalEmergencyTabProps> = ({
             patientCount={activeDispatch.patientCount || 1}
             currentStep={activeDispatch.currentStep || 3}
             onStepChange={(step) => {
-              updateDispatchStep(step);
-              onNotify(`Incident stage updated to Step ${step}. Synchronized across grid!`);
+              if (activeDispatch.currentStep !== step) {
+                updateDispatchStep(step);
+                onNotify(`Incident stage updated to Step ${step}. Synchronized across grid!`);
+              }
             }}
             className="w-full shadow-md"
           />

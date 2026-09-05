@@ -4,7 +4,7 @@ FastAPI Server for Emergency Triage & Hospital Capability Matching
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 import joblib
 import json
@@ -15,7 +15,8 @@ app = FastAPI(title="MedCatalyst - Emergency Triage & Hospital Matching API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    # Production should use the actual domain
+    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -31,18 +32,19 @@ with open(os.path.join(MODEL_DIR, "model_metadata.json"), "r") as f:
 class AmbulanceAssessmentPayload(BaseModel):
     age: int = 45
     is_pediatric: int = 0
-    heart_rate: int = 110
-    systolic_bp: int = 85
-    diastolic_bp: int = 55
-    spo2: int = 91
-    resp_rate: int = 24
-    gcs: int = 8
+    heart_rate: int = Field(default=110, ge=0, le=300)
+    systolic_bp: int = Field(default=85, ge=0, le=400)
+    diastolic_bp: int = Field(default=55, ge=0, le=300)
+    spo2: int = Field(default=91, ge=0, le=100)
+    resp_rate: int = Field(default=24, ge=0, le=80)
+    gcs: int = Field(default=8, ge=3, le=15)
     body_temp: float = 36.6
     ecg_stemi: int = 0
     trauma: int = 1
     fast_score: int = 0
     blood_glucose: int = 110
     paramedic_notes: Optional[str] = None
+    pain_scale: int = Field(default=0, ge=0, le=10)
 
 # Backward compatibility alias
 TelemetryPayload = AmbulanceAssessmentPayload
@@ -50,7 +52,7 @@ TelemetryPayload = AmbulanceAssessmentPayload
 class HospitalMatchRequest(BaseModel):
     assessment: Optional[AmbulanceAssessmentPayload] = None
     telemetry: Optional[TelemetryPayload] = None
-    target_hospital_capabilities: List[str] # e.g. ["24_7_CATH_LAB", "ICU", "TRAUMA_OT"]
+    target_hospital_capabilities: List[str] # e.g. ["CATH_LAB_24X7", "NEURO_SURGERY_ICU", "TRAUMA_OT"]
     available_ventilators: int = 2
 
 @app.get("/")
@@ -69,8 +71,11 @@ def predict_triage(data: TelemetryPayload):
         data.fast_score, data.blood_glucose
     ]])
     
-    acuity = acuity_model.predict(features)[0]
-    cap_preds = cap_model.predict(features)[0]
+    try:
+        acuity = acuity_model.predict(features)[0]
+        cap_preds = cap_model.predict(features)[0]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Model prediction failed: {str(e)}")
     
     cap_labels = ['CATH_LAB_24X7', 'NEURO_SURGERY_ICU', 'TRAUMA_OT', 'MECHANICAL_VENTILATOR', 'PEDIATRIC_ICU']
     needed_capabilities = [label for label, active in zip(cap_labels, cap_preds) if active == 1]
