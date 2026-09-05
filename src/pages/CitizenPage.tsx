@@ -16,7 +16,7 @@ import {
   Disc,
   Mic
 } from 'lucide-react';
-import { useApp } from '../context/AppContext';
+import { useApp, calculateHaversineKm } from '../context/AppContext';
 import { LeafletMap } from '../components/LeafletMap';
 import { getCapabilityFriendlyName } from '../utils/mlTriage';
 import { VoiceSOSRecognitionModal } from '../components/VoiceSOSRecognitionModal';
@@ -27,12 +27,17 @@ interface CitizenPageProps {
 }
 
 export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => {
-  const { hospitals, selectedHospitalId, setSelectedHospitalId } = useApp();
+  const { hospitals, selectedHospitalId, setSelectedHospitalId, ambulances, userLocation } = useApp();
   const [expandedDoctorHospId, setExpandedDoctorHospId] = useState<string | null>('hosp-rampur-phc');
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
 
-  // Sorted nearest hospitals
-  const sortedHospitals = [...hospitals].sort((a, b) => a.distanceKm - b.distanceKm);
+  // Sorted nearest hospitals measured directly from the user's real GPS position
+  const effectiveCoords = userLocation || { lat: 28.7080, lng: 77.0980 };
+  const sortedHospitals = [...hospitals].map(h => {
+    const dist = calculateHaversineKm(effectiveCoords.lat, effectiveCoords.lng, h.lat, h.lng);
+    const eta = Math.max(2, Math.round(dist * 2.1));
+    return { ...h, distanceKm: dist, etaMinutes: eta };
+  }).sort((a, b) => a.distanceKm - b.distanceKm);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
@@ -81,19 +86,25 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
         <div className="flex items-center justify-between pb-2 border-b border-slate-100">
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4 text-blue-600" />
-            <h3 className="font-bold text-slate-800 text-sm">
-              Nearby Hospitals & Healthcare Centers Radar
+            <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+              <span>Nearby Hospitals & Healthcare Centers Radar</span>
+              {userLocation?.areaName && (
+                <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+                  📍 {userLocation.areaName}
+                </span>
+              )}
             </h3>
           </div>
         </div>
         
         <LeafletMap
           hospitals={hospitals}
-          pickupLocation={{
-            lat: 28.6920,
-            lng: 77.1150,
-            label: 'Your Current Location (Village Rampur)'
-          }}
+          ambulances={ambulances}
+          pickupLocation={userLocation ? {
+            lat: userLocation.lat,
+            lng: userLocation.lng,
+            label: `Your Current Location (${userLocation.areaName || 'Live GPS'})`
+          } : undefined}
           selectedHospitalId={selectedHospitalId}
           onSelectHospital={(id) => setSelectedHospitalId(id)}
           height="450px"
@@ -130,6 +141,11 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
                       <h3 className="text-base sm:text-lg font-bold text-slate-900 font-heading">
                         {hosp.name}
                       </h3>
+                      {hosp.id === sortedHospitals[0]?.id && (
+                        <span className="text-[10px] bg-emerald-600 text-white font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-2xs animate-pulse">
+                          ⭐ Nearest Hospital (~{hosp.distanceKm} km)
+                        </span>
+                      )}
                       <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
                         hosp.type === 'Apex Multi-Specialty' 
                           ? 'bg-blue-100 text-blue-800 border border-blue-200' 

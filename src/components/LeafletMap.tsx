@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import L from 'leaflet';
 import { Hospital, Ambulance, TrafficSignal } from '../types';
 import { Navigation, Locate, ExternalLink, MapPin, Compass, AlertCircle } from 'lucide-react';
+import { useApp } from '../context/AppContext';
 
 interface LeafletMapProps {
   hospitals?: Hospital[];
@@ -66,14 +67,18 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
   showLegend = true,
   showRouteLine = false
 }) => {
+  const { userLocation: contextUserLocation, relocateToUserLocation } = useApp();
+
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersGroupRef = useRef<L.LayerGroup | null>(null);
   const userMarkerGroupRef = useRef<L.LayerGroup | null>(null);
   const routeGroupRef = useRef<L.LayerGroup | null>(null);
 
-  // User's detected real-time GPS location (default fallback: Delhi NCR / Haryana corridor)
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy?: number } | null>(null);
+  // User's detected real-time GPS location
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy?: number } | null>(() => {
+    return contextUserLocation ? { lat: contextUserLocation.lat, lng: contextUserLocation.lng } : null;
+  });
   const [isLocating, setIsLocating] = useState<boolean>(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [hasCenteredOnUser, setHasCenteredOnUser] = useState<boolean>(false);
@@ -98,8 +103,11 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
         setUserLocation(coords);
         setIsLocating(false);
 
+        // Dynamically relocate hospitals and ambulances to the user's immediate coordinates
+        relocateToUserLocation(coords.lat, coords.lng);
+
         if (mapInstanceRef.current && (forcePan || !hasCenteredOnUser)) {
-          mapInstanceRef.current.flyTo([coords.lat, coords.lng], 13, {
+          mapInstanceRef.current.flyTo([coords.lat, coords.lng], 14, {
             duration: 1.5
           });
           setHasCenteredOnUser(true);
@@ -107,9 +115,6 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
       },
       (err) => {
         console.warn('Geolocation lookup notice:', err.message);
-        // Fallback default coordinates (Milestone 34, GT Road Corridor)
-        const fallback = { lat: 28.7080, lng: 77.0980 };
-        setUserLocation(fallback);
         setIsLocating(false);
         if (err.code === err.PERMISSION_DENIED) {
           setLocationError('Location permission denied. Using default regional center.');
@@ -121,15 +126,22 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
         maximumAge: 30000
       }
     );
-  }, [hasCenteredOnUser]);
+  }, [hasCenteredOnUser, relocateToUserLocation]);
 
   // Initial location detection on component mount
   useEffect(() => {
     detectUserLocation(false);
   }, [detectUserLocation]);
 
+  // Keep synced with context userLocation
+  useEffect(() => {
+    if (contextUserLocation && (!userLocation || userLocation.lat !== contextUserLocation.lat || userLocation.lng !== contextUserLocation.lng)) {
+      setUserLocation({ lat: contextUserLocation.lat, lng: contextUserLocation.lng });
+    }
+  }, [contextUserLocation]);
+
   // Determine current active anchor position for distance calculations
-  const effectiveUserCoords = userLocation || pickupLocation || { lat: 28.7080, lng: 77.0980 };
+  const effectiveUserCoords = userLocation || (contextUserLocation ? { lat: contextUserLocation.lat, lng: contextUserLocation.lng } : null) || pickupLocation || { lat: 28.7080, lng: 77.0980 };
 
   // Calculate nearest hospital from user's current GPS position
   const nearestHospital = hospitals.reduce((closest, curr) => {
@@ -732,6 +744,15 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
       markersGroup.addLayer(destMarker);
     }
 
+    // Auto-fit bounds to user's location and nearby local hospitals
+    if (!corridorRoute && hospitals.length > 0) {
+      const allPoints: [number, number][] = hospitals.map(h => [h.lat, h.lng]);
+      allPoints.push([userLat, userLng]);
+      try {
+        map.fitBounds(L.latLngBounds(allPoints), { padding: [50, 50], maxZoom: 14 });
+      } catch (e) {}
+    }
+
     // Invalidate size
     setTimeout(() => {
       map.invalidateSize();
@@ -802,7 +823,7 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
           <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-ping shrink-0"></span>
           <div className="truncate">
             <span className="font-extrabold text-slate-900 block truncate">
-              {userLocation ? '📍 GPS Position Active' : '📍 Region: Haryana / Delhi NCR'}
+              {contextUserLocation?.areaName ? `📍 Near ${contextUserLocation.areaName}` : (userLocation ? '📍 GPS Position Active' : '📍 Current Location')}
             </span>
             <span className="text-[10px] text-emerald-700 font-semibold block truncate">
               Nearest: {nearestHospital?.name} ({calculateHaversineKm(effectiveUserCoords.lat, effectiveUserCoords.lng, nearestHospital.lat, nearestHospital.lng)} km)

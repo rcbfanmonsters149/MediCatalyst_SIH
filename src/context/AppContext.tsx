@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { 
   Hospital, 
   UserBioData, 
@@ -99,6 +99,10 @@ interface AppContextType {
   policeUserSignal: TrafficSignal | null;
   loginPoliceSignal: (signalIdOrCode: string) => boolean;
   logoutPoliceSignal: () => void;
+
+  // Live GPS User Location & Proximity Localization
+  userLocation: { lat: number; lng: number; areaName?: string } | null;
+  relocateToUserLocation: (lat: number, lng: number, areaName?: string) => void;
 }
 
 const INITIAL_HOSPITALS: Hospital[] = [
@@ -412,6 +416,115 @@ const INITIAL_ASSESSMENT: AmbulanceAssessmentForm = {
   isUploaded: true
 };
 
+// Haversine distance calculator in kilometers
+export function calculateHaversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Earth radius in km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c * 10) / 10;
+}
+
+function createLocalizedHospitals(baseLat: number, baseLng: number, areaName: string, template: Hospital[]): Hospital[] {
+  const t0 = template[0] || INITIAL_HOSPITALS[0];
+  const t1 = template[1] || INITIAL_HOSPITALS[1];
+  const t2 = template[2] || INITIAL_HOSPITALS[2];
+  const t3 = template[3] || INITIAL_HOSPITALS[3];
+
+  const h1Lat = Math.round((baseLat + 0.0090) * 10000) / 10000;
+  const h1Lng = Math.round((baseLng + 0.0075) * 10000) / 10000;
+  const h1Dist = calculateHaversineKm(baseLat, baseLng, h1Lat, h1Lng);
+
+  const h2Lat = Math.round((baseLat - 0.0160) * 10000) / 10000;
+  const h2Lng = Math.round((baseLng + 0.0150) * 10000) / 10000;
+  const h2Dist = calculateHaversineKm(baseLat, baseLng, h2Lat, h2Lng);
+
+  const h3Lat = Math.round((baseLat + 0.0270) * 10000) / 10000;
+  const h3Lng = Math.round((baseLng - 0.0230) * 10000) / 10000;
+  const h3Dist = calculateHaversineKm(baseLat, baseLng, h3Lat, h3Lng);
+
+  const h4Lat = Math.round((baseLat - 0.0410) * 10000) / 10000;
+  const h4Lng = Math.round((baseLng + 0.0360) * 10000) / 10000;
+  const h4Dist = calculateHaversineKm(baseLat, baseLng, h4Lat, h4Lng);
+
+  return [
+    {
+      ...t0,
+      id: 'hosp-rampur-phc',
+      name: `${areaName} Primary Health Center (PHC)`,
+      address: `${areaName} Sector Health Road`,
+      lat: h1Lat,
+      lng: h1Lng,
+      distanceKm: h1Dist,
+      etaMinutes: Math.max(2, Math.round(h1Dist * 2.2)),
+    },
+    {
+      ...t1,
+      id: 'hosp-bilaspur-chc',
+      name: `${areaName} Community Health Center (CHC)`,
+      address: `${areaName} NH Bypass Junction`,
+      lat: h2Lat,
+      lng: h2Lng,
+      distanceKm: h2Dist,
+      etaMinutes: Math.max(4, Math.round(h2Dist * 2.2)),
+    },
+    {
+      ...t2,
+      id: 'hosp-sonipat-district',
+      name: `${areaName} District Civil Hospital & Trauma Unit`,
+      address: `Civil Lines Road, ${areaName}`,
+      lat: h3Lat,
+      lng: h3Lng,
+      distanceKm: h3Dist,
+      etaMinutes: Math.max(6, Math.round(h3Dist * 2.2)),
+    },
+    {
+      ...t3,
+      id: 'hosp-apex-multispecialty',
+      name: `Apex MedCatalyst Multi-Specialty & Level-1 Trauma Center (${areaName})`,
+      address: `Super Highway Ring Road, ${areaName}`,
+      lat: h4Lat,
+      lng: h4Lng,
+      distanceKm: h4Dist,
+      etaMinutes: Math.max(10, Math.round(h4Dist * 2.2)),
+    }
+  ];
+}
+
+function createLocalizedAmbulances(baseLat: number, baseLng: number, areaName: string, template: Ambulance[]): Ambulance[] {
+  const a0 = template[0] || INITIAL_AMBULANCES[0];
+  const a1 = template[1] || INITIAL_AMBULANCES[1];
+  const a2 = template[2] || INITIAL_AMBULANCES[2];
+
+  return [
+    {
+      ...a0,
+      hospitalName: `${areaName} Primary Health Center`,
+      currentLat: Math.round((baseLat + 0.0040) * 10000) / 10000,
+      currentLng: Math.round((baseLng + 0.0030) * 10000) / 10000,
+      etaMinutes: 2,
+    },
+    {
+      ...a1,
+      hospitalName: `${areaName} Community Health Center`,
+      currentLat: Math.round((baseLat - 0.0095) * 10000) / 10000,
+      currentLng: Math.round((baseLng + 0.0075) * 10000) / 10000,
+      etaMinutes: 4,
+    },
+    {
+      ...a2,
+      hospitalName: `Apex MedCatalyst Multi-Specialty (${areaName})`,
+      currentLat: Math.round((baseLat + 0.0165) * 10000) / 10000,
+      currentLng: Math.round((baseLng - 0.0125) * 10000) / 10000,
+      etaMinutes: 7,
+    }
+  ];
+}
+
 const INITIAL_VITALS: AmbulanceAssessmentForm = INITIAL_ASSESSMENT;
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -611,6 +724,106 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     return null;
   });
+
+  // User's detected live GPS location
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; areaName?: string } | null>(() => {
+    const saved = localStorage.getItem('medcatalyst_user_location');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return null;
+  });
+
+  // Relocate the entire hospital, ambulance, and emergency dispatch network dynamically around the user's real GPS position
+  const relocateToUserLocation = useCallback((lat: number, lng: number, customAreaName?: string) => {
+    const area = customAreaName || (userLocation?.areaName) || 'Local Area';
+    const newLoc = { lat, lng, areaName: area };
+    setUserLocation(newLoc);
+    try {
+      localStorage.setItem('medcatalyst_user_location', JSON.stringify(newLoc));
+    } catch (e) {}
+
+    setHospitals(prev => {
+      const updated = createLocalizedHospitals(lat, lng, area, prev);
+      try {
+        localStorage.setItem('medcatalyst_hospitals', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    setAmbulances(prev => {
+      const updated = createLocalizedAmbulances(lat, lng, area, prev);
+      try {
+        localStorage.setItem('medcatalyst_ambulances', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    setActiveDispatch(prev => {
+      if (!prev) return prev;
+      const updated: EmergencyDispatch = {
+        ...prev,
+        pickupLat: lat,
+        pickupLng: lng,
+        pickupAddress: `${area}, Near Current Location`,
+        waterfallHistory: [
+          {
+            hospitalId: 'hosp-rampur-phc',
+            hospitalName: `${area} Primary Health Center (PHC)`,
+            sentAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            status: 'ACCEPTED',
+            responseTimeSeconds: 28,
+            note: `Nearest Ambulance HR-10-EM-1081 (0.5 km away) dispatched immediately; ${area} PHC confirmed intake`
+          }
+        ],
+        messages: [
+          { sender: 'CITIZEN', text: prev.callerIssue, timestamp: '01:31 AM', type: 'VOICE' },
+          { sender: 'PARAMEDIC', text: `🚨 Nearest Ambulance HR-10-EM-1081 (0.5 km away, ETA 2 mins) dispatched immediately to your coordinates! Driver: Jagdish Kumar.`, timestamp: '01:31 AM', type: 'TEXT' },
+          { sender: 'HOSPITAL', text: `${area} PHC confirmed bed readiness. Emergency staff alerted.`, timestamp: '01:32 AM', type: 'TEXT' },
+          { sender: 'PARAMEDIC', text: 'Patient onboard. Vitals recorded in in-ambulance assessment form: GCS 8, SpO2 89%.', timestamp: '01:35 AM', type: 'TEXT' }
+        ]
+      };
+      try {
+        localStorage.setItem('medcatalyst_active_dispatch', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    // In background, reverse-geocode to get real city / neighborhood name
+    if (!customAreaName) {
+      try {
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+          .then(res => res.json())
+          .then(data => {
+            const addr = data.address || {};
+            const resolvedCity = addr.suburb || addr.neighbourhood || addr.city_district || addr.town || addr.city || addr.county || '';
+            if (resolvedCity && resolvedCity.toLowerCase() !== 'local area') {
+              relocateToUserLocation(lat, lng, resolvedCity);
+            }
+          })
+          .catch(() => {});
+      } catch (e) {}
+    }
+  }, [userLocation?.areaName]);
+
+  // Query browser geolocation on initial mount
+  useEffect(() => {
+    if (typeof window !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          relocateToUserLocation(pos.coords.latitude, pos.coords.longitude);
+        },
+        (err) => {
+          console.log('GPS notice:', err.message);
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+      );
+    }
+  }, [relocateToUserLocation]);
 
   // Keep logged-in police signal in sync with live corridor progress
   useEffect(() => {
@@ -1543,7 +1756,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setSimulationProgressManual,
       policeUserSignal,
       loginPoliceSignal,
-      logoutPoliceSignal
+      logoutPoliceSignal,
+      userLocation,
+      relocateToUserLocation
     }}>
       {children}
     </AppContext.Provider>
