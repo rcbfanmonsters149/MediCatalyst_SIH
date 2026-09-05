@@ -283,8 +283,9 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
         }
       });
 
-      // SILKY-SMOOTH SLOW TRACKPAD & MOUSE WHEEL ZOOM
+      // SILKY-SMOOTH SLOW TRACKPAD & MOUSE WHEEL ZOOM + ISOLATED PINCH-TO-ZOOM
       // Eliminates zoom oscillation ("zooming in and out simultaneously") and makes scrolling gentle and slow
+      // Also handles trackpad pinch gestures smoothly directly inside the map container without zooming the browser UI
       let targetZoom = map.getZoom();
       let zoomRafId: number | null = null;
 
@@ -295,8 +296,9 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
 
         hasUserInteractedRef.current = true;
 
-        // Slow, graceful delta dampening (direct response to user: "scroll should happen slowly")
-        const zoomDelta = e.deltaY * -0.0012;
+        // macOS Chrome trackpad pinch triggers wheel with e.ctrlKey = true
+        const isPinch = e.ctrlKey;
+        const zoomDelta = isPinch ? e.deltaY * -0.015 : e.deltaY * -0.0012;
         const currentZoom = map.getZoom();
         targetZoom = Math.min(18, Math.max(10, (zoomRafId !== null ? targetZoom : currentZoom) + zoomDelta));
 
@@ -309,12 +311,41 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
         }
       };
 
+      // Safari macOS trackpad gestures
+      let gestureStartZoom = map.getZoom();
+      const onGestureStart = (e: any) => {
+        e.preventDefault();
+        e.stopPropagation();
+        hasUserInteractedRef.current = true;
+        gestureStartZoom = map.getZoom();
+      };
+
+      const onGestureChange = (e: any) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!e.scale) return;
+        const newZoom = Math.min(18, Math.max(10, gestureStartZoom + Math.log2(e.scale)));
+        const mousePoint = map.mouseEventToContainerPoint(e);
+        map.setZoomAround(mousePoint, newZoom, { animate: false });
+      };
+
+      const onGestureEnd = (e: any) => {
+        e.preventDefault();
+        e.stopPropagation();
+      };
+
       container.addEventListener('wheel', onWheel, { passive: false });
+      container.addEventListener('gesturestart', onGestureStart, { passive: false });
+      container.addEventListener('gesturechange', onGestureChange, { passive: false });
+      container.addEventListener('gestureend', onGestureEnd, { passive: false });
 
       mapInstanceRef.current = map;
 
       return () => {
         container.removeEventListener('wheel', onWheel);
+        container.removeEventListener('gesturestart', onGestureStart);
+        container.removeEventListener('gesturechange', onGestureChange);
+        container.removeEventListener('gestureend', onGestureEnd);
         if (zoomRafId !== null) cancelAnimationFrame(zoomRafId);
       };
     }
@@ -1003,10 +1034,10 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
   }, [liveAmbulance]);
 
   return (
-    <div className="relative w-full rounded-2xl overflow-hidden border border-slate-200 shadow-sm" style={{ height }}>
+    <div className="relative w-full rounded-2xl overflow-hidden border border-slate-200 shadow-sm" style={{ height, touchAction: 'none' }}>
       
       {/* Map Container */}
-      <div ref={mapContainerRef} className="w-full h-full z-0" />
+      <div ref={mapContainerRef} className="w-full h-full z-0" style={{ touchAction: 'none' }} />
 
       {/* TOP FLOATING CONTROLS BAR: Google Maps Help + Locate Me */}
       <div className="absolute top-3 right-3 z-[1000] flex items-center gap-2">
