@@ -45,6 +45,33 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
 
   const dispatch = activeDispatch;
 
+  const memoizedPickup = useMemo(() => {
+    if (!dispatch) return undefined;
+    return {
+      lat: dispatch.pickupLat,
+      lng: dispatch.pickupLng,
+      label: dispatch.pickupAddress
+    };
+  }, [dispatch?.pickupLat, dispatch?.pickupLng, dispatch?.pickupAddress]);
+
+  const handleSendMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatMessage.trim()) return;
+    sendDispatchMessage('CITIZEN', chatMessage);
+    setChatMessage('');
+  };
+
+  // Format seconds to mm:ss
+  const formatSeconds = (sec: number) => {
+    const mins = Math.floor(sec / 60);
+    const remaining = sec % 60;
+    return `${mins.toString().padStart(2, '0')}:${remaining.toString().padStart(2, '0')}`;
+  };
+
+  // Qualified hospitals with 24/7 ambulance service
+  const eligibleEmergencyHospitals = hospitals.filter(h => h.hasAmbulanceService);
+  const assignedAmb = (dispatch && ambulances.find(a => a.id === dispatch.assignedAmbulanceId)) || ambulances[0];
+
   if (!dispatch) {
     return (
       <div className="space-y-6">
@@ -89,30 +116,6 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
       </div>
     );
   }
-
-  const memoizedPickup = useMemo(() => ({
-    lat: dispatch.pickupLat,
-    lng: dispatch.pickupLng,
-    label: dispatch.pickupAddress
-  }), [dispatch.pickupLat, dispatch.pickupLng, dispatch.pickupAddress]);
-
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!chatMessage.trim()) return;
-    sendDispatchMessage('CITIZEN', chatMessage);
-    setChatMessage('');
-  };
-
-  // Format seconds to mm:ss
-  const formatSeconds = (sec: number) => {
-    const mins = Math.floor(sec / 60);
-    const remaining = sec % 60;
-    return `${mins.toString().padStart(2, '0')}:${remaining.toString().padStart(2, '0')}`;
-  };
-
-  // Qualified hospitals with 24/7 ambulance service
-  const eligibleEmergencyHospitals = hospitals.filter(h => h.hasAmbulanceService);
-  const assignedAmb = ambulances.find(a => a.id === dispatch.assignedAmbulanceId) || ambulances[0];
 
   return (
     <div className="space-y-6">
