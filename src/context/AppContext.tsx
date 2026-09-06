@@ -962,18 +962,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   });
 
-  // Smooth Live Ambulance Movement Simulation (Updates location & distances every second)
+  // Smooth Live Ambulance Movement Simulation (Only active when an emergency dispatch is in progress)
   useEffect(() => {
+    if (!activeDispatch) return;
+
     const timer = setInterval(() => {
       setLiveAmbulance(prev => {
-        const patientLat = activeDispatch?.pickupLat || userLocation?.lat || 28.7080;
-        const patientLng = activeDispatch?.pickupLng || userLocation?.lng || 77.0980;
-        const targetHosp = hospitals.find(h => h.id === activeDispatch?.currentHospitalId) || hospitals[0] || INITIAL_HOSPITALS[0];
+        const patientLat = activeDispatch.pickupLat || userLocation?.lat || 28.7080;
+        const patientLng = activeDispatch.pickupLng || userLocation?.lng || 77.0980;
+        const targetHosp = hospitals.find(h => h.id === activeDispatch.currentHospitalId) || hospitals[0] || INITIAL_HOSPITALS[0];
         const hospLat = targetHosp.lat;
         const hospLng = targetHosp.lng;
 
         // Origin ambulance station/depot
-        const assignedAmb = ambulances.find(a => a.id === activeDispatch?.assignedAmbulanceId);
+        const assignedAmb = ambulances.find(a => a.id === activeDispatch.assignedAmbulanceId);
         const originLat = assignedAmb?.currentLat ?? (patientLat + 0.0075);
         const originLng = assignedAmb?.currentLng ?? (patientLng + 0.0065);
 
@@ -1041,7 +1043,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [activeDispatch?.pickupLat, activeDispatch?.pickupLng, activeDispatch?.currentHospitalId, hospitals, userLocation]);
+  }, [activeDispatch, hospitals, ambulances, userLocation]);
 
   // Keep logged-in police signal in sync with live corridor progress
   useEffect(() => {

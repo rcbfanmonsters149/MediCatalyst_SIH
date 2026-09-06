@@ -35,6 +35,7 @@ interface LeafletMapProps {
   };
   showLegend?: boolean;
   showRouteLine?: boolean;
+  showLiveAmbulance?: boolean;
 }
 
 // Haversine distance calculator in kilometers
@@ -67,9 +68,10 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
   activeAmbulanceLocation,
   destinationLocation,
   showLegend = true,
-  showRouteLine = false
+  showRouteLine = false,
+  showLiveAmbulance = false
 }) => {
-  const { userLocation: contextUserLocation, relocateToUserLocation, liveAmbulance } = useApp();
+  const { userLocation: contextUserLocation, relocateToUserLocation, liveAmbulance, activeDispatch } = useApp();
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -196,7 +198,7 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
       [destination.lat, destination.lng]
     ];
 
-    if (liveAmbulance) {
+    if (showLiveAmbulance && activeDispatch && liveAmbulance) {
       points.push([liveAmbulance.lat, liveAmbulance.lng]);
     }
 
@@ -207,7 +209,7 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
         duration: 1.2
       });
     } catch (e) {}
-  }, [corridorRoute, showReroutePath, rerouteDestination, targetHospital, effectiveUserCoords, liveAmbulance]);
+  }, [corridorRoute, showReroutePath, rerouteDestination, targetHospital, effectiveUserCoords, showLiveAmbulance, activeDispatch, liveAmbulance]);
 
   // When user actively switches hospital selection, smoothly glide to frame the new destination
   useEffect(() => {
@@ -684,8 +686,8 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
       markersGroup.addLayer(ambMarker);
     });
 
-    // 4. DRAW GOOGLE-MAPS STYLE CONNECTING NAVIGATION ROUTE (if normal mode)
-    if (targetHospital && !corridorRoute) {
+    // 4. DRAW GOOGLE-MAPS STYLE CONNECTING NAVIGATION ROUTE (if route line enabled)
+    if (showRouteLine && targetHospital && !corridorRoute) {
       const isReroute = showReroutePath && rerouteDestination;
       const destination = isReroute ? rerouteDestination : targetHospital;
 
@@ -960,7 +962,8 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
 
     liveGroup.clearLayers();
 
-    if (!liveAmbulance) return;
+    // ONLY show live moving ambulance if explicitly requested AND an emergency dispatch is active
+    if (!showLiveAmbulance || !activeDispatch || !liveAmbulance) return;
 
     const isApproaching = liveAmbulance.phase === 'EN_ROUTE_TO_PATIENT';
     const movingAmbHtml = `
@@ -1053,7 +1056,7 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
       lineJoin: 'round'
     });
     liveGroup.addLayer(ambRouteLine);
-  }, [liveAmbulance]);
+  }, [showLiveAmbulance, activeDispatch, liveAmbulance]);
 
   return (
     <div className="relative isolate z-0 w-full rounded-2xl overflow-hidden border border-slate-200 shadow-sm" style={{ height }}>
@@ -1192,10 +1195,10 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
             <span className="w-3 h-3 rounded-md bg-blue-600 inline-block"></span>
             <span className="text-slate-700 font-medium">Apex Trauma</span>
           </div>
-          {ambulances.length > 0 && (
+          {showLiveAmbulance && activeDispatch && (
             <div className="flex items-center gap-1.5">
               <span className="w-3 h-3 rounded-full bg-rose-500 inline-block animate-pulse"></span>
-              <span className="text-slate-700 font-medium">Live Ambulance</span>
+              <span className="text-slate-700 font-medium">Dispatched Ambulance</span>
             </div>
           )}
           {trafficSignals.length > 0 && (

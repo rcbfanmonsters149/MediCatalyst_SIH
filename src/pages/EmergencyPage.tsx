@@ -279,6 +279,7 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
               pickupLocation={memoizedPickup}
               height="460px"
               showRouteLine={true}
+              showLiveAmbulance={true}
             />
 
             {/* DEDICATED SEPARATE LIVE AMBULANCE TELEMETRY & ROUTE TRACKER CARD */}
