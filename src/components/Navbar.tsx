@@ -5,7 +5,9 @@ import {
   AlertOctagon, 
   Building2,
   Truck,
-  ShieldCheck
+  ShieldCheck,
+  Lock,
+  User
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
@@ -18,7 +20,7 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
-  const { activeDispatch, user } = useApp();
+  const { activeDispatch, user, isLoggedIn } = useApp();
 
   return (
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs">
@@ -117,9 +119,9 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
                   ? 'bg-emerald-50 border-emerald-400 text-emerald-900 ring-2 ring-emerald-500/20'
                   : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
               }`}
-              title="Click to view your personal health profile, ABHA ID, and records"
+              title={isLoggedIn ? "Click to view your personal health profile & ABHA ID" : "Click to sign in to your Arogya Health Locker"}
             >
-              {user ? (
+              {isLoggedIn && user ? (
                 <>
                   <div className="w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shadow-2xs">
                     {user?.fullName?.charAt(0)}
@@ -130,7 +132,15 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
                   </div>
                 </>
               ) : (
-                <div className="hidden sm:block"><p className="font-bold text-slate-800 leading-none">Profile</p></div>
+                <>
+                  <div className="w-7 h-7 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center font-bold text-xs shadow-2xs">
+                    <Lock className="w-3.5 h-3.5 text-slate-600" />
+                  </div>
+                  <div className="hidden sm:block">
+                    <p className="font-bold text-slate-800 leading-none">Citizen Login</p>
+                    <p className="text-[10px] text-slate-500 leading-tight mt-0.5">Health Locker</p>
+                  </div>
+                </>
               )}
             </button>
           </div>
@@ -173,7 +183,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
               activeTab === 'profile' ? 'bg-emerald-600 text-white' : 'text-slate-600'
             }`}
           >
-            Profile
+            {isLoggedIn ? 'Profile' : 'Login'}
           </button>
         </div>
 

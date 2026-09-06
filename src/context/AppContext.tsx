@@ -696,7 +696,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     return INITIAL_USER;
   });
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(true); // Pre-authenticated for seamless hackathon testing
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
 
   // Hospital Authentication State (for /hospital portal)
   const [hospitalUser, setHospitalUser] = useState<Hospital | null>(() => {
@@ -705,7 +705,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const savedHosp = hospitals.find(h => h.id === savedHospId);
       if (savedHosp) return savedHosp;
     }
-    return hospitals[0];
+    return null;
   });
 
   // Cross-tab real-time sync for hospitals, doctors, and user medical records

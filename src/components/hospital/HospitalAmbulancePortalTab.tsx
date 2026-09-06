@@ -53,8 +53,12 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
     hospitals, 
     activeDispatch,
     transferPatientDataToAssessment,
-    user
+    user,
+    ambulanceUser,
+    ambulances
   } = useApp();
+
+  const currentAmb = ambulanceUser || ambulances.find(a => a.id === activeDispatch?.assignedAmbulanceId) || ambulances[0];
 
   const [formSavedSuccess, setFormSavedSuccess] = useState(false);
   const [syncNotice, setSyncNotice] = useState(false);
@@ -205,10 +209,10 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
               In-Ambulance Paramedic Portal
             </span>
             <span className="text-xs font-mono font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-              Unit: HR-10-EM-1081 (ALS)
+              Unit: {currentAmb.vehicleNumber} ({currentAmb.type.includes('ALS') ? 'ALS' : 'BLS'})
             </span>
             <span className="text-xs text-slate-500">
-              Paramedic: <strong>Jagdish Sharma</strong>
+              Paramedic / Driver: <strong>{currentAmb.driverName}</strong> • Base: {currentAmb.hospitalName}
             </span>
           </div>
 
@@ -857,7 +861,7 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
             {/* UPLOAD ACTION BUTTON */}
             <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
               <div className="text-xs text-slate-500">
-                Paramedic Crew: <strong>{ambulanceAssessment.uploadedBy || 'Paramedic Unit HR-10-EM-1081'}</strong>
+                Paramedic Crew: <strong>{ambulanceAssessment.uploadedBy || `Unit ${currentAmb.vehicleNumber} (${currentAmb.driverName})`}</strong>
               </div>
 
               <button

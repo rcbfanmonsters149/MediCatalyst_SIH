@@ -5,9 +5,7 @@ import {
   ArrowRight, 
   AlertCircle, 
   ArrowLeft,
-  Radio,
-  MapPin,
-  Clock
+  Radio
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Link } from 'react-router-dom';
@@ -17,15 +15,28 @@ interface TrafficPoliceLoginPageProps {
 }
 
 export const TrafficPoliceLoginPage: React.FC<TrafficPoliceLoginPageProps> = ({ onSuccess }) => {
-  const { loginPoliceSignal, trafficCorridor } = useApp();
+  const { loginPoliceSignal } = useApp();
   const [signalIdInput, setSignalIdInput] = useState('');
   const [pinCode, setPinCode] = useState('');
   const [error, setError] = useState('');
 
-  const handleLogin = (idToUse?: string) => {
-    const id = idToUse || signalIdInput;
-    if (!id.trim()) {
-      setError('Please enter a valid Signal ID (e.g., S35) or Junction Code');
+  const handleLogin = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setError('');
+
+    const id = signalIdInput.trim().toUpperCase();
+    if (!id) {
+      setError('Please enter your assigned Signal Post ID.');
+      return;
+    }
+
+    if (!pinCode.trim()) {
+      setError('Please enter your Officer Security PIN.');
+      return;
+    }
+
+    if (pinCode.trim() !== '108108' && pinCode.trim() !== '108') {
+      setError('Invalid Signal Post ID or officer PIN. Authorization failed.');
       return;
     }
 
@@ -34,7 +45,7 @@ export const TrafficPoliceLoginPage: React.FC<TrafficPoliceLoginPageProps> = ({ 
       setError('');
       if (onSuccess) onSuccess();
     } else {
-      setError(`Signal "${id}" not found in current emergency route. Please select one of the registered corridor posts below.`);
+      setError('Invalid Signal Post ID or officer PIN. Authorization failed.');
     }
   };
 
@@ -83,7 +94,7 @@ export const TrafficPoliceLoginPage: React.FC<TrafficPoliceLoginPageProps> = ({ 
           )}
 
           {/* Login Form */}
-          <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }} className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
                 Assigned Signal Post ID or Junction Code:
@@ -94,7 +105,7 @@ export const TrafficPoliceLoginPage: React.FC<TrafficPoliceLoginPageProps> = ({ 
                   type="text"
                   value={signalIdInput}
                   onChange={(e) => { setSignalIdInput(e.target.value); setError(''); }}
-                  placeholder="e.g. S35 or J-BLR-035"
+                  placeholder="Enter assigned Signal Post ID"
                   className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold uppercase focus:ring-2 focus:ring-blue-600 focus:bg-white transition"
                 />
               </div>
@@ -110,7 +121,7 @@ export const TrafficPoliceLoginPage: React.FC<TrafficPoliceLoginPageProps> = ({ 
                   type="password"
                   value={pinCode}
                   onChange={(e) => setPinCode(e.target.value)}
-                  placeholder="PIN: 108"
+                  placeholder="Enter 6-digit officer PIN"
                   className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-blue-600 focus:bg-white transition"
                 />
               </div>
@@ -118,56 +129,16 @@ export const TrafficPoliceLoginPage: React.FC<TrafficPoliceLoginPageProps> = ({ 
 
             <button
               type="submit"
-              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-extrabold transition shadow-md shadow-blue-600/20 flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-extrabold transition shadow-md shadow-blue-600/20 flex items-center justify-center gap-2 cursor-pointer active:scale-98"
             >
               <span>Connect to Live Signal Post</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
 
-          {/* Registered Demo Posts (1-Click Access) */}
-          <div className="pt-4 border-t border-slate-100 space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                Registered Route Signal Posts (Quick 1-Click Login):
-              </span>
-              <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                ● Live Emergency Feed
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {trafficCorridor.signals.map((sig) => (
-                <button
-                  key={sig.id}
-                  type="button"
-                  onClick={() => handleLogin(sig.id)}
-                  className="p-3 text-left bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-xl transition group cursor-pointer"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono font-black text-xs text-blue-700 bg-white px-2 py-0.5 rounded border border-slate-200 shadow-2xs">
-                      {sig.id}
-                    </span>
-                    <span className="text-[10px] text-slate-500 font-mono">
-                      {sig.junctionCode}
-                    </span>
-                  </div>
-                  <p className="text-xs font-bold text-slate-800 mt-1 truncate">
-                    {sig.name}
-                  </p>
-                  <div className="flex items-center justify-between text-[10px] text-slate-400 mt-1 pt-1 border-t border-slate-200/60">
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-amber-600" />
-                      <strong>{sig.etaMinutes} min ETA</strong>
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MapPin className="w-3 h-3 text-blue-600" />
-                      <span>{sig.distanceKm} km dist</span>
-                    </span>
-                  </div>
-                </button>
-              ))}
-            </div>
+          <div className="pt-2 flex items-center justify-center gap-1.5 text-xs text-slate-400 text-center">
+            <ShieldAlert className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+            <span>Authorized Traffic Police Officer Credentials Required</span>
           </div>
 
         </div>
