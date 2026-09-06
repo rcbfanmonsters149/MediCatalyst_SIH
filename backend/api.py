@@ -10,6 +10,13 @@ import joblib
 import json
 import os
 import numpy as np
+import pandas as pd
+
+FEATURE_COLS = [
+    'age', 'is_pediatric', 'heart_rate', 'systolic_bp', 'diastolic_bp',
+    'spo2', 'resp_rate', 'gcs', 'body_temp', 'ecg_stemi', 'trauma',
+    'fast_score', 'blood_glucose'
+]
 
 app = FastAPI(title="MedCatalyst - Emergency Triage & Hospital Matching API")
 
@@ -69,11 +76,11 @@ def root():
 
 @app.post("/api/triage/predict")
 def predict_triage(data: TelemetryPayload):
-    features = np.array([[
+    features = pd.DataFrame([[
         data.age, data.is_pediatric, data.heart_rate, data.systolic_bp, data.diastolic_bp,
         data.spo2, data.resp_rate, data.gcs, data.body_temp, data.ecg_stemi, data.trauma,
         data.fast_score, data.blood_glucose
-    ]])
+    ]], columns=FEATURE_COLS)
     
     try:
         acuity = acuity_model.predict(features)[0]

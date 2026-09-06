@@ -1,7 +1,8 @@
 {
-  "model_name": "EmergencyTriageClassifier_v1",
-  "algorithm": "RandomForestClassifier_MultiOutput",
-  "training_samples": 6000,
+  "model_name": "EmergencyTriageClassifier_v2_RealDataReady",
+  "algorithm": "RandomForestClassifier_MultiOutput_Balanced",
+  "data_source": "csv",
+  "training_samples": 12000,
   "features": [
     "age",
     "is_pediatric",
@@ -24,21 +25,27 @@
     "req_ventilator",
     "req_pediatric_icu"
   ],
-  "acuity_accuracy": 0.9116666666666666,
-  "capability_accuracy": 0.9966666666666667,
+  "acuity_accuracy": 0.8154166666666667,
+  "capability_accuracy": 0.7608333333333334,
+  "classes": [
+    "ESI-1",
+    "ESI-2",
+    "ESI-3",
+    "ESI-4"
+  ],
   "feature_importances": {
-    "age": 0.00656035734153496,
-    "is_pediatric": 0.0007823632194877203,
-    "heart_rate": 0.06926265716329448,
-    "systolic_bp": 0.11372499018605856,
-    "diastolic_bp": 0.08094394593440411,
-    "spo2": 0.1326968598603152,
-    "resp_rate": 0.08019508243406985,
-    "gcs": 0.20442554954544154,
-    "body_temp": 0.02992453884558225,
-    "ecg_stemi": 0.15601515571818356,
-    "trauma": 0.019786915961928227,
-    "fast_score": 0.09174138311300781,
-    "blood_glucose": 0.013940200676691748
+    "age": 0.019696439548510757,
+    "is_pediatric": 0.0,
+    "heart_rate": 0.19199060564367548,
+    "systolic_bp": 0.11907713523899964,
+    "diastolic_bp": 0.03482428371452554,
+    "spo2": 0.023622996678990656,
+    "resp_rate": 0.12768467549205745,
+    "gcs": 0.23157029404813786,
+    "body_temp": 0.024111515582369642,
+    "ecg_stemi": 0.01208540780106469,
+    "trauma": 0.12003385172657413,
+    "fast_score": 0.0729669074069855,
+    "blood_glucose": 0.02233588711810857
   }
 }
