@@ -70,7 +70,7 @@ export const VoiceSOSRecognitionModal: React.FC<VoiceSOSRecognitionModalProps> =
   onTranscriptSubmitted
 }) => {
   const isSpeechSupported = typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
-  const { sendDispatchMessage } = useApp();
+  const { activeDispatch, createEmergencyDispatch, sendDispatchMessage } = useApp();
 
   const [selectedLang, setSelectedLang] = useState<VoiceLanguage>(initialLanguage);
   const [isListening, setIsListening] = useState<boolean>(false);
@@ -213,8 +213,13 @@ export const VoiceSOSRecognitionModal: React.FC<VoiceSOSRecognitionModalProps> =
 
     stopListening();
 
-    // Transmit to active dispatch radio comms
-    sendDispatchMessage('CITIZEN', `🎙️ [Voice in ${selectedLang.split('-')[0].toUpperCase()}]: "${text.trim()}"`);
+    // If no dispatch is active yet, trigger a new emergency dispatch immediately
+    if (!activeDispatch) {
+      createEmergencyDispatch(text.trim(), text.trim(), 'CRITICAL');
+    } else {
+      // Transmit to active dispatch radio comms
+      sendDispatchMessage('CITIZEN', `🎙️ [Voice in ${selectedLang.split('-')[0].toUpperCase()}]: "${text.trim()}"`);
+    }
     
     // Voice feedback to user
     speakVoiceConfirmation(text);

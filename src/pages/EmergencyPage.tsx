@@ -33,6 +33,8 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
     hospitals, 
     activeDispatch, 
     ambulances,
+    createEmergencyDispatch,
+    cancelDispatch,
     sendDispatchMessage,
     updateDispatchStep,
     user
@@ -47,21 +49,42 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
     return (
       <div className="space-y-6">
         <TollFreeBanner />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center space-y-4">
-          <ShieldAlert className="w-16 h-16 text-slate-300 mx-auto" />
-          <h2 className="text-xl font-bold text-slate-700">No active emergency dispatch.</h2>
-          <p className="text-sm text-slate-500">Use the SOS button to request an ambulance.</p>
-          <button 
-            onClick={() => setIsVoiceModalOpen(true)}
-            className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md transition"
-          >
-            Trigger Emergency SOS
-          </button>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center space-y-5">
+          <div className="w-20 h-20 rounded-3xl bg-slate-100 flex items-center justify-center mx-auto text-slate-400 border border-slate-200">
+            <ShieldAlert className="w-10 h-10 text-slate-400" />
+          </div>
+          <div className="space-y-1">
+            <h2 className="text-xl font-bold text-slate-800 font-heading">No Active Emergency Incident</h2>
+            <p className="text-sm text-slate-500 max-w-md mx-auto">
+              You are in standby mode. If an immediate medical crisis occurs, use the emergency options below to dispatch the nearest 108 ambulance.
+            </p>
+          </div>
+          <div className="flex items-center justify-center gap-3 pt-2 flex-wrap">
+            <button 
+              onClick={() => {
+                createEmergencyDispatch('Immediate medical emergency assistance requested by citizen', undefined, 'CRITICAL');
+              }}
+              className="px-6 py-3.5 bg-red-600 hover:bg-red-700 text-white font-black text-sm rounded-xl shadow-lg hover:shadow-xl transition transform hover:-translate-y-0.5 active:translate-y-0 flex items-center gap-2 cursor-pointer animate-emergency-beacon"
+            >
+              <AlertTriangle className="w-5 h-5 text-white" />
+              <span>Trigger Emergency SOS (108)</span>
+            </button>
+            <button 
+              onClick={() => setIsVoiceModalOpen(true)}
+              className="px-6 py-3.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold text-sm rounded-xl shadow-lg hover:shadow-xl transition transform hover:-translate-y-0.5 active:translate-y-0 flex items-center gap-2 cursor-pointer"
+            >
+              <Mic className="w-5 h-5 animate-pulse text-amber-100" />
+              <span>🎙️ Voice SOS (हिन्दी / मराठी / English)</span>
+            </button>
+          </div>
         </div>
         <VoiceSOSRecognitionModal
           isOpen={isVoiceModalOpen}
           onClose={() => setIsVoiceModalOpen(false)}
           initialLanguage="hi-IN"
+          onTranscriptSubmitted={(text) => {
+            createEmergencyDispatch(text, text, 'CRITICAL');
+          }}
         />
       </div>
     );
@@ -145,6 +168,31 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
 
         {/* ACTIVE EMERGENCY DISPATCH DISPLAY */}
         <div className="space-y-6">
+
+          {/* Active Call Control Bar with Reset/Cancel Option */}
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-3">
+              <span className="w-3 h-3 rounded-full bg-red-600 animate-ping shrink-0"></span>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black text-red-900 uppercase tracking-wider font-mono">
+                    ACTIVE INCIDENT: {dispatch.id}
+                  </span>
+                  <span className="text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-full bg-red-200 text-red-900">
+                    {dispatch.urgencyLevel}
+                  </span>
+                </div>
+                <p className="text-xs text-red-700 font-medium mt-0.5">{dispatch.callerIssue}</p>
+              </div>
+            </div>
+            <button
+              onClick={cancelDispatch}
+              className="px-3.5 py-1.5 bg-white hover:bg-red-100 text-red-700 border border-red-300 rounded-xl text-xs font-bold shadow-2xs transition cursor-pointer shrink-0"
+              title="End active emergency call and return to standby"
+            >
+              Resolve / Cancel Emergency Call
+            </button>
+          </div>
 
           {/* Clean 10-Stage Incident Progress Stepper Card */}
           <div className="flex justify-center">

@@ -35,11 +35,11 @@ export const TRACKER_STEPS: TrackerStep[] = [
 ];
 
 export const EmergencyTrackerCard: React.FC<EmergencyTrackerCardProps> = ({
-  incidentId = 'disp-2026-9041',
-  title = 'Road bike accident, head impact with helmet cracked, patient groaning with low consciousness',
+  incidentId = 'DISP-LIVE',
+  title = 'Medical Emergency Assistance Request',
   urgency = 'Critical',
   patientCount = 1,
-  initialStep = 4,
+  initialStep = 1,
   currentStep: controlledStep,
   onStepChange,
   interactive = true,

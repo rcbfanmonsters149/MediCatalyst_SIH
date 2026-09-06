@@ -781,53 +781,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (parsed && parsed.id === 'disp-2026-9041') {
+        // Purge old mock demo incident so presentation starts clean with no active patient issue
+        if (parsed && parsed.id && parsed.id !== 'disp-2026-9041') {
           return parsed;
+        } else {
+          localStorage.removeItem('medcatalyst_active_dispatch');
+          localStorage.removeItem('sanjeevani_active_dispatch');
         }
       } catch (e) {
         console.error(e);
       }
     }
     
-    // Default active dispatch matching live incident:
-    return {
-      id: 'disp-2026-9041',
-      callerName: 'Rameshwar Singh',
-      callerPhone: '+91 98765 43210',
-      callerVoiceTranscript: 'Road bike accident, head impact with helmet cracked, patient groaning with low consciousness',
-      callerIssue: 'Road bike accident, head impact with helmet cracked, patient groaning with low consciousness',
-      urgencyLevel: 'CRITICAL',
-      patientCount: 1,
-      currentStep: 4,
-      pickupAddress: 'Near Milestone 34, Old GT Road, Rampur Outskirts',
-      pickupLat: 28.7080,
-      pickupLng: 77.0980,
-      createdAt: new Date().toLocaleTimeString(),
-      status: 'ACCEPTED',
-      currentHospitalId: 'hosp-rampur-phc',
-      assignedAmbulanceId: 'amb-01',
-      timeoutSecondsRemaining: 92,
-      waterfallHistory: [
-        {
-          hospitalId: 'hosp-rampur-phc',
-          hospitalName: 'Rampur Primary Health Center (PHC)',
-          sentAt: '01:31 AM',
-          status: 'ACCEPTED',
-          responseTimeSeconds: 28,
-          note: 'Nearest Ambulance HR-10-EM-1081 (0.4 km away) dispatched first; Rampur PHC confirmed trauma intake'
-        }
-      ],
-      ambulanceAssessment: INITIAL_ASSESSMENT,
-      vitals: INITIAL_ASSESSMENT,
-      mlAcuity: 'ESI-1',
-      mlRequiredCapabilities: ['NEURO_SURGERY_ICU', 'TRAUMA_OT', 'MECHANICAL_VENTILATOR'],
-      messages: [
-        { sender: 'CITIZEN', text: 'Road bike accident, head impact with helmet cracked, patient groaning with low consciousness. Please hurry!', timestamp: '01:31 AM', type: 'VOICE' },
-        { sender: 'PARAMEDIC', text: '🚨 Nearest Ambulance HR-10-EM-1081 (0.4 km away, ETA 2 mins) dispatched immediately to your coordinates! Driver: Jagdish Kumar.', timestamp: '01:31 AM', type: 'TEXT' },
-        { sender: 'HOSPITAL', text: 'Rampur PHC confirmed bed readiness. Trauma OT and Dr. Kavita Sharma alerted.', timestamp: '01:32 AM', type: 'TEXT' },
-        { sender: 'PARAMEDIC', text: 'Patient onboard. Vitals recorded in in-ambulance assessment form: GCS 8, SpO2 89%.', timestamp: '01:35 AM', type: 'TEXT' }
-      ]
-    };
+    // No active emergency dispatch by default — clean state:
+    return null;
   });
 
   const [ambulanceAssessment, setAmbulanceAssessment] = useState<AmbulanceAssessmentForm>(INITIAL_ASSESSMENT);
@@ -1448,8 +1415,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const nearestHosp = hospitals[0];
 
     const newDispatch: EmergencyDispatch = {
-      id: issueText.includes('bike') ? 'disp-2026-9041' : `disp-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-      callerName: user.fullName || 'Rameshwar Singh',
+      id: `disp-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+      callerName: user.fullName || 'Citizen Patient',
       callerPhone: user.phone || '+91 98765 43210',
       callerVoiceTranscript: voiceTranscript || issueText,
       callerIssue: issueText,
@@ -1605,39 +1572,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const cancelDispatch = () => {
-    setActiveDispatch({
-      id: 'disp-2026-9041',
-      callerName: 'Rameshwar Singh',
-      callerPhone: '+91 98765 43210',
-      callerVoiceTranscript: 'Road bike accident, head impact with helmet cracked, patient groaning with low consciousness',
-      callerIssue: 'Road bike accident, head impact with helmet cracked, patient groaning with low consciousness',
-      urgencyLevel: 'CRITICAL',
-      patientCount: 1,
-      currentStep: 1,
-      pickupAddress: 'Near Milestone 34, Old GT Road, Rampur Outskirts',
-      pickupLat: 28.7080,
-      pickupLng: 77.0980,
-      createdAt: new Date().toLocaleTimeString(),
-      status: 'PENDING_HOSPITAL_ACCEPT',
-      currentHospitalId: 'hosp-rampur-phc',
-      assignedAmbulanceId: 'amb-01',
-      timeoutSecondsRemaining: 120,
-      waterfallHistory: [
-        {
-          hospitalId: 'hosp-rampur-phc',
-          hospitalName: 'Rampur Primary Health Center (PHC)',
-          sentAt: new Date().toLocaleTimeString(),
-          status: 'WAITING',
-          note: 'Emergency broadcast triggered with patient GPS coordinates'
-        }
-      ],
-      vitals: INITIAL_VITALS,
-      mlAcuity: 'ESI-1',
-      mlRequiredCapabilities: ['NEURO_SURGERY_ICU', 'TRAUMA_OT', 'MECHANICAL_VENTILATOR'],
-      messages: [
-        { sender: 'CITIZEN', text: 'Road bike accident, head impact with helmet cracked, patient groaning with low consciousness. Please hurry!', timestamp: new Date().toLocaleTimeString(), type: 'VOICE' }
-      ]
-    });
+    setActiveDispatch(null);
+    localStorage.removeItem('medcatalyst_active_dispatch');
+    localStorage.removeItem('sanjeevani_active_dispatch');
   };
 
   const updateDispatchStep = (step: number) => {
