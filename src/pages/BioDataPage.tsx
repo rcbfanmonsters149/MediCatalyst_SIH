@@ -224,7 +224,7 @@ export const BioDataPage: React.FC = () => {
               type="text"
               value={loginInput}
               onChange={(e) => setLoginInput(e.target.value)}
-              placeholder="e.g. 9876543210 or 91-2849-5830-1092"
+              placeholder="Enter Mobile Number or ABHA Health ID"
               className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
             />
             {authError && (
@@ -241,16 +241,6 @@ export const BioDataPage: React.FC = () => {
           >
             Access My Bio-Data
           </button>
-
-          <div className="pt-2 text-center">
-            <button
-              type="button"
-              onClick={() => loginUser('+91 98765 43210')}
-              className="text-xs text-emerald-700 hover:underline font-semibold"
-            >
-              Demo: Instant 1-Click Login as Rameshwar Singh
-            </button>
-          </div>
         </form>
 
         <div className="mt-6 pt-4 border-t border-slate-100 text-[11px] text-slate-400 text-center flex items-center justify-center gap-1">

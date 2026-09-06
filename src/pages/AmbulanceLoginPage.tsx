@@ -6,9 +6,7 @@ import {
   ArrowRight, 
   AlertCircle, 
   ArrowLeft,
-  Radio,
-  MapPin,
-  HeartPulse
+  Radio
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Link } from 'react-router-dom';
@@ -18,15 +16,28 @@ interface AmbulanceLoginPageProps {
 }
 
 export const AmbulanceLoginPage: React.FC<AmbulanceLoginPageProps> = ({ onSuccess }) => {
-  const { loginAmbulance, ambulances } = useApp();
+  const { loginAmbulance } = useApp();
   const [vehicleNumberInput, setVehicleNumberInput] = useState('');
   const [passcode, setPasscode] = useState('');
   const [error, setError] = useState('');
 
-  const handleLogin = (vehNumberToUse?: string) => {
-    const num = vehNumberToUse || vehicleNumberInput;
-    if (!num.trim()) {
-      setError('Please enter your vehicle registration number (e.g., HR-10-EM-1081)');
+  const handleLogin = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setError('');
+
+    const num = vehicleNumberInput.trim();
+    if (!num) {
+      setError('Please enter your ambulance vehicle registration number.');
+      return;
+    }
+
+    if (!passcode.trim()) {
+      setError('Please enter your 6-digit crew passcode (PIN).');
+      return;
+    }
+
+    if (passcode.trim() !== '108108') {
+      setError('Invalid vehicle registration number or crew passcode. Access denied.');
       return;
     }
 
@@ -35,7 +46,7 @@ export const AmbulanceLoginPage: React.FC<AmbulanceLoginPageProps> = ({ onSucces
       setError('');
       if (onSuccess) onSuccess();
     } else {
-      setError(`Vehicle number "${num}" not found in registered 108 emergency fleet. Please select one of the registered units below.`);
+      setError('Invalid vehicle registration number or crew passcode. Access denied.');
     }
   };
 
@@ -114,12 +125,9 @@ export const AmbulanceLoginPage: React.FC<AmbulanceLoginPageProps> = ({ onSucces
               type="text"
               value={vehicleNumberInput}
               onChange={(e) => setVehicleNumberInput(e.target.value)}
-              placeholder="e.g. HR-10-EM-1081"
+              placeholder="Enter vehicle registration number"
               className="w-full px-4 py-3 bg-slate-50 hover:bg-slate-100/70 focus:bg-white border border-slate-200 rounded-xl text-sm font-mono text-slate-900 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
             />
-            <p className="text-[11px] text-slate-400">
-              Format: HR-10-EM-1081 or amb-01
-            </p>
           </div>
 
           <div className="space-y-1.5">
@@ -131,7 +139,7 @@ export const AmbulanceLoginPage: React.FC<AmbulanceLoginPageProps> = ({ onSucces
               type="password"
               value={passcode}
               onChange={(e) => setPasscode(e.target.value)}
-              placeholder="Default: 108108"
+              placeholder="Enter 6-digit crew PIN"
               className="w-full px-4 py-3 bg-slate-50 hover:bg-slate-100/70 focus:bg-white border border-slate-200 rounded-xl text-sm font-mono text-slate-900 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
             />
           </div>
@@ -143,45 +151,12 @@ export const AmbulanceLoginPage: React.FC<AmbulanceLoginPageProps> = ({ onSucces
             <span>Access Ambulance Cockpit</span>
             <ArrowRight className="w-4 h-4" />
           </button>
-        </form>
 
-        {/* Quick Demo Vehicles (1-Tap Fast Login) */}
-        <div className="space-y-2.5">
-          <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider px-1">
-            Registered Fleet Units (1-Click Instant Login):
+          <div className="pt-2 flex items-center justify-center gap-1.5 text-xs text-slate-400 text-center">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            <span>Official 108 Emergency Crew Authorization Required</span>
           </div>
-          <div className="space-y-2">
-            {ambulances.map((amb) => (
-              <button
-                key={amb.id}
-                type="button"
-                onClick={() => {
-                  setVehicleNumberInput(amb.vehicleNumber);
-                  handleLogin(amb.vehicleNumber);
-                }}
-                className="w-full p-3.5 bg-white hover:bg-emerald-50/50 border border-slate-200 hover:border-emerald-300 rounded-2xl transition text-left flex items-center justify-between group cursor-pointer shadow-2xs"
-              >
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-sm font-bold text-slate-900 group-hover:text-emerald-700 transition">
-                      {amb.vehicleNumber}
-                    </span>
-                    <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                      {amb.type.includes('ALS') ? 'ALS' : 'BLS'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Driver: <strong className="text-slate-700">{amb.driverName}</strong> • Base: {amb.hospitalName}
-                  </p>
-                </div>
-                <div className="flex items-center gap-1.5 text-xs text-emerald-600 font-bold opacity-0 group-hover:opacity-100 transition">
-                  <span>Sign In</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
+        </form>
 
       </div>
 
