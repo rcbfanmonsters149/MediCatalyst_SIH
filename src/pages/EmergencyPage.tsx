@@ -277,7 +277,7 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
 
             <LeafletMap
               hospitals={hospitals}
-              ambulances={ambulances}
+              ambulances={[]}
               selectedHospitalId={dispatch.currentHospitalId}
               pickupLocation={memoizedPickup}
               height="460px"

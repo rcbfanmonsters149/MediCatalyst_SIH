@@ -646,8 +646,12 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
       markersGroup.addLayer(marker);
     });
 
-    // 3. RENDER AMBULANCES
-    ambulances.forEach(amb => {
+    // 3. RENDER FLEET AMBULANCES (Exclude live/dispatched vehicle so it is never duplicated)
+    const staticAmbulances = showLiveAmbulance
+      ? ambulances.filter(amb => amb.id !== activeDispatch?.assignedAmbulanceId && amb.vehicleNumber !== liveAmbulance?.vehicleNumber)
+      : ambulances;
+
+    staticAmbulances.forEach(amb => {
       const isAvailable = amb.status === 'AVAILABLE';
       const ambHtml = `
         <div style="
