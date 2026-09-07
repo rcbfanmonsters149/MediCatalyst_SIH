@@ -4,7 +4,6 @@ import {
   Bed, 
   AlertOctagon, 
   ExternalLink, 
-  LogOut, 
   CheckCircle2,
   Stethoscope,
   Radio,
@@ -24,8 +23,6 @@ export const HospitalDashboard: React.FC = () => {
     hospitals, 
     selectedHospitalId, 
     setSelectedHospitalId,
-    hospitalUser,
-    logoutHospital,
     activeDispatch
   } = useApp();
 
@@ -40,8 +37,8 @@ export const HospitalDashboard: React.FC = () => {
   const [notification, setNotification] = useState<string | null>(null);
 
   // Always retrieve the latest hospital state from hospitals array for live reactivity
-  const currentHospId = hospitalUser?.id || selectedHospitalId;
-  const hospital = hospitals.find(h => h.id === currentHospId) || hospitalUser || hospitals[0];
+  const currentHospId = selectedHospitalId || hospitals[0]?.id;
+  const hospital = hospitals.find(h => h.id === currentHospId) || hospitals[0];
 
   const hasActiveEmergency = activeDispatch && activeDispatch.currentHospitalId === hospital.id;
 
@@ -85,14 +82,6 @@ export const HospitalDashboard: React.FC = () => {
               <ExternalLink className="w-3.5 h-3.5 text-emerald-400" />
               <span className="hidden sm:inline">View Public Citizen Portal</span>
             </Link>
-
-            <button
-              onClick={logoutHospital}
-              className="text-xs text-rose-300 hover:text-white bg-rose-950/60 hover:bg-rose-900/80 px-3 py-2 rounded-xl transition flex items-center gap-1.5 border border-rose-800 cursor-pointer"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Logout Desk</span>
-            </button>
           </div>
 
         </div>

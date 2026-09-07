@@ -6,7 +6,6 @@ import { CitizenPage } from './pages/CitizenPage';
 import { BioDataPage } from './pages/BioDataPage';
 import { EmergencyPage } from './pages/EmergencyPage';
 import { HospitalDashboard } from './pages/HospitalDashboard';
-import { HospitalLoginPage } from './pages/HospitalLoginPage';
 import { AmbulanceDashboard } from './pages/AmbulanceDashboard';
 import { AmbulanceLoginPage } from './pages/AmbulanceLoginPage';
 import { TrafficPoliceDashboard } from './pages/TrafficPoliceDashboard';
@@ -103,12 +102,6 @@ const CitizenPortal: React.FC = () => {
  * Dedicated Hospital Operations Portal (Route: /hospital)
  */
 const HospitalPortal: React.FC = () => {
-  const { hospitalUser } = useApp();
-
-  if (!hospitalUser) {
-    return <HospitalLoginPage />;
-  }
-
   return <HospitalDashboard />;
 };
 
