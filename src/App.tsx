@@ -12,7 +12,7 @@ import { AmbulanceLoginPage } from './pages/AmbulanceLoginPage';
 import { TrafficPoliceDashboard } from './pages/TrafficPoliceDashboard';
 import { TrafficPoliceLoginPage } from './pages/TrafficPoliceLoginPage';
 import { PublicWorkersPage } from './pages/PublicWorkersPage';
-import { Building2, ArrowRight, Truck, ShieldCheck } from 'lucide-react';
+import { Building2, ArrowRight, Truck, ShieldCheck } from './components/icons';
 
 /**
  * Public Citizen Healthcare Portal (Route: /)

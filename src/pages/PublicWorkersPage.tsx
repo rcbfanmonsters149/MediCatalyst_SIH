@@ -18,7 +18,7 @@ import {
   Building2,
   Truck,
   Heart
-} from 'lucide-react';
+} from '../components/icons';
 import { useApp } from '../context/AppContext';
 import { LeafletMap } from '../components/LeafletMap';
 import { Link } from 'react-router-dom';

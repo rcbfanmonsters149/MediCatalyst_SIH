@@ -1,0 +1,271 @@
+/* ==========================================================================
+   Components: Cards, Buttons, Badges, Modals, Forms, and UI Elements
+   ========================================================================== */
+
+/* Cards */
+.card {
+  background-color: var(--white);
+  border: 1px solid var(--slate-200);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  transition: var(--transition-all);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.card-dark {
+  background-color: var(--slate-900);
+  border-color: var(--slate-800);
+  color: var(--slate-100);
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 500;
+  font-size: var(--text-sm);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: var(--transition-all);
+  text-decoration: none;
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn-primary,
+.btn-emerald {
+  background-color: var(--emerald-600);
+  color: var(--white);
+}
+
+.btn-primary:hover,
+.btn-emerald:hover {
+  background-color: var(--emerald-700);
+}
+
+.btn-blue {
+  background-color: var(--blue-600);
+  color: var(--white);
+}
+
+.btn-blue:hover {
+  background-color: var(--blue-700);
+}
+
+.btn-red,
+.btn-danger {
+  background-color: var(--red-600);
+  color: var(--white);
+}
+
+.btn-red:hover,
+.btn-danger:hover {
+  background-color: var(--red-700);
+}
+
+.btn-amber,
+.btn-warning {
+  background-color: var(--amber-500);
+  color: var(--slate-900);
+}
+
+.btn-amber:hover,
+.btn-warning:hover {
+  background-color: var(--amber-600);
+}
+
+.btn-secondary {
+  background-color: var(--slate-100);
+  color: var(--slate-700);
+  border-color: var(--slate-200);
+}
+
+.btn-secondary:hover {
+  background-color: var(--slate-200);
+  color: var(--slate-900);
+}
+
+.btn-outline {
+  background-color: transparent;
+  border-color: var(--slate-300);
+  color: var(--slate-700);
+}
+
+.btn-outline:hover {
+  background-color: var(--slate-50);
+  border-color: var(--slate-400);
+}
+
+.btn-ghost {
+  background-color: transparent;
+  color: var(--slate-600);
+}
+
+.btn-ghost:hover {
+  background-color: var(--slate-100);
+  color: var(--slate-900);
+}
+
+.btn-sm {
+  padding: var(--space-1) var(--space-2-5);
+  font-size: var(--text-xs);
+  border-radius: var(--radius-md);
+}
+
+.btn-lg {
+  padding: var(--space-3) var(--space-6);
+  font-size: var(--text-base);
+  border-radius: var(--radius-xl);
+}
+
+/* Badges & Pills */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  padding: var(--space-0-5) var(--space-2-5);
+  border-radius: var(--radius-full);
+  gap: var(--space-1-5);
+  line-height: 1.25;
+}
+
+.badge-emerald {
+  background-color: var(--emerald-100);
+  color: var(--emerald-800);
+  border: 1px solid var(--emerald-200);
+}
+
+.badge-amber {
+  background-color: var(--amber-100);
+  color: var(--amber-800);
+  border: 1px solid var(--amber-200);
+}
+
+.badge-red {
+  background-color: var(--red-100);
+  color: var(--red-800);
+  border: 1px solid var(--red-200);
+}
+
+.badge-blue {
+  background-color: var(--blue-100);
+  color: var(--blue-800);
+  border: 1px solid var(--blue-200);
+}
+
+.badge-purple {
+  background-color: var(--purple-100);
+  color: var(--purple-800);
+  border: 1px solid var(--purple-200);
+}
+
+.badge-slate {
+  background-color: var(--slate-100);
+  color: var(--slate-700);
+  border: 1px solid var(--slate-200);
+}
+
+/* Status Indicators */
+.status-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--radius-full);
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.status-dot-emerald { background-color: var(--emerald-500); }
+.status-dot-amber { background-color: var(--amber-500); }
+.status-dot-red { background-color: var(--red-500); }
+.status-dot-blue { background-color: var(--blue-500); }
+
+/* Form Controls */
+.input,
+.select,
+.textarea {
+  width: 100%;
+  padding: var(--space-2-5) var(--space-3-5);
+  background-color: var(--white);
+  border: 1px solid var(--slate-300);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-sm);
+  color: var(--slate-900);
+  transition: var(--transition-all);
+  outline: none;
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+  border-color: var(--emerald-500);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+}
+
+.input::placeholder,
+.textarea::placeholder {
+  color: var(--slate-400);
+}
+
+/* Modal Backdrops & Dialogs */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: var(--space-4);
+}
+
+.modal-card {
+  background-color: var(--white);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-2xl);
+  max-width: 32rem;
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--slate-200);
+}
+
+/* Tables */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: var(--text-sm);
+}
+
+.table th {
+  background-color: var(--slate-50);
+  color: var(--slate-500);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: var(--text-xs);
+  letter-spacing: 0.05em;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--slate-200);
+}
+
+.table td {
+  padding: var(--space-3-5) var(--space-4);
+  border-bottom: 1px solid var(--slate-100);
+  color: var(--slate-700);
+}
+
+.table tr:hover td {
+  background-color: var(--slate-50);
+}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Check, ChevronRight, ChevronLeft, Play, Pause, RotateCcw, Info } from 'lucide-react';
+import { Check, ChevronRight, ChevronLeft, Play, Pause, RotateCcw, Info } from './icons';
 
 export interface EmergencyTrackerCardProps {
   incidentId?: string;

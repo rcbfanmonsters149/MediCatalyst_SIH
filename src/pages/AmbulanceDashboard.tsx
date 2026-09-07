@@ -22,7 +22,7 @@ import {
   Clock,
   Sparkles,
   ChevronRight
-} from 'lucide-react';
+} from '../components/icons';
 import { useApp } from '../context/AppContext';
 import { Link } from 'react-router-dom';
 import { HospitalAmbulancePortalTab } from '../components/hospital/HospitalAmbulancePortalTab';

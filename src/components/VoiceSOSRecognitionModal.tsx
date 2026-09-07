@@ -7,7 +7,7 @@ import {
   X, 
   CheckCircle2, 
   Radio
-} from 'lucide-react';
+} from './icons';
 import { useApp } from '../context/AppContext';
 
 export type VoiceLanguage = 'hi-IN' | 'mr-IN' | 'en-IN';

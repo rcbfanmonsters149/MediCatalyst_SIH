@@ -10,7 +10,7 @@ import {
   Building2,
   LogOut,
   Radio
-} from 'lucide-react';
+} from '../components/icons';
 import { useApp } from '../context/AppContext';
 import { LeafletMap } from '../components/LeafletMap';
 

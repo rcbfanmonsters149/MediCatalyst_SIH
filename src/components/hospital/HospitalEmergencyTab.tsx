@@ -22,7 +22,7 @@ import {
   ShieldCheck,
   AlertCircle,
   Pill
-} from 'lucide-react';
+} from '../icons';
 import { useApp } from '../../context/AppContext';
 import { Hospital } from '../../types';
 import { EmergencyTrackerCard } from '../EmergencyTrackerCard';

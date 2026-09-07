@@ -1,0 +1,77 @@
+/* Zero-Dependency Pure CSS Icon System */
+.icon {
+  display: inline-block;
+  vertical-align: middle;
+  stroke: currentColor;
+  fill: none;
+  flex-shrink: 0;
+}
+
+/* Icon Sizing Classes */
+.icon-xs {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.icon-sm {
+  width: 1rem;
+  height: 1rem;
+}
+
+.icon-md {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.icon-lg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.icon-xl {
+  width: 2rem;
+  height: 2rem;
+}
+
+/* Common Icon Animations */
+@keyframes icon-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes icon-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.95);
+  }
+}
+
+@keyframes icon-ping {
+  75%, 100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+.icon-spin,
+.animate-spin {
+  animation: icon-spin 1s linear infinite;
+}
+
+.icon-pulse,
+.animate-pulse {
+  animation: icon-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.icon-ping,
+.animate-ping {
+  animation: icon-ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+}

@@ -18,7 +18,7 @@ import {
   Stethoscope,
   Lock,
   Calendar
-} from 'lucide-react';
+} from '../components/icons';
 import { useApp } from '../context/AppContext';
 import { PatientRecord } from '../types';
 

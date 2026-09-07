@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { 
-  Truck, 
   Activity, 
   Heart, 
   Wind, 
@@ -9,24 +8,18 @@ import {
   Droplet, 
   CheckCircle2, 
   AlertTriangle, 
-  Zap, 
   Building2, 
   MapPin, 
   Upload, 
-  Clock, 
   FileText,
   Stethoscope,
   ShieldAlert,
-  RotateCcw,
   User,
   ShieldCheck,
   Pill,
   RefreshCw,
-  Check,
-  Baby,
-  Flame,
-  Info
-} from 'lucide-react';
+  Check
+} from '../icons';
 import { useApp } from '../../context/AppContext';
 import { 
   evaluateAmbulanceAssessment, 

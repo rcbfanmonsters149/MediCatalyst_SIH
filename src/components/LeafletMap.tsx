@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import L from 'leaflet';
 import { Hospital, Ambulance, TrafficSignal } from '../types';
-import { Navigation, Locate, ExternalLink, MapPin, Compass, AlertCircle, Phone, Activity, Zap, ChevronUp, ChevronDown, Clock, ShieldCheck, Plus, Minus } from 'lucide-react';
+import { Navigation, Locate, ExternalLink, MapPin, Compass, AlertCircle, Phone, Activity, Zap, ChevronUp, ChevronDown, Clock, ShieldCheck, Plus, Minus } from './icons';
 import { useApp } from '../context/AppContext';
 
 interface LeafletMapProps {

@@ -8,7 +8,7 @@ import {
   ShieldCheck,
   Lock,
   User
-} from 'lucide-react';
+} from './icons';
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 

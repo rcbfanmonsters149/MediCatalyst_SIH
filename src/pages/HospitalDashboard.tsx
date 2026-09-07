@@ -10,7 +10,7 @@ import {
   Radio,
   MapPin,
   Truck
-} from 'lucide-react';
+} from '../components/icons';
 import { useApp } from '../context/AppContext';
 import { Link, useLocation } from 'react-router-dom';
 import { HospitalManagementTab } from '../components/hospital/HospitalManagementTab';

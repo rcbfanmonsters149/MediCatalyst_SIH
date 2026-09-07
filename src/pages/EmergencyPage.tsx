@@ -15,7 +15,7 @@ import {
   Info,
   Mic,
   Languages
-} from 'lucide-react';
+} from '../components/icons';
 import { useApp } from '../context/AppContext';
 import { TollFreeBanner } from '../components/TollFreeBanner';
 import { EmergencyTrackerCard } from '../components/EmergencyTrackerCard';

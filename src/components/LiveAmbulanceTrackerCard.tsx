@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Phone, Zap, ChevronUp, ChevronDown, Activity, Navigation, Clock } from 'lucide-react';
+import { Phone, Zap, ChevronUp, ChevronDown, Activity, Navigation, Clock } from './icons';
 
 interface LiveAmbulanceTrackerCardProps {
   className?: string;

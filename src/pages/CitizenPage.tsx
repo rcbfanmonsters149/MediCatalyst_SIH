@@ -15,7 +15,7 @@ import {
   Scan,
   Disc,
   Mic
-} from 'lucide-react';
+} from '../components/icons';
 import { useApp, calculateHaversineKm } from '../context/AppContext';
 import { LeafletMap } from '../components/LeafletMap';
 import { LiveAmbulanceTrackerCard } from '../components/LiveAmbulanceTrackerCard';

@@ -1,5 +1,5 @@
 import React from 'react';
-import { PhoneCall, AlertTriangle, ShieldAlert, HeartPulse } from 'lucide-react';
+import { PhoneCall, AlertTriangle, ShieldAlert, HeartPulse } from './icons';
 
 export const TollFreeBanner: React.FC = () => {
   return (

@@ -1,79 +1,12 @@
-@import "tailwindcss";
+/* ==========================================================================
+   MedCatalyst Pure Normal CSS Architecture
+   Zero Build-Time CSS Compilers / Pure Standard CSS
+   ========================================================================== */
 
-@layer base {
-  body {
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  }
-  h1, h2, h3, h4, h5, h6 {
-    font-family: 'Outfit', 'Inter', system-ui, sans-serif;
-  }
-}
-
-/* Custom pulsing and emergency alert keyframes */
-@keyframes emergency-pulse {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
-    transform: scale(1);
-  }
-  50% {
-    box-shadow: 0 0 0 16px rgba(239, 68, 68, 0);
-    transform: scale(1.02);
-  }
-}
-
-.animate-emergency-beacon {
-  animation: emergency-pulse 2s infinite ease-in-out;
-}
-
-@keyframes reroute-glow {
-  0%, 100% {
-    border-color: rgb(249, 115, 22);
-    box-shadow: 0 0 25px rgba(249, 115, 22, 0.5);
-  }
-  50% {
-    border-color: rgb(239, 68, 68);
-    box-shadow: 0 0 35px rgba(239, 68, 68, 0.7);
-  }
-}
-
-.animate-reroute-alert {
-  animation: reroute-glow 1.5s infinite ease-in-out;
-}
-
-/* Custom scrollbars */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: #f1f5f9;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 9999px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
-
-/* Leaflet map container fix */
-.leaflet-container {
-  width: 100%;
-  height: 100%;
-  border-radius: inherit;
-  z-index: 10;
-  touch-action: none !important;
-}
-
-/* Fix Leaflet custom div icon clipping and borders */
-.leaflet-div-icon.signal-map-marker,
-.leaflet-div-icon.dest-hospital-pin,
-.leaflet-div-icon.current-location-marker,
-.leaflet-div-icon.hospital-map-marker {
-  background: transparent !important;
-  border: none !important;
-  overflow: visible !important;
-}
+@import "./styles/variables.css";
+@import "./styles/base.css";
+@import "./styles/layout.css";
+@import "./styles/components.css";
+@import "./styles/utilities.css";
+@import "./styles/animations.css";
+@import "./components/icons/icons.css";
