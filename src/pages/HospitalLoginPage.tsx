@@ -8,6 +8,8 @@ import {
   ArrowLeft
 } from '../components/icons';
 import { useApp } from '../context/AppContext';
+import { useLanguage } from '../context/LanguageContext';
+import { LanguageSelector } from '../components/LanguageSelector';
 import { Link } from 'react-router-dom';
 
 interface HospitalLoginPageProps {
@@ -16,6 +18,7 @@ interface HospitalLoginPageProps {
 
 export const HospitalLoginPage: React.FC<HospitalLoginPageProps> = ({ onSuccess }) => {
   const { loginHospital } = useApp();
+  const { tr, language } = useLanguage();
   const [hospitalIdInput, setHospitalIdInput] = useState('');
   const [passcode, setPasscode] = useState('');
   const [error, setError] = useState('');
@@ -26,17 +29,17 @@ export const HospitalLoginPage: React.FC<HospitalLoginPageProps> = ({ onSuccess 
 
     const id = hospitalIdInput.trim();
     if (!id) {
-      setError('Please enter a valid Hospital ID or ABDM Registry Code.');
+      setError(language === 'mr' ? 'कृपया वैध रुग्णालय आयडी प्रविष्ट करा.' : language === 'hi' ? 'कृपया वैध अस्पताल आईडी दर्ज करें।' : 'Please enter a valid Hospital ID or ABDM Registry Code.');
       return;
     }
 
     if (!passcode.trim()) {
-      setError('Please enter your 6-digit hospital staff PIN / security key.');
+      setError(language === 'mr' ? 'कृपया तुमचा ६-अंकी कर्मचारी पिन टाका.' : language === 'hi' ? 'कृपया अपना 6-अंकों का स्टाफ पिन दर्ज करें।' : 'Please enter your 6-digit hospital staff PIN / security key.');
       return;
     }
 
     if (passcode.trim() !== '108108') {
-      setError('Invalid hospital facility ID or staff security PIN. Access denied.');
+      setError(language === 'mr' ? 'अवैध रुग्णालय आयडी किंवा सुरक्षा पिन. प्रवेश नाकारला.' : language === 'hi' ? 'अमान्य अस्पताल आईडी या सुरक्षा पिन। पहुंच अस्वीकृत।' : 'Invalid hospital facility ID or staff security PIN. Access denied.');
       return;
     }
 
@@ -45,7 +48,7 @@ export const HospitalLoginPage: React.FC<HospitalLoginPageProps> = ({ onSuccess 
       setError('');
       if (onSuccess) onSuccess();
     } else {
-      setError('Invalid hospital facility ID or staff security PIN. Access denied.');
+      setError(language === 'mr' ? 'अवैध रुग्णालय आयडी किंवा सुरक्षा पिन. प्रवेश नाकारला.' : language === 'hi' ? 'अमान्य अस्पताल आईडी या सुरक्षा पिन। पहुंच अस्वीकृत।' : 'Invalid hospital facility ID or staff security PIN. Access denied.');
     }
   };
 
@@ -60,7 +63,7 @@ export const HospitalLoginPage: React.FC<HospitalLoginPageProps> = ({ onSuccess 
           </div>
           <div>
             <span className="font-extrabold text-lg tracking-tight font-heading text-slate-900">
-              Med<span className="text-blue-600">Catalyst</span> Hospital Desk
+              Med<span className="text-blue-600">Catalyst</span> {tr.nav.hospitalPortal}
             </span>
             <span className="text-[10px] ml-2 uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
               Provider Portal
@@ -68,13 +71,16 @@ export const HospitalLoginPage: React.FC<HospitalLoginPageProps> = ({ onSuccess 
           </div>
         </div>
 
-        <Link
-          to="/"
-          className="text-xs text-slate-600 hover:text-slate-900 transition flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 hover:border-slate-400 bg-slate-50 hover:bg-slate-100"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Switch to Citizen Portal</span>
-        </Link>
+        <div className="flex items-center gap-2.5">
+          <LanguageSelector variant="light" />
+          <Link
+            to="/"
+            className="text-xs text-slate-600 hover:text-slate-900 transition flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 hover:border-slate-400 bg-slate-50 hover:bg-slate-100"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">{language === 'mr' ? 'नागरिक पोर्टल' : language === 'hi' ? 'नागरिक पोर्टल' : 'Switch to Citizen Portal'}</span>
+          </Link>
+        </div>
       </header>
 
       {/* Main Login Content */}
@@ -86,10 +92,10 @@ export const HospitalLoginPage: React.FC<HospitalLoginPageProps> = ({ onSuccess 
             <span>ABDM National Health Facility Registry</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold font-heading text-slate-900 tracking-tight">
-            Hospital Operations Login
+            {tr.hospital.loginTitle}
           </h1>
           <p className="text-xs sm:text-sm text-slate-500">
-            Authenticate to update live bed availability, manage on-duty doctor rosters & accept emergency 108 dispatches.
+            {tr.hospital.loginSubtitle}
           </p>
         </div>
 
@@ -98,7 +104,7 @@ export const HospitalLoginPage: React.FC<HospitalLoginPageProps> = ({ onSuccess 
           <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }} className="space-y-4">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                Hospital ID / ABDM Facility Code
+                {tr.hospital.enterHospitalId}
               </label>
               <div className="relative">
                 <Building2 className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
@@ -106,7 +112,7 @@ export const HospitalLoginPage: React.FC<HospitalLoginPageProps> = ({ onSuccess 
                   type="text"
                   value={hospitalIdInput}
                   onChange={(e) => setHospitalIdInput(e.target.value)}
-                  placeholder="Enter ABDM Hospital Facility ID"
+                  placeholder="hosp-rampur-phc or 108108"
                   className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
                 />
               </div>
@@ -114,7 +120,7 @@ export const HospitalLoginPage: React.FC<HospitalLoginPageProps> = ({ onSuccess 
 
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                Staff PIN / Security Key
+                {language === 'mr' ? 'कर्मचारी सुरक्षा पिन (108108)' : language === 'hi' ? 'स्टाफ सुरक्षा पिन (108108)' : 'Staff PIN / Security Key (108108)'}
               </label>
               <div className="relative">
                 <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
@@ -122,7 +128,7 @@ export const HospitalLoginPage: React.FC<HospitalLoginPageProps> = ({ onSuccess 
                   type="password"
                   value={passcode}
                   onChange={(e) => setPasscode(e.target.value)}
-                  placeholder="Enter 6-digit hospital staff PIN"
+                  placeholder="108108"
                   className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
                 />
               </div>
@@ -139,7 +145,7 @@ export const HospitalLoginPage: React.FC<HospitalLoginPageProps> = ({ onSuccess 
               type="submit"
               className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-md hover:shadow-lg transition flex items-center justify-center gap-2 cursor-pointer active:scale-98"
             >
-              <span>Access Hospital Command Desk</span>
+              <span>{tr.hospital.loginBtn}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>

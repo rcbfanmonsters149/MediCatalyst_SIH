@@ -305,7 +305,47 @@ export function checkHospitalCapabilities(
   };
 }
 
-export function getCapabilityFriendlyName(cap: CapabilityType): string {
+export function getCapabilityFriendlyName(cap: CapabilityType, lang: 'en' | 'hi' | 'mr' = 'en'): string {
+  if (lang === 'mr') {
+    switch (cap) {
+      case 'CATH_LAB_24X7':
+        return '२४/७ कार्डियाक कॅथ लॅब (अँजिओप्लास्टी)';
+      case 'NEURO_SURGERY_ICU':
+        return 'न्यूरो-सर्जन व न्यूरो-आयसीयू उपलब्ध';
+      case 'TRAUMA_OT':
+        return 'आपत्कालीन ट्रॉमा शस्त्रक्रिया कक्ष (OT)';
+      case 'MECHANICAL_VENTILATOR':
+        return 'इनवेसिव्ह मेकॅनिकल व्हेंटिलेटर';
+      case 'PEDIATRIC_ICU':
+        return 'बालरोग अतिदक्षता विभाग (PICU)';
+      case 'BLOOD_BANK_O_NEG':
+        return '२४/७ आपत्कालीन रक्तपेढी (O-ve उपलब्ध)';
+      case 'MATERNITY_SURGICAL':
+        return 'तातडीची प्रसूती / सिझेरियन शस्त्रक्रिया';
+      default:
+        return cap;
+    }
+  }
+  if (lang === 'hi') {
+    switch (cap) {
+      case 'CATH_LAB_24X7':
+        return '24/7 कार्डियक कैथ लैब (एंजियोप्लास्टी)';
+      case 'NEURO_SURGERY_ICU':
+        return 'न्यूरो-सर्जन एवं न्यूरो-आईसीयू उपलब्ध';
+      case 'TRAUMA_OT':
+        return 'आपातकालीन ट्रॉमा ऑपरेशन थियेटर (OT)';
+      case 'MECHANICAL_VENTILATOR':
+        return 'इनवेसिव मैकेनिकल वेंटिलेटर';
+      case 'PEDIATRIC_ICU':
+        return 'बाल चिकित्सा गहन देखभाल इकाई (PICU)';
+      case 'BLOOD_BANK_O_NEG':
+        return '24/7 आपातकालीन ब्लड बैंक (O-ve उपलब्ध)';
+      case 'MATERNITY_SURGICAL':
+        return 'आपातकालीन प्रसूति / सी-सेक्शन सर्जरी';
+      default:
+        return cap;
+    }
+  }
   switch (cap) {
     case 'CATH_LAB_24X7':
       return '24/7 Cardiac Cath Lab (Angioplasty / PCI)';

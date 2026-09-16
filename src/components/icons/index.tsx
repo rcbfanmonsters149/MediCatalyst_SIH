@@ -319,6 +319,15 @@ export const MessageSquare: React.FC<IconProps> = (props) => (
   </IconBase>
 );
 
+export const Menu: React.FC<IconProps> = (props) => (
+  <IconBase {...props}>
+    <line x1="4" x2="20" y1="12" y2="12" />
+    <line x1="4" x2="20" y1="6" y2="6" />
+    <line x1="4" x2="20" y1="18" y2="18" />
+  </IconBase>
+);
+
+
 export const Mic: React.FC<IconProps> = (props) => (
   <IconBase {...props}>
     <path d="M12 19v3" />

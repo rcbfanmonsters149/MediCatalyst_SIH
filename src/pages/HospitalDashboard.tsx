@@ -15,6 +15,8 @@ import { Link, useLocation } from 'react-router-dom';
 import { HospitalManagementTab } from '../components/hospital/HospitalManagementTab';
 import { HospitalEmergencyTab } from '../components/hospital/HospitalEmergencyTab';
 import { HospitalAmbulancePortalTab } from '../components/hospital/HospitalAmbulancePortalTab';
+import { useLanguage } from '../context/LanguageContext';
+import { LanguageSelector } from '../components/LanguageSelector';
 
 export type HospitalSubTab = 'management' | 'emergency' | 'ambulance';
 
@@ -25,6 +27,7 @@ export const HospitalDashboard: React.FC = () => {
     setSelectedHospitalId,
     activeDispatch
   } = useApp();
+  const { tr, language } = useLanguage();
 
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
@@ -61,26 +64,27 @@ export const HospitalDashboard: React.FC = () => {
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-extrabold text-lg text-white font-heading">
-                  Med<span className="text-blue-400">Catalyst</span> Hospital Desk
+                  Med<span className="text-blue-400">Catalyst</span> {tr.nav.hospitalPortal}
                 </span>
                 <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-blue-950 text-blue-300 border border-blue-800">
                   ID: {hospital.id.toUpperCase()}
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 hidden sm:block">
-                Hospital Command Desk • Real-time Bed & Doctor Sync
+                {tr.hospital.title}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
+            <LanguageSelector variant="dark" />
             <Link
               to="/"
-              className="text-xs text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-xl transition flex items-center gap-1.5 border border-slate-700 cursor-pointer"
+              className="h-10 text-xs font-semibold text-slate-200 hover:text-white bg-slate-800 hover:bg-slate-700 px-3.5 rounded-xl transition flex items-center gap-2 border border-slate-700 cursor-pointer shadow-xs"
               title="Open the citizen-facing public portal"
             >
-              <ExternalLink className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="hidden sm:inline">View Public Citizen Portal</span>
+              <ExternalLink className="w-4 h-4 text-emerald-400" />
+              <span className="hidden sm:inline">{language === 'mr' ? 'नागरिक पोर्टल पहा' : language === 'hi' ? 'नागरिक पोर्टल देखें' : 'View Public Citizen Portal'}</span>
             </Link>
           </div>
 
@@ -96,7 +100,7 @@ export const HospitalDashboard: React.FC = () => {
             <CheckCircle2 className="w-5 h-5 shrink-0" />
             <div>
               <p className="text-sm font-bold">{notification}</p>
-              <span className="text-[10px] text-emerald-100 font-mono">Live Broadcast Active</span>
+              <span className="text-[10px] text-emerald-100 font-mono">{tr.common.live}</span>
             </div>
           </div>
         )}
@@ -107,7 +111,7 @@ export const HospitalDashboard: React.FC = () => {
             <div className="flex items-center gap-2">
               <Building2 className="w-4 h-4 text-blue-600" />
               <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Authorized Facility Operations
+                {language === 'mr' ? 'अधिकृत रुग्णालय परिचालन' : language === 'hi' ? 'अधिकृत अस्पताल परिचालन' : 'Authorized Facility Operations'}
               </span>
             </div>
             <h1 className="text-2xl font-extrabold text-slate-900 font-heading mt-1">
@@ -118,12 +122,14 @@ export const HospitalDashboard: React.FC = () => {
               <span>•</span>
               <span>{hospital.address}</span>
               <span>•</span>
-              <span>Emergency Hotline: {hospital.phone}</span>
+              <span>{tr.citizen.emergencyContact}: {hospital.phone}</span>
             </p>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-500">Switch Facility Desk:</span>
+            <span className="text-xs font-bold text-slate-500">
+              {language === 'mr' ? 'रुग्णालय केंद्र निवडा:' : language === 'hi' ? 'अस्पताल डेस्क चुनें:' : 'Switch Facility Desk:'}
+            </span>
             <select
               value={hospital.id}
               onChange={(e) => setSelectedHospitalId(e.target.value)}
@@ -151,7 +157,7 @@ export const HospitalDashboard: React.FC = () => {
             }`}
           >
             <Stethoscope className="w-4 h-4" />
-            <span>Doctors & Bed Capacity Management</span>
+            <span>{tr.hospital.managementTab}</span>
           </button>
 
           {/* Tab 2: Emergency Response & Ambulance Tracking */}
@@ -164,13 +170,13 @@ export const HospitalDashboard: React.FC = () => {
             }`}
           >
             <Radio className="w-4 h-4" />
-            <span>Emergency Cases & Inbound Tracking</span>
+            <span>{tr.hospital.emergencyQueueTab}</span>
 
             {/* Pulsing Active Emergency Notification Badge */}
             {hasActiveEmergency && (
               <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-300 ml-1.5 animate-pulse">
                 <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-ping"></span>
-                1 Inbound SOS
+                1 {language === 'mr' ? 'येणारा SOS' : language === 'hi' ? 'आने वाला SOS' : 'Inbound SOS'}
               </span>
             )}
           </button>
@@ -185,7 +191,7 @@ export const HospitalDashboard: React.FC = () => {
             }`}
           >
             <Truck className="w-4 h-4" />
-            <span>Ambulance Portal (Crew Desk)</span>
+            <span>{tr.hospital.ambulanceFleetTab}</span>
           </button>
 
         </div>

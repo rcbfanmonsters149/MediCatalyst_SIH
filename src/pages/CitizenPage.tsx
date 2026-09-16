@@ -6,21 +6,23 @@ import {
   UserCheck, 
   ShieldCheck, 
   Bed, 
-  AlertTriangle,
-  HeartPulse,
-  Navigation,
-  Activity,
-  Droplets,
-  Zap,
-  Scan,
-  Disc,
-  Mic
+  AlertTriangle, 
+  HeartPulse, 
+  Navigation, 
+  Activity, 
+  Droplets, 
+  Zap, 
+  Scan, 
+  Disc, 
+  Mic,
+  ArrowRight
 } from '../components/icons';
 import { useApp, calculateHaversineKm } from '../context/AppContext';
+import { useLanguage } from '../context/LanguageContext';
 import { LeafletMap } from '../components/LeafletMap';
 import { LiveAmbulanceTrackerCard } from '../components/LiveAmbulanceTrackerCard';
 import { getCapabilityFriendlyName } from '../utils/mlTriage';
-import { VoiceSOSRecognitionModal } from '../components/VoiceSOSRecognitionModal';
+import { RaiseAmbulanceRequestModal } from '../components/RaiseAmbulanceRequestModal';
 
 interface CitizenPageProps {
   onOpenEmergency: () => void;
@@ -28,9 +30,22 @@ interface CitizenPageProps {
 }
 
 export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => {
-  const { hospitals, selectedHospitalId, setSelectedHospitalId, userLocation, activeDispatch } = useApp();
+  const { 
+    hospitals, 
+    selectedHospitalId, 
+    setSelectedHospitalId, 
+    userLocation, 
+    activeDispatch,
+    createEmergencyDispatch 
+  } = useApp();
+  const { tr, language } = useLanguage();
   const [expandedDoctorHospId, setExpandedDoctorHospId] = useState<string | null>('hosp-rampur-phc');
-  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+  const [isAmbulanceModalOpen, setIsAmbulanceModalOpen] = useState(false);
+
+  const handleAmbulanceDispatch = (problemText: string, voiceTranscript?: string) => {
+    createEmergencyDispatch(problemText, voiceTranscript, 'CRITICAL');
+    onOpenEmergency();
+  };
 
   const memoizedPickupLocation = useMemo(() => {
     return userLocation ? {
@@ -53,50 +68,49 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
       
-      {/* 1. Hero Emergency Card with SOS Button */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-red-600 via-rose-600 to-red-700 text-white p-6 sm:p-8 shadow-xl">
+      {/* 1. Hero Emergency Card with Single "Raise Ambulance request" Action (Static, Non-White Warm Stone / Slate) */}
+      <div className="relative rounded-3xl bg-gradient-to-br from-slate-100 via-stone-100 to-zinc-100 p-6 sm:p-8 border border-slate-300 shadow-sm">
         <div className="relative z-10 max-w-3xl space-y-4">
-          <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight font-heading">
-            Rural Healthcare & Immediate Ambulance Network
-          </h1>
-
-          <div className="flex flex-wrap gap-3 pt-1">
-            <button
-              onClick={onOpenEmergency}
-              className="flex items-center gap-2 bg-white text-red-700 hover:bg-red-50 px-6 py-3.5 rounded-xl font-black text-sm sm:text-base shadow-lg hover:shadow-xl transition transform hover:-translate-y-0.5 active:translate-y-0 animate-emergency-beacon cursor-pointer"
-            >
-              <AlertTriangle className="w-5 h-5 text-red-600" />
-              <span>Request Immediate Ambulance (SOS)</span>
-            </button>
-            <button
-              onClick={() => setIsVoiceModalOpen(true)}
-              className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white px-5 py-3 rounded-xl font-bold text-sm sm:text-base shadow-lg hover:shadow-xl transition transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
-              title="Speak in Hindi, Marathi, or English (बोलकर सहायता लें / आवाजाने मदत मागा)"
-            >
-              <Mic className="w-5 h-5 animate-pulse text-amber-100" />
-              <span>🎙️ Voice SOS (हिन्दी / मराठी / English)</span>
-            </button>
-            <a
-              href="tel:108"
-              className="flex items-center gap-2 bg-red-900/40 hover:bg-red-900/60 border border-white/30 text-white px-5 py-3 rounded-xl font-bold text-sm sm:text-base transition"
-            >
-              <Phone className="w-4 h-4" />
-              <span>Dial 108 Directly</span>
-            </a>
+          {/* Live Telemetry Status Ribbon */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-200/90 border border-slate-300 text-slate-800 text-xs font-semibold">
+              <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
+              <span>24x7 National Emergency Grid (108 / 112)</span>
+            </div>
+            <div className="text-xs text-slate-600 flex items-center gap-1.5">
+              <span>🚑</span>
+              <span>Nearest 108 Ambulance: <strong className="text-slate-900">2.1 km (~6 mins ETA)</strong></span>
+            </div>
           </div>
-        </div>
 
-        {/* Decorative background watermark */}
-        <div className="absolute -right-10 -bottom-10 opacity-10 pointer-events-none">
-          <HeartPulse className="w-96 h-96 text-white" />
+          <div>
+            <h1 className="text-2xl sm:text-4xl font-black tracking-tight font-heading text-slate-900">
+              {tr.citizen.heroTitle}
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-600 mt-1.5 max-w-2xl leading-relaxed">
+              Autonomous real-time routing to nearest oxygen/ICU beds, green-light corridor signal pre-emption, and certified 108 paramedic triage.
+            </p>
+          </div>
+
+          {/* STRICTLY ONLY ONE BUTTON: Raise Ambulance request */}
+          <div className="pt-2">
+            <button
+              onClick={() => setIsAmbulanceModalOpen(true)}
+              className="h-14 px-8 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-black text-base shadow-md flex items-center gap-3 transition-colors cursor-pointer"
+            >
+              <AlertTriangle className="w-5 h-5 text-white" />
+              <span>{tr.citizen.raiseAmbulanceRequest}</span>
+              <ArrowRight className="w-4 h-4 text-white/80" />
+            </button>
+          </div>
         </div>
       </div>
 
       {/* 2. Available Healthcare Centers (Top) */}
       <div className="space-y-4">
         <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
-          <span>Available Healthcare Centers ({sortedHospitals.length})</span>
-          <span>Sorted by nearest distance</span>
+          <span>{tr.citizen.availableHealthcareCenters} ({sortedHospitals.length})</span>
+          <span>{tr.citizen.sortedByNearest}</span>
         </div>
 
         <div className="grid grid-cols-1 gap-4">
@@ -131,7 +145,7 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
                       </h3>
                       {hosp.id === sortedHospitals[0]?.id && (
                         <span className="text-[10px] bg-emerald-600 text-white font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-2xs animate-pulse">
-                          ⭐ Nearest Hospital (~{hosp.distanceKm} km)
+                          ⭐ {language === 'mr' ? 'सर्वात जवळचे रुग्णालय' : language === 'hi' ? 'निकटतम अस्पताल' : 'Nearest Hospital'} (~{hosp.distanceKm} {tr.common.unitKm})
                         </span>
                       )}
                       <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
@@ -146,7 +160,7 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
                     <p className="text-xs text-slate-500 flex items-center gap-1 mt-1">
                       <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                       <span>{hosp.address}</span>
-                      <span className="font-bold text-emerald-700 ml-1">• {hosp.distanceKm} km away (ETA ~{hosp.etaMinutes} mins)</span>
+                      <span className="font-bold text-emerald-700 ml-1">• {hosp.distanceKm} {tr.common.unitKm} {language === 'mr' ? 'अंतरावर' : language === 'hi' ? 'दूरी पर' : 'away'} ({tr.common.eta} ~{hosp.etaMinutes} {tr.common.unitMin})</span>
                     </p>
                   </div>
 
@@ -158,7 +172,7 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
                         : 'bg-slate-100 text-slate-700 border border-slate-200'
                     }`}>
                       <Clock className="w-3 h-3" />
-                      <span>{hosp.is24x7Emergency ? '24x7 Emergency Service' : hosp.openingHours}</span>
+                      <span>{hosp.is24x7Emergency ? tr.citizen.emergency24x7 : hosp.openingHours}</span>
                     </span>
                   </div>
                 </div>
@@ -168,46 +182,46 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
                   <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-150">
                     <div className="text-[11px] text-slate-500 flex items-center gap-1">
                       <Bed className="w-3.5 h-3.5 text-slate-400" />
-                      <span>General Beds</span>
+                      <span>{tr.citizen.generalBeds}</span>
                     </div>
                     <div className="text-sm font-bold text-slate-800 mt-0.5">
                       <span className="text-emerald-600">{hosp.generalBedsAvail ?? 0}</span>
-                      <span className="text-slate-500 text-xs font-normal"> Avail</span>
+                      <span className="text-slate-500 text-xs font-normal"> {tr.common.available}</span>
                     </div>
                   </div>
 
                   <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-150">
                     <div className="text-[11px] text-slate-500 flex items-center gap-1">
                       <HeartPulse className="w-3.5 h-3.5 text-rose-500" />
-                      <span>ICU Beds</span>
+                      <span>{tr.citizen.icuBeds}</span>
                     </div>
                     <div className="text-sm font-bold text-slate-800 mt-0.5">
                       <span className={(hosp.icuBedsAvail ?? 0) > 0 ? 'text-rose-600' : 'text-slate-400'}>
                         {hosp.icuBedsAvail ?? 0}
                       </span>
-                      <span className="text-slate-500 text-xs font-normal"> Avail</span>
+                      <span className="text-slate-500 text-xs font-normal"> {tr.common.available}</span>
                     </div>
                   </div>
 
                   <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-150">
                     <div className="text-[11px] text-slate-500 flex items-center gap-1">
                       <UserCheck className="w-3.5 h-3.5 text-indigo-500" />
-                      <span>Maternity Beds</span>
+                      <span>{tr.citizen.maternityBeds}</span>
                     </div>
                     <div className="text-sm font-bold text-slate-800 mt-0.5">
                       <span className="text-indigo-600">{hosp.maternityBedsAvail ?? 0}</span>
-                      <span className="text-slate-500 text-xs font-normal"> Avail</span>
+                      <span className="text-slate-500 text-xs font-normal"> {tr.common.available}</span>
                     </div>
                   </div>
 
                   <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-150">
                     <div className="text-[11px] text-slate-500 flex items-center gap-1">
                       <ShieldCheck className="w-3.5 h-3.5 text-sky-500" />
-                      <span>Ventilators</span>
+                      <span>{tr.citizen.ventilators}</span>
                     </div>
                     <div className="text-sm font-bold text-slate-800 mt-0.5">
                       <span className={(hosp.ventilatorsAvail ?? 0) > 0 ? 'text-sky-600' : 'text-slate-400'}>
-                        {hosp.ventilatorsAvail ?? 0} Units
+                        {hosp.ventilatorsAvail ?? 0} {tr.common.available}
                       </span>
                     </div>
                   </div>
@@ -215,40 +229,42 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
 
                 {/* Critical Diagnostic & Life-Support Equipment Status */}
                 <div className="flex flex-wrap items-center gap-1.5 mt-2.5 pt-2 border-t border-dashed border-slate-100 text-[11px]">
-                  <span className="text-[10px] uppercase font-bold text-slate-400 mr-1">Equipment:</span>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 mr-1">
+                    {language === 'mr' ? 'उपकरणे:' : language === 'hi' ? 'उपकरण:' : 'Equipment:'}
+                  </span>
                   <span className={`px-2 py-0.5 rounded-md font-semibold flex items-center gap-1 ${
                     (hosp.dialysisAvail ?? 0) > 0 ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-slate-100 text-slate-400'
                   }`}>
                     <Droplets className="w-3 h-3" />
-                    <span>Dialysis: {hosp.dialysisAvail ?? 0}</span>
+                    <span>{tr.citizen.dialysis}: {hosp.dialysisAvail ?? 0}</span>
                   </span>
 
                   <span className={`px-2 py-0.5 rounded-md font-semibold flex items-center gap-1 ${
                     (hosp.ecgAvail ?? 0) > 0 ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-slate-100 text-slate-400'
                   }`}>
                     <Activity className="w-3 h-3" />
-                    <span>ECG: {hosp.ecgAvail ?? 0}</span>
+                    <span>{tr.citizen.ecg}: {hosp.ecgAvail ?? 0}</span>
                   </span>
 
                   <span className={`px-2 py-0.5 rounded-md font-semibold flex items-center gap-1 ${
                     (hosp.ctScannerAvail ?? 0) > 0 ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-slate-100 text-slate-400'
                   }`}>
                     <Scan className="w-3 h-3" />
-                    <span>CT Scan: {hosp.ctScannerAvail ?? 0}</span>
+                    <span>{tr.citizen.ctScanner}: {hosp.ctScannerAvail ?? 0}</span>
                   </span>
 
                   <span className={`px-2 py-0.5 rounded-md font-semibold flex items-center gap-1 ${
                     (hosp.defibrillatorAvail ?? 0) > 0 ? 'bg-orange-50 text-orange-700 border border-orange-200' : 'bg-slate-100 text-slate-400'
                   }`}>
                     <Zap className="w-3 h-3" />
-                    <span>Defibrillator: {hosp.defibrillatorAvail ?? 0}</span>
+                    <span>{tr.citizen.defibrillator}: {hosp.defibrillatorAvail ?? 0}</span>
                   </span>
 
                   <span className={`px-2 py-0.5 rounded-md font-semibold flex items-center gap-1 ${
                     (hosp.mriAvail ?? 0) > 0 ? 'bg-teal-50 text-teal-700 border border-teal-200' : 'bg-slate-100 text-slate-400'
                   }`}>
                     <Disc className="w-3 h-3" />
-                    <span>MRI: {hosp.mriAvail ?? 0}</span>
+                    <span>{tr.citizen.mri}: {hosp.mriAvail ?? 0}</span>
                   </span>
                 </div>
 
@@ -276,19 +292,21 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
                       </div>
                       <div>
                         <div className="font-bold flex items-center gap-1.5">
-                          <span>Doctors on Duty:</span>
+                          <span>{tr.citizen.doctorsOnDuty}:</span>
                           <span className="text-emerald-700 bg-white px-2 py-0.2 rounded-full font-extrabold border border-emerald-300">
-                            {availableDoctors.length} Available Now
+                            {availableDoctors.length} {tr.common.available}
                           </span>
                         </div>
                         <p className="text-[11px] text-emerald-800">
-                          Total {hosp.doctorsOnDuty.length} staff registered • Click to see live availability
+                          {hosp.doctorsOnDuty.length} {language === 'mr' ? 'कर्मचारी नोंदणीकृत • उपलब्धता पाहण्यासाठी क्लिक करा' : language === 'hi' ? 'चिकित्सक पंजीकृत • उपलब्धता देखने के लिए क्लिक करें' : 'staff registered • Click to see live availability'}
                         </p>
                       </div>
                     </div>
 
                     <span className="text-xs font-bold text-emerald-700 group-hover:text-emerald-900 transition flex items-center gap-1">
-                      {expandedDoctorHospId === hosp.id ? 'Hide Doctors ▲' : 'View Doctors ▼'}
+                      {expandedDoctorHospId === hosp.id 
+                        ? (language === 'mr' ? 'डॉक्टर लपवा ▲' : language === 'hi' ? 'डॉक्टर छुपाएं ▲' : 'Hide Doctors ▲') 
+                        : (language === 'mr' ? 'डॉक्टर पहा ▼' : language === 'hi' ? 'डॉक्टर देखें ▼' : 'View Doctors ▼')}
                     </span>
                   </div>
 
@@ -296,10 +314,10 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
                   {expandedDoctorHospId === hosp.id && (
                     <div className="p-3 bg-white border border-emerald-300 rounded-xl shadow-xs space-y-2 animate-in fade-in">
                       <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center justify-between">
-                        <span>Staff On-Duty at {hosp.name}:</span>
+                        <span>{language === 'mr' ? 'कर्तव्यावरील कर्मचारी' : language === 'hi' ? 'ड्यूटी पर तैनात कर्मचारी' : 'Staff On-Duty at'} {hosp.name}:</span>
                         <span className="text-[10px] text-emerald-600 font-mono flex items-center gap-1">
                           <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
-                          Hospital Sync Active
+                          {language === 'mr' ? 'रुग्णालय थेट समन्वयित' : language === 'hi' ? 'अस्पताल लाइव सिंक' : 'Hospital Sync Active'}
                         </span>
                       </div>
 
@@ -322,15 +340,15 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
                                   <span className="font-bold text-slate-900">{doc.name}</span>
                                   {isAvailable ? (
                                     <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0">
-                                      🟢 Available
+                                      🟢 {tr.hospital.statusAvailable}
                                     </span>
                                   ) : isBusy ? (
                                     <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300 shrink-0">
-                                      🔴 Busy
+                                      🔴 {tr.hospital.statusBusy}
                                     </span>
                                   ) : (
                                     <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 border border-slate-300 shrink-0">
-                                      ⚪ Off Duty
+                                      ⚪ {tr.hospital.statusOffDuty}
                                     </span>
                                   )}
                                 </div>
@@ -343,8 +361,8 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
                               </div>
 
                               <div className="text-[10px] text-slate-500 pt-1 border-t border-slate-200/60 flex items-center justify-between">
-                                <span>Shift: {doc.shift}</span>
-                                {doc.roomNumber && <span className="font-mono text-slate-700">{doc.roomNumber}</span>}
+                                <span>{tr.citizen.shift}: {doc.shift}</span>
+                                {doc.roomNumber && <span className="font-mono text-slate-700">{tr.citizen.room} {doc.roomNumber}</span>}
                               </div>
                             </div>
                           );
@@ -359,9 +377,9 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
                       <span 
                         key={cap} 
                         className="text-[10px] font-semibold bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200"
-                        title={getCapabilityFriendlyName(cap)}
+                        title={getCapabilityFriendlyName(cap, language)}
                       >
-                        ✓ {getCapabilityFriendlyName(cap)}
+                        ✓ {getCapabilityFriendlyName(cap, language)}
                       </span>
                     ))}
                   </div>
@@ -388,10 +406,10 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
                         if (el) el.scrollIntoView({ behavior: 'smooth' });
                       }}
                       className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 transition cursor-pointer"
-                      title="Locate this hospital on the map below"
+                      title={language === 'mr' ? 'हे रुग्णालय खाली नकाशावर शोधा' : language === 'hi' ? 'यह अस्पताल नीचे नक्शे पर देखें' : 'Locate this hospital on the map below'}
                     >
                       <MapPin className="w-3.5 h-3.5" />
-                      <span>Locate on Map</span>
+                      <span>{language === 'mr' ? 'नकाशावर पहा' : language === 'hi' ? 'नक्शे पर देखें' : 'Locate on Map'}</span>
                     </button>
 
                     <button
@@ -401,7 +419,7 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
                       }}
                       className="inline-flex items-center gap-1 text-xs font-bold text-white bg-red-600 hover:bg-red-700 px-3.5 py-1.5 rounded-lg shadow-xs transition"
                     >
-                      <span>Emergency SOS</span>
+                      <span>{tr.common.emergency} SOS</span>
                     </button>
                   </div>
                 </div>
@@ -420,7 +438,7 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4 text-emerald-600" />
             <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
-              <span>Nearby Hospitals Locator Map</span>
+              <span>{language === 'mr' ? 'जवळच्या रुग्णालयांचा नकाशा' : language === 'hi' ? 'निकटतम अस्पतालों का नक्शा' : 'Nearby Hospitals Locator Map'}</span>
               {userLocation?.areaName && (
                 <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
                   📍 {userLocation.areaName}
@@ -429,13 +447,13 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
             </h3>
           </div>
           <span className="text-xs text-slate-500 hidden sm:inline">
-            Showing {sortedHospitals.length} nearby healthcare facilities
+            {sortedHospitals.length} {language === 'mr' ? 'जवळची आरोग्य केंद्रे दाखवत आहे' : language === 'hi' ? 'निकटतम स्वास्थ्य केंद्र दर्शाए गए हैं' : 'nearby healthcare facilities'}
           </span>
         </div>
 
         {!userLocation && (
           <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-center gap-2">
-            <span>📍 Location access unavailable — showing default area. Enable GPS for accurate results.</span>
+            <span>📍 {language === 'mr' ? 'स्थान प्रवेश अनुपलब्ध - डीफॉल्ट क्षेत्र दाखवत आहे. अचूक निकालांसाठी जीपीएस सक्षम करा.' : language === 'hi' ? 'स्थान पहुंच अनुपलब्ध - डिफ़ॉल्ट क्षेत्र दर्शाया गया है। सटीक परिणामों के लिए जीपीएस सक्षम करें।' : 'Location access unavailable — showing default area. Enable GPS for accurate results.'}</span>
           </div>
         )}
         
@@ -458,14 +476,11 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
         )}
       </div>
 
-      {/* 3-Language Elderly Speech Recognition Voice SOS Modal */}
-      <VoiceSOSRecognitionModal
-        isOpen={isVoiceModalOpen}
-        onClose={() => setIsVoiceModalOpen(false)}
-        initialLanguage="hi-IN"
-        onTranscriptSubmitted={() => {
-          onOpenEmergency();
-        }}
+      {/* Unified Raise Ambulance Request Modal (Type or Speak + Confirm + Dispatch) */}
+      <RaiseAmbulanceRequestModal
+        isOpen={isAmbulanceModalOpen}
+        onClose={() => setIsAmbulanceModalOpen(false)}
+        onSubmitDispatch={handleAmbulanceDispatch}
       />
 
     </div>

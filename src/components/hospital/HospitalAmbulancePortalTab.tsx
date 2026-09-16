@@ -21,6 +21,7 @@ import {
   Check
 } from '../icons';
 import { useApp } from '../../context/AppContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { 
   evaluateAmbulanceAssessment, 
   checkHospitalCapabilities, 
@@ -50,6 +51,7 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
     ambulanceUser,
     ambulances
   } = useApp();
+  const { tr, language } = useLanguage();
 
   const currentAmb = ambulanceUser || ambulances.find(a => a.id === activeDispatch?.assignedAmbulanceId) || ambulances[0];
 
@@ -92,7 +94,11 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
     });
     setFormSavedSuccess(true);
     if (onNotify) {
-      onNotify('Ambulance Assessment Form uploaded to hospital network! AI triage computed.');
+      onNotify(language === 'hi' 
+        ? 'एम्बुलेंस मूल्यांकन फॉर्म अस्पताल नेटवर्क पर अपलोड किया गया! AI ट्राइएज संपन्न।'
+        : (language === 'mr'
+          ? 'रुग्णवाहिका मूल्यमापन फॉर्म रुग्णालय नेटवर्कवर अपलोड केला! AI ट्रायज पूर्ण.'
+          : 'Ambulance Assessment Form uploaded to hospital network! AI triage computed.'));
     }
     setTimeout(() => setFormSavedSuccess(false), 4500);
   };
@@ -100,7 +106,11 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
   const handleReSyncPatient = () => {
     transferPatientDataToAssessment();
     setSyncNotice(true);
-    if (onNotify) onNotify('Patient Digital Health Record re-synced from ABHA Registry!');
+    if (onNotify) onNotify(language === 'hi'
+      ? 'मरीज का डिजिटल स्वास्थ्य रिकॉर्ड ABHA रजिस्ट्री से पुनः सिंक किया गया!'
+      : (language === 'mr'
+        ? 'रुग्णाचे डिजिटल आरोग्य रेकॉर्ड ABHA नोंदणीतून पुन्हा सिंक केले गेले!'
+        : 'Patient Digital Health Record re-synced from ABHA Registry!'));
     setTimeout(() => setSyncNotice(false), 3000);
   };
 
@@ -199,21 +209,21 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
           <div className="flex items-center gap-2 flex-wrap">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 animate-pulse"></span>
             <span className="text-xs font-black uppercase tracking-wider text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-              In-Ambulance Paramedic Portal
+              {tr.ambulance.paramedicPortalBadge}
             </span>
             <span className="text-xs font-mono font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-              Unit: {currentAmb.vehicleNumber} ({currentAmb.type.includes('ALS') ? 'ALS' : 'BLS'})
+              {tr.emergency.ambulanceUnit}: {currentAmb.vehicleNumber} ({currentAmb.type.includes('ALS') ? 'ALS' : 'BLS'})
             </span>
             <span className="text-xs text-slate-500">
-              Paramedic / Driver: <strong>{currentAmb.driverName}</strong> • Base: {currentAmb.hospitalName}
+              {tr.ambulance.driverName}: <strong>{currentAmb.driverName}</strong> • {tr.ambulance.baseHospital}: {currentAmb.hospitalName}
             </span>
           </div>
 
           <h2 className="text-xl sm:text-2xl font-black text-slate-900 font-heading mt-2">
-            Patient Intake & Pre-Hospital Assessment Desk
+            {tr.ambulance.intakeDeskTitle}
           </h2>
           <p className="text-xs text-slate-600 mt-1">
-            Fill the patient vital signs and emergency parameters below. Uploading this form enables backend AI to predict patient emergency severity and dynamically reroute to prior specialized facilities if necessary.
+            {tr.ambulance.intakeDeskSubtitle}
           </p>
         </div>
       </div>
@@ -228,14 +238,18 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-extrabold text-blue-950">
-                  Previous Data of Patient is Automatically Transferred
+                  {tr.ambulance.patientDataAutoTransferred}
                 </h3>
                 <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-                  ABHA Verified
+                  {tr.ambulance.abhaVerified}
                 </span>
               </div>
               <p className="text-[11px] text-slate-600">
-                Connected Citizen Health Profile • Pre-loaded via Digital Health ID Network
+                {language === 'hi' 
+                  ? 'जुड़ा हुआ नागरिक स्वास्थ्य प्रोफाइल • डिजिटल स्वास्थ्य आईडी नेटवर्क द्वारा प्री-लोडेड'
+                  : (language === 'mr'
+                    ? 'जोडलेली नागरिक आरोग्य प्रोफाइल • डिजिटल आरोग्य आयडी नेटवर्कद्वारे आधीच लोड केलेली'
+                    : 'Connected Citizen Health Profile • Pre-loaded via Digital Health ID Network')}
               </p>
             </div>
           </div>
@@ -246,7 +260,7 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
             className="self-start sm:self-auto px-3 py-1.5 bg-white hover:bg-blue-50 text-blue-700 text-xs font-bold rounded-xl border border-blue-300 transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
           >
             <RefreshCw className="w-3.5 h-3.5 text-blue-600" />
-            <span>Re-Sync ABHA Records</span>
+            <span>{tr.ambulance.reSyncAbha}</span>
           </button>
         </div>
 
@@ -261,7 +275,7 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
           {/* Identity & Blood Group */}
           <div className="bg-white/80 p-3 rounded-xl border border-blue-100 space-y-1">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Patient Identity</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">{tr.hospital.patientHealthIdentity}</span>
             <div className="font-extrabold text-slate-900 text-sm flex items-center gap-1.5">
               <User className="w-4 h-4 text-blue-600" />
               <span>{patientData.fullName}</span>
@@ -276,7 +290,7 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
 
           {/* Chronic Medical Conditions */}
           <div className="bg-white/80 p-3 rounded-xl border border-blue-100 space-y-1">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Chronic Conditions</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">{tr.biodata.chronicConditions}</span>
             {patientData.chronicConditions && patientData.chronicConditions.length > 0 ? (
               <ul className="text-[11px] text-slate-700 space-y-0.5">
                 {patientData.chronicConditions.map((cond, idx) => (
@@ -284,7 +298,7 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
                 ))}
               </ul>
             ) : (
-              <span className="text-[11px] text-slate-500 italic">None recorded</span>
+              <span className="text-[11px] text-slate-500 italic">{language === 'hi' ? 'कोई दर्ज नहीं' : (language === 'mr' ? 'काहीही नोंद नाही' : 'None recorded')}</span>
             )}
           </div>
 
@@ -292,7 +306,7 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
           <div className="bg-white/80 p-3 rounded-xl border border-blue-100 space-y-1">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
               <Pill className="w-3 h-3 text-indigo-600" />
-              <span>Current Medications</span>
+              <span>{tr.biodata.currentMedications}</span>
             </span>
             {patientData.currentMedications && patientData.currentMedications.length > 0 ? (
               <ul className="text-[11px] text-slate-700 space-y-0.5">
@@ -301,7 +315,7 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
                 ))}
               </ul>
             ) : (
-              <span className="text-[11px] text-slate-500 italic">None recorded</span>
+              <span className="text-[11px] text-slate-500 italic">{language === 'hi' ? 'कोई दर्ज नहीं' : (language === 'mr' ? 'काहीही नोंद नाही' : 'None recorded')}</span>
             )}
           </div>
         </div>
@@ -313,25 +327,29 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full bg-red-600 animate-ping"></span>
             <span className="text-xs font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-300">
-              🚨 AI CLINICAL REROUTE ADVISORY
+              🚨 {tr.hospital.rerouteEnacted}
             </span>
           </div>
 
           <div className="space-y-1">
             <h3 className="text-lg font-black text-slate-900">
-              Assigned Facility [{currentHospital.name}] Lacks Critical Capabilities For This Patient!
+              {language === 'hi' 
+                ? `आवंटित अस्पताल [${currentHospital.name}] में इस मरीज के लिए आवश्यक सुविधाओं की कमी है!`
+                : (language === 'mr'
+                  ? `नेमून दिलेल्या [${currentHospital.name}] रुग्णालयात या रुग्णासाठी आवश्यक सुविधांचा अभाव आहे!`
+                  : `Assigned Facility [${currentHospital.name}] Lacks Critical Capabilities For This Patient!`)}
             </h3>
             <p className="text-xs text-red-700 font-semibold">
-              Deficit: {matchResult.mismatches.join(' • ')}
+              {language === 'hi' ? 'अभाव:' : (language === 'mr' ? 'उणीव:' : 'Deficit:')} {matchResult.mismatches.join(' • ')}
             </p>
             <p className="text-xs text-slate-600">
-              Recommended Alternative: <strong className="text-slate-900">{matchResult.recommendedHospital?.name}</strong> (+{matchResult.recommendedHospital ? matchResult.recommendedHospital.etaMinutes - currentHospital.etaMinutes : 12} mins, fully staffed with 24/7 Cath Lab & Neuro-ICU on duty).
+              {language === 'hi' ? 'अनुशंसित विकल्प:' : (language === 'mr' ? 'शिफारस केलेले पर्यायी रुग्णालय:' : 'Recommended Alternative:')} <strong className="text-slate-900">{matchResult.recommendedHospital?.name}</strong> (+{matchResult.recommendedHospital ? matchResult.recommendedHospital.etaMinutes - currentHospital.etaMinutes : 12} {tr.common.unitMin}).
             </p>
           </div>
 
           <div className="pt-1 flex items-center justify-between flex-wrap gap-2">
             <span className="text-xs text-slate-500">
-              Status: {isRerouted ? <strong className="text-emerald-700">Dynamic Reroute Active to {targetHospital.name}</strong> : 'Pending form upload / automatic reroute'}
+              {tr.common.status}: {isRerouted ? <strong className="text-emerald-700">{tr.hospital.rerouteEnacted} ({targetHospital.name})</strong> : (language === 'hi' ? 'फॉर्म अपलोड / स्वचालित पुनर्निर्देशन की प्रतीक्षा' : (language === 'mr' ? 'फॉर्म अपलोड / स्वयंचलित फेरमार्गाची प्रतीक्षा' : 'Pending form upload / automatic reroute'))}
             </span>
           </div>
         </div>
@@ -342,9 +360,9 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
         <div className="bg-emerald-50 border border-emerald-300 rounded-2xl p-4 flex items-center justify-between text-emerald-900 text-xs font-bold animate-in fade-in">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-            <span>In-Ambulance Form successfully uploaded to hospital system and evaluated by AI triage engine!</span>
+            <span>{language === 'hi' ? 'एम्बुलेंस फॉर्म अस्पताल प्रणाली पर अपलोड किया गया और AI ट्राइएज इंजन द्वारा मूल्यांकित किया गया!' : (language === 'mr' ? 'रुग्णवाहिका फॉर्म रुग्णालय प्रणालीवर अपलोड केला व AI ट्रायज इंजिनद्वारे तपासला गेला!' : 'In-Ambulance Form successfully uploaded to hospital system and evaluated by AI triage engine!')}</span>
           </div>
-          <span className="font-mono text-[11px] text-emerald-700">Live Synced</span>
+          <span className="font-mono text-[11px] text-emerald-700">{tr.common.live}</span>
         </div>
       )}
 
@@ -358,10 +376,10 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
               <FileText className="w-5 h-5 text-blue-600" />
               <div>
                 <h3 className="font-bold text-base text-slate-900 font-heading">
-                  Paramedic Clinical Assessment Form
+                  {tr.hospital.paramedicReport}
                 </h3>
                 <p className="text-[11px] text-slate-500">
-                  Record exact on-scene measurements taken inside the ambulance.
+                  {language === 'hi' ? 'एम्बुलेंस के अंदर ली गई सटीक ऑन-सीन माप दर्ज करें।' : (language === 'mr' ? 'रुग्णवाहिकेमध्ये घेतलेली अचूक मोजमापे नोंदवा.' : 'Record exact on-scene measurements taken inside the ambulance.')}
                 </p>
               </div>
             </div>
@@ -372,7 +390,7 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
               </span>
             ) : (
               <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-xl border border-amber-200">
-                Draft / Unsubmitted
+                {language === 'hi' ? 'ड्राफ्ट / जमा नहीं किया' : (language === 'mr' ? 'मसुदा / सबमिट केलेले नाही' : 'Draft / Unsubmitted')}
               </span>
             )}
           </div>
@@ -387,14 +405,14 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
                 <div>
                   <span className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
                     <Activity className="w-4 h-4 text-rose-600" />
-                    <span>Essential vitals — measure these first</span>
+                    <span>{tr.hospital.essentialVitals}</span>
                   </span>
                   <p className="text-[11px] text-slate-500">
-                    Highest priority physiological parameters for immediate triage and resuscitation.
+                    {tr.ambulance.essentialVitalsSubtitle}
                   </p>
                 </div>
                 <span className="text-[10px] font-black text-rose-700 bg-rose-50 px-2.5 py-1 rounded-full border border-rose-200">
-                  Measure First
+                  {tr.ambulance.measureFirst}
                 </span>
               </div>
 
@@ -733,14 +751,14 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
                 <div>
                   <span className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
                     <ShieldAlert className="w-4 h-4 text-rose-600" />
-                    <span>Symptoms — extremely important</span>
+                    <span>{tr.hospital.symptomsObserved}</span>
                   </span>
                   <p className="text-[11px] text-slate-500">
-                    Vitals alone aren't enough. Have the ambulance worker select symptoms:
+                    {tr.ambulance.symptomsSubtitle}
                   </p>
                 </div>
                 <span className="text-[10px] font-bold text-slate-500">
-                  {(ambulanceAssessment.symptoms || []).length} Selected
+                  {(ambulanceAssessment.symptoms || []).length} {language === 'hi' ? 'चयनित' : (language === 'mr' ? 'निवडले' : 'Selected')}
                 </span>
               </div>
 
@@ -770,7 +788,7 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
                               <span>{sym.label}</span>
                               {sym.relevance === 'Very high' && (
                                 <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded bg-rose-100 text-rose-800">
-                                  Critical
+                                  {language === 'hi' ? 'गंभीर' : (language === 'mr' ? 'गंभीर' : 'Critical')}
                                 </span>
                               )}
                             </div>
@@ -795,7 +813,7 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
                       {isStroke && isChecked && (
                         <div className="mt-2.5 pt-2 border-t border-rose-200 bg-white/70 p-2.5 rounded-lg space-y-1.5 animate-in fade-in">
                           <span className="text-[10px] font-bold text-purple-900 uppercase block tracking-wider">
-                            🧠 Stroke-like Signs Checklist (Check all that apply):
+                            🧠 {tr.hospital.strokeFastSigns}:
                           </span>
                           <div className="grid grid-cols-1 gap-1">
                             {[
@@ -840,13 +858,13 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
             <div className="space-y-2 pt-2">
               <label className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
                 <FileText className="w-4 h-4 text-slate-600" />
-                <span>Paramedic On-Scene Observations & Interventions</span>
+                <span>{tr.ambulance.paramedicAssessment}</span>
               </label>
               <textarea
                 rows={2}
                 value={ambulanceAssessment.paramedicNotes || ''}
                 onChange={(e) => updateAmbulanceAssessment({ paramedicNotes: e.target.value })}
-                placeholder="Document visible trauma, pupil response, airway patency, on-scene medications administered (e.g., IV line, high-flow O2, Epinephrine, Cervical Collar)..."
+                placeholder={language === 'hi' ? 'दिखाई देने वाले आघात, पुतली की प्रतिक्रिया, वायुमार्ग, ऑन-सीन दी गई दवाओं (उदा. IV लाइन, हाई-फ्लो O2, एपिनेफ्रीन) का दस्तावेजीकरण करें...' : (language === 'mr' ? 'दिसणारी इजा, डोळ्यांची हालचाल, श्वासमार्ग, घटनास्थळी दिलेली औषधे (उदा. IV लाईन, हाय-फ्लो O2, एपिनेफ्रिन) नोंदवा...' : 'Document visible trauma, pupil response, airway patency, on-scene medications administered (e.g., IV line, high-flow O2, Epinephrine, Cervical Collar)...')}
                 className="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -854,7 +872,7 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
             {/* UPLOAD ACTION BUTTON */}
             <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
               <div className="text-xs text-slate-500">
-                Paramedic Crew: <strong>{ambulanceAssessment.uploadedBy || `Unit ${currentAmb.vehicleNumber} (${currentAmb.driverName})`}</strong>
+                {tr.hospital.paramedicOnDuty}: <strong>{ambulanceAssessment.uploadedBy || `Unit ${currentAmb.vehicleNumber} (${currentAmb.driverName})`}</strong>
               </div>
 
               <button
@@ -862,7 +880,7 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
                 className="w-full sm:w-auto px-7 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer active:scale-95"
               >
                 <Upload className="w-4 h-4" />
-                <span>SUBMIT IN-AMBULANCE FORM & RUN AI FACILITY MATCH</span>
+                <span>{tr.ambulance.submitFormAiMatch}</span>
               </button>
             </div>
 
@@ -878,7 +896,7 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
               <div className="flex items-center gap-2 text-indigo-700">
                 <Stethoscope className="w-5 h-5 text-indigo-600" />
                 <h3 className="font-bold text-sm text-slate-900 font-heading">
-                  AI Emergency Severity Index (ESI)
+                  {tr.ambulance.aiEsiTitle}
                 </h3>
               </div>
               <span className="text-[10px] font-mono text-slate-400">RandomForest v1.0</span>
@@ -887,7 +905,7 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
             {/* Acuity Level Pill */}
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
               <div>
-                <span className="text-[10px] uppercase font-bold text-slate-500 block">Computed Patient Acuity</span>
+                <span className="text-[10px] uppercase font-bold text-slate-500 block">{tr.ambulance.computedAcuity}</span>
                 <h4 className="font-black text-base text-slate-900 mt-0.5">{triagePrediction.acuityLabel}</h4>
               </div>
               <span className={`text-xs font-black px-3.5 py-1.5 rounded-full shadow-2xs ${
@@ -902,19 +920,19 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
             {/* Specialized Capabilities Required by Patient */}
             <div className="space-y-2">
               <span className="text-[10px] uppercase font-bold text-slate-400 block">
-                Required Specialized Facilities:
+                {tr.ambulance.requiredFacilities}:
               </span>
               <div className="space-y-1.5">
                 {triagePrediction.requiredCapabilities.length > 0 ? (
                   triagePrediction.requiredCapabilities.map(cap => (
                     <div key={cap} className="flex items-center justify-between p-2.5 bg-indigo-50/70 rounded-xl text-xs border border-indigo-100 text-indigo-950 font-semibold">
-                      <span>• {getCapabilityFriendlyName(cap)}</span>
-                      <span className="text-[10px] font-black text-indigo-700 uppercase bg-indigo-100 px-2 py-0.5 rounded">MANDATORY</span>
+                      <span>• {getCapabilityFriendlyName(cap, language)}</span>
+                      <span className="text-[10px] font-black text-indigo-700 uppercase bg-indigo-100 px-2 py-0.5 rounded">{language === 'hi' ? 'अनिवार्य' : (language === 'mr' ? 'अनिवार्य' : 'MANDATORY')}</span>
                     </div>
                   ))
                 ) : (
                   <div className="text-xs text-slate-500 p-3 bg-slate-50 rounded-xl border border-slate-200">
-                    Standard primary care & observation sufficient. No specialized tertiary units needed.
+                    {language === 'hi' ? 'मानक प्राथमिक देखभाल और अवलोकन पर्याप्त है। किसी विशेष इकाई की आवश्यकता नहीं है।' : (language === 'mr' ? 'मानक प्राथमिक काळजी व निरीक्षण पुरेसे आहे. कोणत्याही विशेष युनिटची आवश्यकता नाही.' : 'Standard primary care & observation sufficient. No specialized tertiary units needed.')}
                   </div>
                 )}
               </div>
@@ -923,7 +941,7 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
             {/* Clinical Risks Identified */}
             {triagePrediction.clinicalRiskSummary.length > 0 && (
               <div className="space-y-1.5 text-xs">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">Identified High-Risk Triggers:</span>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">{tr.ambulance.identifiedRisks}:</span>
                 {triagePrediction.clinicalRiskSummary.map((risk, idx) => (
                   <p key={idx} className="text-[11px] text-rose-800 bg-rose-50/80 p-2 rounded-lg border border-rose-200">
                     ⚠️ {risk}
@@ -939,7 +957,7 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
               <div className="flex items-center gap-2">
                 <Building2 className="w-5 h-5 text-emerald-600" />
                 <h3 className="font-bold text-sm text-slate-900 font-heading">
-                  Destination Compatibility Check
+                  {tr.ambulance.destinationCompatibility}
                 </h3>
               </div>
               <span className="text-xs text-slate-500">Auto Evaluated</span>
@@ -947,7 +965,7 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
 
             <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1">
               <div className="font-bold text-slate-900 text-sm">{targetHospital.name}</div>
-              <div className="text-slate-500">{targetHospital.type} • ETA: ~{targetHospital.etaMinutes} mins</div>
+              <div className="text-slate-500">{targetHospital.type} • {tr.common.eta}: ~{targetHospital.etaMinutes} {tr.common.unitMin}</div>
             </div>
 
             {/* MATCH OUTCOME */}
@@ -955,10 +973,10 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
               <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200 text-xs text-emerald-900 space-y-1">
                 <div className="flex items-center gap-2 font-bold text-sm text-emerald-800">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Destination Confirmed</span>
+                  <span>{tr.hospital.destinationConfirmed}</span>
                 </div>
                 <p className="text-[11px] text-emerald-700">
-                  {targetHospital.name} is fully equipped with required specialist doctors and beds to treat this patient.
+                  {targetHospital.name} {language === 'hi' ? 'इस मरीज के इलाज के लिए आवश्यक विशेषज्ञ डॉक्टरों और बिस्तरों से पूरी तरह सुसज्जित है।' : (language === 'mr' ? 'या रुग्णावर उपचार करण्यासाठी आवश्यक तज्ज्ञ डॉक्टर व खाटांनी पूर्णपणे सुसज्ज आहे.' : 'is fully equipped with required specialist doctors and beds to treat this patient.')}
                 </p>
               </div>
             ) : (
@@ -966,7 +984,7 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
                 <div className="p-3.5 bg-red-50 rounded-xl border border-red-200 text-xs text-red-900 space-y-1.5">
                   <div className="font-bold flex items-center gap-1.5 text-red-800">
                     <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
-                    <span>Missing Critical Resources at Initial Destination:</span>
+                    <span>{language === 'hi' ? 'आरंभिक गंतव्य पर महत्वपूर्ण संसाधनों का अभाव:' : (language === 'mr' ? 'सुरुवातीच्या गंतव्यावर महत्त्वपूर्ण संसाधनांचा अभाव:' : 'Missing Critical Resources at Initial Destination:')}</span>
                   </div>
                   {matchResult.mismatches.map((m, idx) => (
                     <div key={idx} className="text-[11px] text-red-700 font-medium">• {m}</div>
@@ -975,10 +993,14 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
 
                 <div className="p-3.5 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-900 space-y-1">
                   <span className="font-bold text-[10px] uppercase tracking-wider text-amber-800">
-                    ⚡ Backend Reroute Decision:
+                    ⚡ {language === 'hi' ? 'बैकएंड पुनर्निर्देशन निर्णय:' : (language === 'mr' ? 'बॅकएंड फेरमार्ग निर्णय:' : 'Backend Reroute Decision:')}
                   </span>
                   <p className="text-[11px] text-amber-800">
-                    Diverting route to <strong>{matchResult.recommendedHospital?.name}</strong> to safeguard patient life and prevent catastrophic treatment delay.
+                    {language === 'hi' 
+                      ? `मरीज के जीवन की रक्षा के लिए मार्ग को <strong>${matchResult.recommendedHospital?.name}</strong> की ओर मोड़ा जा रहा है।`
+                      : (language === 'mr'
+                        ? `रुग्णाचा जीव वाचवण्यासाठी मार्ग <strong>${matchResult.recommendedHospital?.name}</strong> कडे वळवला जात आहे.`
+                        : `Diverting route to <strong>${matchResult.recommendedHospital?.name}</strong> to safeguard patient life and prevent catastrophic treatment delay.`)}
                   </p>
                 </div>
               </div>
@@ -995,12 +1017,12 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4 text-rose-600" />
             <h3 className="font-bold text-sm text-slate-900 font-heading">
-              In-Transit Ambulance Navigation Map & Active Path
+              {tr.ambulance.activeNavigationMap}
             </h3>
           </div>
           {isRerouted && (
             <span className="text-xs font-bold text-orange-700 bg-orange-50 px-2.5 py-1 rounded-full border border-orange-200 animate-pulse">
-              ⚡ Route Altered to Apex Super-Specialty Hospital
+              {tr.ambulance.routeAlteredBadge}
             </span>
           )}
         </div>

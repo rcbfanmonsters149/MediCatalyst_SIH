@@ -17,6 +17,7 @@ import {
   Languages
 } from '../components/icons';
 import { useApp } from '../context/AppContext';
+import { useLanguage } from '../context/LanguageContext';
 import { TollFreeBanner } from '../components/TollFreeBanner';
 import { EmergencyTrackerCard } from '../components/EmergencyTrackerCard';
 import { VoiceSOSRecognitionModal } from '../components/VoiceSOSRecognitionModal';
@@ -37,6 +38,7 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
     updateDispatchStep,
     user
   } = useApp();
+  const { tr, language } = useLanguage();
 
   const [chatMessage, setChatMessage] = useState('');
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
@@ -49,19 +51,18 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
         <TollFreeBanner />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center space-y-4">
           <ShieldAlert className="w-16 h-16 text-slate-300 mx-auto" />
-          <h2 className="text-xl font-bold text-slate-700">No active emergency dispatch.</h2>
-          <p className="text-sm text-slate-500">Use the SOS button to request an ambulance.</p>
+          <h2 className="text-xl font-bold text-slate-700">{tr.emergency.noActiveEmergency}</h2>
+          <p className="text-sm text-slate-500">{tr.emergency.useSosPrompt}</p>
           <button 
             onClick={() => setIsVoiceModalOpen(true)}
-            className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md transition"
+            className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md transition cursor-pointer"
           >
-            Trigger Emergency SOS
+            {tr.emergency.triggerEmergency}
           </button>
         </div>
         <VoiceSOSRecognitionModal
           isOpen={isVoiceModalOpen}
           onClose={() => setIsVoiceModalOpen(false)}
-          initialLanguage="hi-IN"
         />
       </div>
     );
@@ -121,14 +122,18 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
             <div>
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
                 <span className="font-extrabold text-base sm:text-lg font-heading tracking-tight">
-                  Elderly Voice Recognition SOS
+                  {language === 'mr' ? 'ज्येष्ठ नागरिकांसाठी आवाजी SOS मदत' : language === 'hi' ? 'बुजुर्गों के लिए वॉइस SOS सहायता' : 'Elderly Voice Recognition SOS'}
                 </span>
                 <span className="text-[10px] uppercase font-black tracking-wider px-2 py-0.5 rounded-full bg-white/25 text-white border border-white/30">
                   🇮🇳 हिन्दी • 🚩 मराठी • 🌐 English
                 </span>
               </div>
               <p className="text-xs text-red-100 mt-0.5">
-                Can't type? Tap the microphone and speak naturally in <strong>Hindi</strong>, <strong>Marathi</strong>, or <strong>English</strong>.
+                {language === 'mr' 
+                  ? 'टाईप करू शकत नाही? मायक्रोफोनवर टॅप करा आणि मराठी, हिंदी किंवा इंग्रजीत बोला.' 
+                  : language === 'hi' 
+                  ? 'टाइप नहीं कर सकते? माइक पर टैप करें और सीधे हिन्दी, मराठी या अंग्रेजी में बोलें।' 
+                  : "Can't type? Tap the microphone and speak naturally in Hindi, Marathi, or English."}
               </p>
             </div>
           </div>
@@ -136,10 +141,10 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
           <button
             type="button"
             onClick={() => setIsVoiceModalOpen(true)}
-            className="w-full sm:w-auto px-5 py-3 bg-white text-red-700 hover:bg-red-50 rounded-xl font-extrabold text-sm shadow-md transition transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2 shrink-0 cursor-pointer animate-emergency-beacon"
+            className="w-full sm:w-auto px-5 py-3 bg-white text-red-700 hover:bg-red-50 rounded-xl font-extrabold text-sm shadow-md transition flex items-center justify-center gap-2 shrink-0 cursor-pointer"
           >
             <Mic className="w-4 h-4 text-red-600" />
-            <span>बोलकर सहायता लें (Tap to Speak)</span>
+            <span>{language === 'mr' ? '🎙️ आवाजाने मदत मागा (Tap to Speak)' : language === 'hi' ? '🎙️ बोलकर सहायता लें (Tap to Speak)' : '🎙️ Tap to Speak (Voice SOS)'}</span>
           </button>
         </div>
 
@@ -173,14 +178,14 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
                   </span>
                   <span className="text-[10px] uppercase font-black tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-                    ⚡ Closest GPS Ambulance Assigned First
+                    ⚡ {language === 'mr' ? 'सर्वात जवळची रुग्णवाहिका नियुक्त' : language === 'hi' ? 'निकटतम एम्बुलेंस पहले सौंपी गई' : 'Closest GPS Ambulance Assigned First'}
                   </span>
                 </div>
                 <p className="text-xs text-slate-300 mt-1">
-                  {assignedAmb.type} • Home Depot: <strong className="text-slate-100">{assignedAmb.hospitalName}</strong>
+                  {assignedAmb.type} • {language === 'mr' ? 'मूळ केंद्र' : language === 'hi' ? 'मूल केंद्र' : 'Home Depot'}: <strong className="text-slate-100">{assignedAmb.hospitalName}</strong>
                 </p>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Paramedic/Driver: <span className="text-slate-200 font-semibold">{assignedAmb.driverName}</span> • Phone: <a href={`tel:${assignedAmb.driverPhone}`} className="text-emerald-400 underline font-mono">{assignedAmb.driverPhone}</a>
+                  {tr.emergency.driverName}: <span className="text-slate-200 font-semibold">{assignedAmb.driverName}</span> • {tr.biodata.phone}: <a href={`tel:${assignedAmb.driverPhone}`} className="text-emerald-400 underline font-mono">{assignedAmb.driverPhone}</a>
                 </p>
               </div>
             </div>
@@ -188,10 +193,10 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
             <div className="flex items-center gap-3 self-end md:self-center">
               <div className="text-right bg-slate-950/60 border border-slate-700 px-4 py-2.5 rounded-xl">
                 <div className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
-                  Pickup ETA to Coordinates
+                  {tr.citizen.estArrival}
                 </div>
                 <div className="text-2xl font-mono font-black text-emerald-400">
-                  ~{assignedAmb.etaMinutes || 3} mins
+                  ~{assignedAmb.etaMinutes || 3} {tr.common.unitMin}
                 </div>
               </div>
 
@@ -200,7 +205,7 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
                   onClick={onNavigateToAmbulance}
                   className="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-xs shrink-0 cursor-pointer"
                 >
-                  <span>Ambulance Portal</span>
+                  <span>{tr.nav.ambulance}</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               )}
@@ -213,14 +218,14 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping"></span>
                 <h3 className="font-bold text-slate-900 text-base font-heading">
-                  Live Dispatch Radar & Moving Ambulance Tracking
+                  {language === 'mr' ? 'थेट रवानगी रडार व रुग्णवाहिका ट्रॅकिंग' : language === 'hi' ? 'लाइव प्रेषण रडार एवं एम्बुलेंस ट्रैकिंग' : 'Live Dispatch Radar & Moving Ambulance Tracking'}
                 </h3>
                 <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 font-mono">
-                  LIVE TELEMETRY
+                  {tr.common.live}
                 </span>
               </div>
               <span className="text-xs text-slate-500 font-medium">
-                Live distances update continuously as ambulance travels
+                {language === 'mr' ? 'रुग्णवाहिका प्रवासानुसार थेट अंतर सतत अद्यतनित होते' : language === 'hi' ? 'एम्बुलेंस यात्रा के दौरान वास्तविक दूरी निरंतर अद्यतन होती है' : 'Live distances update continuously as ambulance travels'}
               </span>
             </div>
 
@@ -246,10 +251,10 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
                 <div>
                   <h3 className="font-bold text-slate-900 text-base flex items-center gap-2 font-heading">
                     <Building2 className="w-5 h-5 text-emerald-600" />
-                    <span>Waterfall Dispatch Audit Trail</span>
+                    <span>{language === 'mr' ? 'वॉटरफॉल रवानगी इतिहास' : language === 'hi' ? 'वाटरफॉल प्रेषण ऑडिट ट्रेल' : 'Waterfall Dispatch Audit Trail'}</span>
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Strict 2-minute SLA policy: Cascades immediately to ensure immediate intake readiness.
+                    {language === 'mr' ? 'कडक २-मिनिट एसएलए धोरण: त्वरित प्रवेश सज्जतेची खात्री' : language === 'hi' ? 'सख्त 2-मिनट एसएलए नीति: तत्काल भर्ती तत्परता सुनिश्चित करता है' : 'Strict 2-minute SLA policy: Cascades immediately to ensure immediate intake readiness.'}
                   </p>
                 </div>
               </div>
@@ -291,8 +296,8 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
                               {hop.note}
                             </p>
                             <span className="text-[11px] text-slate-400 mt-1 inline-block">
-                              Timestamp: {hop.sentAt}
-                              {hop.responseTimeSeconds !== undefined && ` • Response time: ${hop.responseTimeSeconds}s`}
+                              {hop.sentAt}
+                              {hop.responseTimeSeconds !== undefined && ` • ${hop.responseTimeSeconds}s`}
                             </span>
                           </div>
                         </div>
@@ -304,7 +309,11 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
                             ? 'bg-rose-100 text-rose-800 border-rose-300' 
                             : 'bg-amber-100 text-amber-800 border-amber-300 animate-pulse'
                         }`}>
-                          {isAccepted ? '✓ INTAKE ACCEPTED' : isDeclined ? '✕ DECLINED' : '⏳ AWAITING ACK'}
+                          {isAccepted 
+                            ? (language === 'mr' ? '✓ स्वीकारले' : language === 'hi' ? '✓ स्वीकृत' : '✓ INTAKE ACCEPTED') 
+                            : isDeclined 
+                            ? (language === 'mr' ? '✕ नाकारले' : language === 'hi' ? '✕ अस्वीकृत' : '✕ DECLINED') 
+                            : (language === 'mr' ? '⏳ प्रतीक्षेत' : language === 'hi' ? '⏳ प्रतीक्षा में' : '⏳ AWAITING ACK')}
                         </span>
                       </div>
                     </div>
@@ -322,11 +331,11 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
                   <div className="flex items-center gap-2">
                     <MessageSquare className="w-4 h-4 text-emerald-600" />
                     <h3 className="font-bold text-sm text-slate-900 font-heading">
-                      Live Incident Radio Comms
+                      {tr.emergency.liveChat}
                     </h3>
                   </div>
                   <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                    Encrypted Tri-Party Link
+                    {language === 'mr' ? 'सुरक्षित संप्रेषण' : language === 'hi' ? 'सुरक्षित संचार' : 'Encrypted Tri-Party Link'}
                   </span>
                 </div>
 
@@ -334,7 +343,6 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
                   {dispatch.messages.map((m, i) => {
                     const isCitizen = m.sender === 'CITIZEN';
                     const isHospital = m.sender === 'HOSPITAL';
-                    const isParamedic = m.sender === 'PARAMEDIC';
 
                     return (
                       <div 
@@ -349,7 +357,11 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
                       >
                         <div className="flex items-center justify-between text-[10px] font-bold mb-1 opacity-75">
                           <span>
-                            {isCitizen ? 'YOU (Caller)' : isHospital ? '🏥 Receiving Hospital ER' : '🚑 Paramedic Crew'}
+                            {isCitizen 
+                              ? (language === 'mr' ? 'तुम्ही (कॉलर)' : language === 'hi' ? 'आप (कॉलर)' : 'YOU (Caller)') 
+                              : isHospital 
+                              ? (language === 'mr' ? '🏥 प्राप्त रुग्णालय ER' : language === 'hi' ? '🏥 प्राप्तकर्ता अस्पताल ER' : '🏥 Receiving Hospital ER') 
+                              : (language === 'mr' ? '🚑 पॅरामेडिक चमू' : language === 'hi' ? '🚑 पैरामेडिक टीम' : '🚑 Paramedic Crew')}
                           </span>
                           <span>{m.timestamp}</span>
                         </div>
@@ -365,7 +377,7 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
                     type="button"
                     onClick={() => setIsVoiceModalOpen(true)}
                     className="p-2.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl transition flex items-center justify-center shrink-0 cursor-pointer shadow-2xs"
-                    title="Speak message in Hindi, Marathi, or English (बोलकर संदेश भेजें / आवाजाने पाठवा)"
+                    title={tr.citizen.voiceSOSTitle}
                   >
                     <Mic className="w-4 h-4 text-red-600 animate-pulse" />
                   </button>
@@ -373,7 +385,7 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
                     type="text"
                     value={chatMessage}
                     onChange={(e) => setChatMessage(e.target.value)}
-                    placeholder="Type or tap mic to speak in Hindi, Marathi, English..."
+                    placeholder={tr.emergency.typeMessage}
                     className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-emerald-500 transition"
                   />
                   <button
@@ -381,6 +393,7 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
                     className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-xs cursor-pointer"
                   >
                     <Send className="w-3.5 h-3.5" />
+                    <span>{tr.emergency.send}</span>
                   </button>
                 </form>
               </div>
@@ -388,23 +401,25 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
               {/* Patient Pre-Arrival Health Record Warnings */}
               <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs space-y-3 text-xs">
                 <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                  <span className="font-bold text-slate-800">Linked Citizen Bio-Data:</span>
+                  <span className="font-bold text-slate-800">
+                    {language === 'mr' ? 'जोडलेली नागरिक आरोग्य माहिती:' : language === 'hi' ? 'संबद्ध नागरिक बायो-डेटा:' : 'Linked Citizen Bio-Data:'}
+                  </span>
                   <span className="text-[11px] font-mono text-emerald-700 font-bold">ABHA ID: 91-8273-1928-3920</span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-[11px]">
                   <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100">
-                    <span className="text-slate-400 block font-medium">Blood Group:</span>
+                    <span className="text-slate-400 block font-medium">{tr.biodata.bloodGroup}:</span>
                     <strong className="text-slate-800 text-sm">O-Positive (O+)</strong>
                   </div>
                   <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-100 text-rose-900">
-                    <span className="text-rose-400 block font-medium">Critical Allergies:</span>
+                    <span className="text-rose-400 block font-medium">{tr.biodata.allergies}:</span>
                     <strong>Penicillin & Sulfa Drugs</strong>
                   </div>
                 </div>
 
                 <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 space-y-1">
-                  <span className="text-slate-400 block font-medium">Chronic Conditions:</span>
+                  <span className="text-slate-400 block font-medium">{tr.biodata.chronicConditions}:</span>
                   <div className="flex flex-wrap gap-1">
                     <span className="px-2 py-0.5 bg-white border border-slate-200 rounded-md font-semibold text-slate-700">Type 2 Diabetes</span>
                     <span className="px-2 py-0.5 bg-white border border-slate-200 rounded-md font-semibold text-slate-700">Mild Hypertension</span>
@@ -414,7 +429,7 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
                 <div className="pt-2 space-y-2">
                   <div className="w-full py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span>In-Ambulance Paramedic Assessment Form Linked</span>
+                    <span>{language === 'mr' ? 'पॅरामेडिक तपासणी फॉर्म जोडला गेला आहे' : language === 'hi' ? 'पैरामेडिक मूल्यांकन फॉर्म जुड़ा हुआ है' : 'In-Ambulance Paramedic Assessment Form Linked'}</span>
                   </div>
 
                   <Link
@@ -422,7 +437,7 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
                     className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition border border-slate-200"
                   >
                     <Truck className="w-4 h-4 text-blue-600" />
-                    <span>Open Ambulance Portal (Paramedic Crew Desk)</span>
+                    <span>{tr.nav.paramedicCrew}</span>
                   </Link>
                 </div>
               </div>

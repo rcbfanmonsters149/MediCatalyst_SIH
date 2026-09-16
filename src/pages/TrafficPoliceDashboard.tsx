@@ -7,14 +7,19 @@ import {
   RotateCcw, 
   MapPin, 
   Clock, 
-  Building2,
-  LogOut,
-  Radio
+  Building2, 
+  LogOut, 
+  Radio,
+  ExternalLink
 } from '../components/icons';
 import { useApp } from '../context/AppContext';
+import { useLanguage } from '../context/LanguageContext';
+import { LanguageSelector } from '../components/LanguageSelector';
+import { Link } from 'react-router-dom';
 import { LeafletMap } from '../components/LeafletMap';
 
 export const TrafficPoliceDashboard: React.FC = () => {
+  const { tr } = useLanguage();
   const {
     trafficCorridor,
     toggleSimulation,
@@ -59,49 +64,54 @@ export const TrafficPoliceDashboard: React.FC = () => {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-lg font-black tracking-tight text-slate-900 font-heading">
-                  Traffic Police Route Monitor
+                  {tr.police.title}
                 </h1>
                 <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-ping"></span>
-                  Active Emergency Route
+                  {tr.police.activeEmergencyRoute}
                 </span>
               </div>
               <p className="text-xs text-slate-500">
-                Live Ambulance GPS Tracking, Distance Remaining & Approach ETAs
+                {tr.police.liveTrackingSubtitle}
               </p>
             </div>
           </div>
 
-          {/* Right Header: Station Post Badge & Switch/Logout */}
-          <div className="flex items-center gap-3">
+          {/* Right Header: Station Post Badge, Language, Public Portal & Switch/Logout */}
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+            <LanguageSelector variant="light" />
+
+            <Link
+              to="/"
+              className="h-10 text-xs text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 px-3.5 rounded-xl transition flex items-center gap-2 border border-slate-200 shadow-xs font-semibold cursor-pointer hidden md:flex"
+            >
+              <ExternalLink className="w-3.5 h-3.5 text-blue-600" />
+              <span>{tr.common.publicPortal}</span>
+            </Link>
+
             {policeUserSignal && (
-              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 shadow-2xs">
+              <div className="h-10 flex items-center gap-2.5 bg-white border border-slate-200 rounded-xl px-3 shadow-xs">
                 <div className="text-left">
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 leading-none">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span className="text-[10px] uppercase font-black text-slate-500 tracking-wider">
-                      Assigned Signal Post
+                    <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                      {tr.police.signalPost}
                     </span>
                   </div>
-                  <p className="text-xs font-black text-slate-900 font-mono">
+                  <p className="text-xs font-bold text-slate-900 font-mono leading-none mt-0.5">
                     {policeUserSignal.id} <span className="font-sans font-semibold text-slate-600">• {policeUserSignal.name}</span>
-                    <span className="ml-1 text-[10px] text-slate-400 font-mono">({policeUserSignal.junctionCode})</span>
                   </p>
                 </div>
                 <button
                   onClick={logoutPoliceSignal}
-                  className="ml-2 px-2.5 py-1 bg-white hover:bg-red-50 text-slate-600 hover:text-red-600 border border-slate-200 hover:border-red-200 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  className="ml-1 px-2 py-1 bg-slate-50 hover:bg-red-50 text-slate-600 hover:text-red-600 border border-slate-200 hover:border-red-200 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
                   title="Switch Signal Post / Logout"
                 >
                   <LogOut className="w-3.5 h-3.5" />
-                  <span>Switch Post</span>
+                  <span>{tr.police.switchPost}</span>
                 </button>
               </div>
             )}
-
-            <div className="text-xs text-slate-500 font-medium hidden sm:block">
-              Broadcast: <strong className="text-slate-800">{trafficCorridor.signals.length} Signals Notified</strong>
-            </div>
           </div>
 
         </div>
@@ -177,10 +187,10 @@ export const TrafficPoliceDashboard: React.FC = () => {
               <div className="bg-amber-50/60 p-3 rounded-xl border border-amber-200/80">
                 <div className="flex items-center gap-1.5 text-[11px] font-bold text-amber-800">
                   <Clock className="w-3.5 h-3.5 text-amber-600" />
-                  <span>ETA to Post ({targetSignal?.id})</span>
+                  <span>ETA ({targetSignal?.id})</span>
                 </div>
                 <p className="text-xl font-black text-amber-700 font-mono mt-0.5">
-                  {targetSignal?.status === 'CLEARED' ? 'Passed' : `${targetSignal?.etaMinutes ?? 0} min`}
+                  {targetSignal?.status === 'CLEARED' ? tr.police.passed : `${targetSignal?.etaMinutes ?? 0} min`}
                 </p>
                 <p className="text-[10px] text-amber-800/80 truncate mt-0.5 font-medium">
                   {targetSignal?.name}
@@ -191,7 +201,7 @@ export const TrafficPoliceDashboard: React.FC = () => {
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
                 <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
                   <Navigation className="w-3.5 h-3.5 text-blue-600" />
-                  <span>Remaining Distance</span>
+                  <span>{tr.police.remainingDistance}</span>
                 </div>
                 <p className="text-xl font-black text-blue-700 font-mono mt-0.5">
                   {targetSignal?.status === 'CLEARED' ? '0.0 km' : `${targetSignal?.distanceKm ?? 0} km`}
@@ -205,7 +215,7 @@ export const TrafficPoliceDashboard: React.FC = () => {
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
                 <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
                   <Building2 className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Hospital ETA</span>
+                  <span>{tr.police.hospitalEta}</span>
                 </div>
                 <p className="text-xl font-black text-slate-900 font-mono mt-0.5">
                   {trafficCorridor.totalEtaMinutes} <span className="text-xs font-normal text-slate-500">min</span>
@@ -234,12 +244,12 @@ export const TrafficPoliceDashboard: React.FC = () => {
               {trafficCorridor.isSimulating ? (
                 <>
                   <Pause className="w-4 h-4 fill-white" />
-                  <span>Pause Simulation</span>
+                  <span>{tr.police.pauseSimulation}</span>
                 </>
               ) : (
                 <>
                   <Play className="w-4 h-4 fill-white" />
-                  <span>Start Live Ambulance Run</span>
+                  <span>{tr.police.startLiveRun}</span>
                 </>
               )}
             </button>
@@ -331,7 +341,7 @@ export const TrafficPoliceDashboard: React.FC = () => {
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                 <div>
                   <h4 className="text-sm font-black uppercase tracking-wider text-slate-900 font-heading">
-                    SIGNALS ON ROUTE
+                    {tr.police.signalsOnRoute}
                   </h4>
                   <p className="text-xs text-slate-500 mt-0.5">
                     Live approach ETAs & notification status
@@ -377,12 +387,12 @@ export const TrafficPoliceDashboard: React.FC = () => {
                             </p>
                             {isMyPost && (
                               <span className="text-[9px] uppercase font-black px-1.5 py-0.5 rounded bg-blue-600 text-white tracking-wider">
-                                Your Post
+                                {tr.police.yourPost}
                               </span>
                             )}
                           </div>
                           <p className="text-[10px] text-slate-400 font-mono mt-0.5">
-                            {sig.junctionCode} • <strong className={isMyPost ? 'text-blue-700 font-bold' : 'text-slate-500'}>{sig.distanceKm} km remaining</strong>
+                            {sig.junctionCode} • <strong className={isMyPost ? 'text-blue-700 font-bold' : 'text-slate-500'}>{sig.distanceKm} km {tr.police.remainingDistance}</strong>
                           </p>
                         </div>
                       </div>
@@ -393,7 +403,7 @@ export const TrafficPoliceDashboard: React.FC = () => {
                         <span className={`text-[11px] font-bold uppercase tracking-wider ${
                           isCleared ? 'text-slate-400' : (isMyPost ? 'text-blue-800' : 'text-emerald-700')
                         }`}>
-                          {isCleared ? 'CLEARED' : 'NOTIFIED'}
+                          {isCleared ? tr.police.cleared : tr.police.notified}
                         </span>
                       </div>
 
@@ -404,7 +414,7 @@ export const TrafficPoliceDashboard: React.FC = () => {
                             ? 'text-slate-400' 
                             : (isMyPost ? 'text-blue-800 font-black' : (isNext ? 'text-amber-800' : 'text-slate-900'))
                         }`}>
-                          {isCleared ? 'Passed' : `${sig.etaMinutes} min`}
+                          {isCleared ? tr.police.passed : `${sig.etaMinutes} min`}
                         </span>
                       </div>
                     </div>

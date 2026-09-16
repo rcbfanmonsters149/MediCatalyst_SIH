@@ -20,10 +20,13 @@ import {
   Calendar
 } from '../components/icons';
 import { useApp } from '../context/AppContext';
+import { useLanguage } from '../context/LanguageContext';
+import { LanguageSelector } from '../components/LanguageSelector';
 import { PatientRecord } from '../types';
 
 export const BioDataPage: React.FC = () => {
   const { user, isLoggedIn, setIsLoggedIn, loginUser } = useApp();
+  const { tr, language } = useLanguage();
   const [loginInput, setLoginInput] = useState('');
   const [authError, setAuthError] = useState('');
   const [selectedRecordForPreview, setSelectedRecordForPreview] = useState<PatientRecord | null>(null);
@@ -31,7 +34,7 @@ export const BioDataPage: React.FC = () => {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginInput.trim()) {
-      setAuthError('Please enter your Mobile Number, Email, or ABHA Health ID');
+      setAuthError(language === 'mr' ? 'कृपया मोबाईल नंबर किंवा आभा (ABHA) आयडी प्रविष्ट करा' : language === 'hi' ? 'कृपया मोबाइल नंबर या आभा (ABHA) आईडी दर्ज करें' : 'Please enter your Mobile Number, Email, or ABHA Health ID');
       return;
     }
     const success = loginUser(loginInput);
@@ -203,28 +206,31 @@ export const BioDataPage: React.FC = () => {
   if (!isLoggedIn) {
     return (
       <div className="max-w-md mx-auto my-12 p-6 sm:p-8 bg-white rounded-2xl shadow-xl border border-slate-200">
+        <div className="flex justify-end mb-2">
+          <LanguageSelector variant="light" />
+        </div>
         <div className="text-center space-y-3">
           <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto shadow-xs">
             <Lock className="w-6 h-6" />
           </div>
           <h2 className="text-2xl font-bold text-slate-900 font-heading">
-            Arogya Cloud Health Locker
+            {tr.biodata.loginTitle}
           </h2>
           <p className="text-xs sm:text-sm text-slate-500">
-            Securely access your lifetime electronic prescriptions, medications, verified allergies, and medical history.
+            {tr.biodata.loginSubtitle}
           </p>
         </div>
 
         <form onSubmit={handleLogin} className="mt-6 space-y-4">
           <div>
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-              Mobile Number / Email / ABHA ID
+              {tr.biodata.enterIdentifier}
             </label>
             <input
               type="text"
               value={loginInput}
               onChange={(e) => setLoginInput(e.target.value)}
-              placeholder="Enter Mobile Number or ABHA Health ID"
+              placeholder={tr.biodata.enterPlaceholder}
               className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
             />
             {authError && (
@@ -237,11 +243,23 @@ export const BioDataPage: React.FC = () => {
 
           <button
             type="submit"
-            className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md transition transform active:scale-98"
+            className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md transition transform active:scale-98 cursor-pointer"
           >
-            Access My Bio-Data
+            {tr.biodata.loginBtn}
           </button>
         </form>
+
+        <div className="mt-4 text-center">
+          <button
+            type="button"
+            onClick={() => {
+              loginUser('9876543210');
+            }}
+            className="text-xs font-semibold text-emerald-700 hover:underline cursor-pointer"
+          >
+            {tr.biodata.quickDemoUser}
+          </button>
+        </div>
 
         <div className="mt-6 pt-4 border-t border-slate-100 text-[11px] text-slate-400 text-center flex items-center justify-center gap-1">
           <ShieldAlert className="w-3.5 h-3.5" />
@@ -267,26 +285,27 @@ export const BioDataPage: React.FC = () => {
                 {user.fullName}
               </h1>
               <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-                Active Health ID: {user.healthId}
+                {tr.biodata.abhaId}: {user.healthId}
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-1">
-              Age: <strong>{user.age} Years</strong> • Gender: <strong>{user.gender}</strong> • Blood Group: <strong className="text-rose-600 font-bold">{user.bloodGroup}</strong> • Phone: {user.phone}
+              {tr.biodata.age}: <strong>{user.age} {language === 'mr' ? 'वर्षे' : language === 'hi' ? 'वर्ष' : 'Years'}</strong> • {tr.biodata.gender}: <strong>{user.gender}</strong> • {tr.biodata.bloodGroup}: <strong className="text-rose-600 font-bold">{user.bloodGroup}</strong> • {tr.biodata.phone}: {user.phone}
             </p>
             <p className="text-xs text-slate-500">
-              Address: {user.address}
+              {tr.biodata.address}: {user.address}
             </p>
           </div>
         </div>
 
         {/* Action Buttons */}
         <div className="flex items-center flex-wrap gap-2 w-full md:w-auto justify-end">
+          <LanguageSelector variant="light" />
           <button
             onClick={() => setIsLoggedIn(false)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-semibold transition"
+            className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-semibold transition cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" />
-            <span>Logout</span>
+            <span>{tr.common.logout}</span>
           </button>
         </div>
 
@@ -300,7 +319,7 @@ export const BioDataPage: React.FC = () => {
           <div className="flex items-center justify-between">
             <h3 className="font-bold text-slate-900 text-base flex items-center gap-2 font-heading">
               <Heart className="w-5 h-5 text-rose-500" />
-              <span>Current Health Condition & Chronic Illnesses</span>
+              <span>{tr.biodata.chronicConditions}</span>
             </h3>
             <span className="text-xs text-slate-500 font-medium">Cloud Verified</span>
           </div>
@@ -318,7 +337,7 @@ export const BioDataPage: React.FC = () => {
           <div className="pt-3 border-t border-slate-100">
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 flex items-center gap-1.5">
               <Phone className="w-3.5 h-3.5 text-slate-400" />
-              <span>Emergency SOS Next-of-Kin Contacts</span>
+              <span>{tr.biodata.emergencyContacts}</span>
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {user.emergencyContacts.map((contact, idx) => (
@@ -338,9 +357,9 @@ export const BioDataPage: React.FC = () => {
           <div className="flex items-center justify-between">
             <h3 className="font-bold text-slate-900 text-base flex items-center gap-2 font-heading">
               <Pill className="w-5 h-5 text-emerald-600" />
-              <span>Active Prescription Medications</span>
+              <span>{tr.biodata.currentMedications}</span>
             </h3>
-            <span className="text-xs text-slate-500 font-medium">{user.currentMedications.length} Active Prescriptions</span>
+            <span className="text-xs text-slate-500 font-medium">{user.currentMedications.length} {language === 'mr' ? 'सक्रिय औषधे' : language === 'hi' ? 'सक्रिय दवाएं' : 'Active Prescriptions'}</span>
           </div>
 
           <div className="space-y-2.5">
@@ -352,7 +371,7 @@ export const BioDataPage: React.FC = () => {
                     {med.dosage} • {med.frequency}
                   </p>
                   <p className="text-[11px] text-slate-500 mt-1">
-                    <strong>Indication:</strong> {med.purpose}
+                    <strong>{tr.biodata.instructions}:</strong> {med.purpose}
                   </p>
                 </div>
                 <span className="text-[10px] uppercase font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded shrink-0">
@@ -371,10 +390,10 @@ export const BioDataPage: React.FC = () => {
           <div>
             <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2 font-heading">
               <FileText className="w-5 h-5 text-indigo-600" />
-              <span>Electronic Prescriptions & Past Hospital Record Timeline</span>
+              <span>{tr.biodata.prescriptionHistory}</span>
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Permanently synced across government Primary Health Centers, CHCs, and District Hospitals.
+              {language === 'mr' ? 'शासकीय प्राथमिक आरोग्य केंद्रे, समुदाय आरोग्य केंद्रे आणि जिल्हा रुग्णालयांमध्ये समन्वयित.' : language === 'hi' ? 'सरकारी प्राथमिक स्वास्थ्य केंद्रों, सीएचसी और जिला अस्पतालों में समन्वयित।' : 'Permanently synced across government Primary Health Centers, CHCs, and District Hospitals.'}
             </p>
           </div>
         </div>
@@ -394,13 +413,13 @@ export const BioDataPage: React.FC = () => {
                   </span>
                 </div>
                 <span className="text-xs text-slate-500 font-medium">
-                  Doctor: <strong>{rec.doctorName}</strong>
+                  {tr.biodata.doctor}: <strong>{rec.doctorName}</strong>
                 </span>
               </div>
 
               <div className="bg-white p-3 rounded-lg border border-slate-150 text-xs text-slate-700 space-y-2">
                 <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400">Diagnosis / Chief Complaint:</span>
+                  <span className="text-[10px] uppercase font-bold text-slate-400">{tr.biodata.diagnosis}:</span>
                   <p className="font-bold text-slate-900 text-sm">{rec.diagnosis}</p>
                 </div>
 
@@ -408,7 +427,7 @@ export const BioDataPage: React.FC = () => {
                   <div>
                     <span className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1">
                       <Pill className="w-3 h-3 text-rose-500" />
-                      <span>Prescribed Medicines:</span>
+                      <span>{tr.biodata.medications}:</span>
                     </span>
                     <div className="flex flex-wrap gap-1.5 mt-1">
                       {rec.medications.map((m, mIdx) => (
@@ -424,7 +443,7 @@ export const BioDataPage: React.FC = () => {
 
                 {rec.clinicalAdvice && (
                   <div className="p-2 bg-amber-50 rounded-lg border border-amber-200 text-[11px] text-amber-900">
-                    <span className="font-bold">Advice: </span>
+                    <span className="font-bold">{language === 'mr' ? 'सल्ला: ' : language === 'hi' ? 'सलाह: ' : 'Advice: '}</span>
                     <span>{rec.clinicalAdvice}</span>
                   </div>
                 )}
@@ -437,7 +456,7 @@ export const BioDataPage: React.FC = () => {
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition cursor-pointer"
                 >
                   <Eye className="w-3.5 h-3.5 text-slate-500" />
-                  <span>View Details</span>
+                  <span>{tr.biodata.viewPrescription}</span>
                 </button>
 
                 <button 
@@ -446,7 +465,7 @@ export const BioDataPage: React.FC = () => {
                   className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-2xs transition cursor-pointer active:scale-95"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span>Download Digital Rx (PDF)</span>
+                  <span>{tr.biodata.downloadPdf}</span>
                 </button>
               </div>
             </div>

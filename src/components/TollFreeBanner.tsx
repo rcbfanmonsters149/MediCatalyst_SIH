@@ -1,7 +1,10 @@
 import React from 'react';
 import { PhoneCall, AlertTriangle, ShieldAlert, HeartPulse } from './icons';
+import { useLanguage } from '../context/LanguageContext';
 
 export const TollFreeBanner: React.FC = () => {
+  const { tr } = useLanguage();
+
   return (
     <div className="bg-red-650 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 text-white shadow-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5">
@@ -13,7 +16,7 @@ export const TollFreeBanner: React.FC = () => {
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white"></span>
             </span>
             <span className="font-bold tracking-wide uppercase text-[11px] sm:text-xs bg-red-900/50 px-2 py-0.5 rounded border border-red-400/30">
-              National Emergency Hotlines (24x7 Toll-Free)
+              {tr.tollfree.bannerTitle}
             </span>
           </div>
 
@@ -24,7 +27,9 @@ export const TollFreeBanner: React.FC = () => {
             >
               <PhoneCall className="w-3.5 h-3.5 text-red-600" />
               <span>108</span>
-              <span className="text-[11px] font-normal text-slate-600 hidden md:inline">(Ambulance)</span>
+              <span className="text-[11px] font-normal text-slate-600 hidden md:inline">
+                ({tr.common.appName === 'मेडकॅटॅलिस्ट' ? 'रुग्णवाहिका' : tr.common.appName === 'मेडकैटालिस्ट' ? 'एम्बुलेंस' : 'Ambulance'})
+              </span>
             </a>
 
             <a 
@@ -33,7 +38,9 @@ export const TollFreeBanner: React.FC = () => {
             >
               <ShieldAlert className="w-3.5 h-3.5" />
               <span>112</span>
-              <span className="text-[11px] opacity-80 hidden md:inline">(National Emergency)</span>
+              <span className="text-[11px] opacity-80 hidden md:inline">
+                ({tr.common.appName === 'मेडकॅटॅलिस्ट' ? 'आपत्कालीन' : tr.common.appName === 'मेडकैटालिस्ट' ? 'आपातकाल' : 'National Emergency'})
+              </span>
             </a>
 
             <a 
@@ -42,7 +49,9 @@ export const TollFreeBanner: React.FC = () => {
             >
               <HeartPulse className="w-3.5 h-3.5" />
               <span>102</span>
-              <span className="text-[11px] opacity-80 hidden md:inline">(Maternal & Infant)</span>
+              <span className="text-[11px] opacity-80 hidden md:inline">
+                ({tr.common.appName === 'मेडकॅटॅलिस्ट' ? 'माता व बाल' : tr.common.appName === 'मेडकैटालिस्ट' ? 'मातृ एवं शिशु' : 'Maternal & Infant'})
+              </span>
             </a>
 
             <a 
@@ -51,7 +60,9 @@ export const TollFreeBanner: React.FC = () => {
             >
               <AlertTriangle className="w-3.5 h-3.5" />
               <span>1075</span>
-              <span className="text-[11px] opacity-80 hidden md:inline">(Health Helpline)</span>
+              <span className="text-[11px] opacity-80 hidden md:inline">
+                ({tr.common.appName === 'मेडकॅटॅलिस्ट' ? 'आरोग्य हेल्पलाइन' : tr.common.appName === 'मेडकैटालिस्ट' ? 'स्वास्थ्य हेल्पलाइन' : 'Health Helpline'})
+              </span>
             </a>
           </div>
 

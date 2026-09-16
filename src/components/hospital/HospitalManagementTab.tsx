@@ -21,6 +21,7 @@ import {
   FileText
 } from '../icons';
 import { useApp } from '../../context/AppContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { Hospital, DoctorOnDuty, DoctorStatusType } from '../../types';
 import { HospitalPrescriptionModal } from './HospitalPrescriptionModal';
 
@@ -30,6 +31,7 @@ interface HospitalManagementTabProps {
 }
 
 export const HospitalManagementTab: React.FC<HospitalManagementTabProps> = ({ hospital, onNotify }) => {
+  const { tr } = useLanguage();
   const { 
     updateHospitalBeds, 
     addDoctorToHospital, 
@@ -124,7 +126,7 @@ export const HospitalManagementTab: React.FC<HospitalManagementTabProps> = ({ ho
             <div className="flex items-center gap-2">
               <Stethoscope className="w-5 h-5 text-blue-600" />
               <h2 className="text-lg font-extrabold text-slate-900 font-heading">
-                Doctor Roster & Availability Management
+                {tr.hospital.doctorRoster}
               </h2>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
@@ -138,7 +140,7 @@ export const HospitalManagementTab: React.FC<HospitalManagementTabProps> = ({ ho
               className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-1.5 cursor-pointer active:scale-95"
             >
               <FileText className="w-4 h-4" />
-              <span>Issue Digital Prescription (ABHA)</span>
+              <span>{tr.hospital.issueDigitalPrescription}</span>
             </button>
 
             <button
@@ -146,7 +148,7 @@ export const HospitalManagementTab: React.FC<HospitalManagementTabProps> = ({ ho
               className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-1.5 cursor-pointer active:scale-95"
             >
               <UserPlus className="w-4 h-4" />
-              <span>Add New Doctor to Staff</span>
+              <span>{tr.hospital.addNewDoctor}</span>
             </button>
           </div>
         </div>
@@ -349,7 +351,7 @@ export const HospitalManagementTab: React.FC<HospitalManagementTabProps> = ({ ho
           <div>
             <h3 className="font-bold text-slate-900 text-base flex items-center gap-2 font-heading">
               <Bed className="w-5 h-5 text-emerald-600" />
-              <span>Hospital Resources & Medical Equipment</span>
+              <span>{tr.hospital.bedEquipmentTitle}</span>
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
               Click <span className="font-bold text-emerald-700">+</span> or <span className="font-bold text-rose-700">-</span> to adjust live available count. Synced in real time with the citizen website.
@@ -367,12 +369,12 @@ export const HospitalManagementTab: React.FC<HospitalManagementTabProps> = ({ ho
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                 <Bed className="w-4 h-4 text-emerald-600" />
-                <span>General Ward Beds</span>
+                <span>{tr.citizen.generalBeds}</span>
               </span>
             </div>
             <div className="flex items-center justify-between">
               <div className="text-2xl font-extrabold text-emerald-600 font-mono">
-                {hospital.generalBedsAvail ?? 0} <span className="text-xs text-slate-500 font-sans font-normal">Available</span>
+                {hospital.generalBedsAvail ?? 0} <span className="text-xs text-slate-500 font-sans font-normal">{tr.common.available}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <button
@@ -406,12 +408,12 @@ export const HospitalManagementTab: React.FC<HospitalManagementTabProps> = ({ ho
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                 <HeartPulse className="w-4 h-4 text-rose-600" />
-                <span>ICU / CCU Beds</span>
+                <span>{tr.citizen.icuBeds}</span>
               </span>
             </div>
             <div className="flex items-center justify-between">
               <div className="text-2xl font-extrabold text-rose-600 font-mono">
-                {hospital.icuBedsAvail ?? 0} <span className="text-xs text-slate-500 font-sans font-normal">Available</span>
+                {hospital.icuBedsAvail ?? 0} <span className="text-xs text-slate-500 font-sans font-normal">{tr.common.available}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <button
@@ -445,12 +447,12 @@ export const HospitalManagementTab: React.FC<HospitalManagementTabProps> = ({ ho
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                 <Activity className="w-4 h-4 text-indigo-600" />
-                <span>Maternity & Labor Beds</span>
+                <span>{tr.citizen.maternityBeds}</span>
               </span>
             </div>
             <div className="flex items-center justify-between">
               <div className="text-2xl font-extrabold text-indigo-600 font-mono">
-                {hospital.maternityBedsAvail ?? 0} <span className="text-xs text-slate-500 font-sans font-normal">Available</span>
+                {hospital.maternityBedsAvail ?? 0} <span className="text-xs text-slate-500 font-sans font-normal">{tr.common.available}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <button
@@ -484,12 +486,12 @@ export const HospitalManagementTab: React.FC<HospitalManagementTabProps> = ({ ho
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                 <Wind className="w-4 h-4 text-sky-600" />
-                <span>Mechanical Ventilators</span>
+                <span>{tr.citizen.ventilators}</span>
               </span>
             </div>
             <div className="flex items-center justify-between">
               <div className="text-2xl font-extrabold text-sky-600 font-mono">
-                {hospital.ventilatorsAvail ?? 0} <span className="text-xs text-slate-500 font-sans font-normal">Units</span>
+                {hospital.ventilatorsAvail ?? 0} <span className="text-xs text-slate-500 font-sans font-normal">{tr.common.available}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <button
@@ -523,12 +525,12 @@ export const HospitalManagementTab: React.FC<HospitalManagementTabProps> = ({ ho
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                 <Droplets className="w-4 h-4 text-purple-600" />
-                <span>Dialysis Machines</span>
+                <span>{tr.citizen.dialysis}</span>
               </span>
             </div>
             <div className="flex items-center justify-between">
               <div className="text-2xl font-extrabold text-purple-600 font-mono">
-                {hospital.dialysisAvail ?? 0} <span className="text-xs text-slate-500 font-sans font-normal">Units</span>
+                {hospital.dialysisAvail ?? 0} <span className="text-xs text-slate-500 font-sans font-normal">{tr.common.available}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <button
@@ -562,12 +564,12 @@ export const HospitalManagementTab: React.FC<HospitalManagementTabProps> = ({ ho
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                 <HeartPulse className="w-4 h-4 text-red-600" />
-                <span>ECG Machines</span>
+                <span>{tr.citizen.ecg}</span>
               </span>
             </div>
             <div className="flex items-center justify-between">
               <div className="text-2xl font-extrabold text-red-600 font-mono">
-                {hospital.ecgAvail ?? 0} <span className="text-xs text-slate-500 font-sans font-normal">Units</span>
+                {hospital.ecgAvail ?? 0} <span className="text-xs text-slate-500 font-sans font-normal">{tr.common.available}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <button
@@ -601,12 +603,12 @@ export const HospitalManagementTab: React.FC<HospitalManagementTabProps> = ({ ho
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                 <Scan className="w-4 h-4 text-amber-600" />
-                <span>CT Scanner</span>
+                <span>{tr.citizen.ctScanner}</span>
               </span>
             </div>
             <div className="flex items-center justify-between">
               <div className="text-2xl font-extrabold text-amber-600 font-mono">
-                {hospital.ctScannerAvail ?? 0} <span className="text-xs text-slate-500 font-sans font-normal">Operational</span>
+                {hospital.ctScannerAvail ?? 0} <span className="text-xs text-slate-500 font-sans font-normal">{tr.common.available}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <button
@@ -640,12 +642,12 @@ export const HospitalManagementTab: React.FC<HospitalManagementTabProps> = ({ ho
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                 <Zap className="w-4 h-4 text-orange-600" />
-                <span>Defibrillators</span>
+                <span>{tr.citizen.defibrillator}</span>
               </span>
             </div>
             <div className="flex items-center justify-between">
               <div className="text-2xl font-extrabold text-orange-600 font-mono">
-                {hospital.defibrillatorAvail ?? 0} <span className="text-xs text-slate-500 font-sans font-normal">Units Ready</span>
+                {hospital.defibrillatorAvail ?? 0} <span className="text-xs text-slate-500 font-sans font-normal">{tr.common.available}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <button
@@ -679,12 +681,12 @@ export const HospitalManagementTab: React.FC<HospitalManagementTabProps> = ({ ho
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                 <Disc className="w-4 h-4 text-teal-600" />
-                <span>MRI Scanner</span>
+                <span>{tr.citizen.mri}</span>
               </span>
             </div>
             <div className="flex items-center justify-between">
               <div className="text-2xl font-extrabold text-teal-600 font-mono">
-                {hospital.mriAvail ?? 0} <span className="text-xs text-slate-500 font-sans font-normal">Operational</span>
+                {hospital.mriAvail ?? 0} <span className="text-xs text-slate-500 font-sans font-normal">{tr.common.available}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <button

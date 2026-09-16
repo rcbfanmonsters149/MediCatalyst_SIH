@@ -9,6 +9,7 @@ import {
   Radio
 } from './icons';
 import { useApp } from '../context/AppContext';
+import { useLanguage } from '../context/LanguageContext';
 
 export type VoiceLanguage = 'hi-IN' | 'mr-IN' | 'en-IN';
 
@@ -66,13 +67,20 @@ interface VoiceSOSRecognitionModalProps {
 export const VoiceSOSRecognitionModal: React.FC<VoiceSOSRecognitionModalProps> = ({
   isOpen,
   onClose,
-  initialLanguage = 'hi-IN',
+  initialLanguage,
   onTranscriptSubmitted
 }) => {
   const isSpeechSupported = typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
   const { sendDispatchMessage } = useApp();
+  const { voiceLanguage } = useLanguage();
 
-  const [selectedLang, setSelectedLang] = useState<VoiceLanguage>(initialLanguage);
+  const [selectedLang, setSelectedLang] = useState<VoiceLanguage>(initialLanguage || voiceLanguage);
+
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedLang(initialLanguage || voiceLanguage);
+    }
+  }, [isOpen, initialLanguage, voiceLanguage]);
   const [isListening, setIsListening] = useState<boolean>(false);
   const [transcript, setTranscript] = useState<string>('');
   const [interimText, setInterimText] = useState<string>('');

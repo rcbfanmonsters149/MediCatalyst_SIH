@@ -13,6 +13,7 @@ import {
   AlertCircle
 } from '../icons';
 import { useApp } from '../../context/AppContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { Hospital, PrescriptionMedication } from '../../types';
 
 interface HospitalPrescriptionModalProps {
@@ -29,6 +30,7 @@ export const HospitalPrescriptionModal: React.FC<HospitalPrescriptionModalProps>
   onNotify
 }) => {
   const { user, addPatientPrescription } = useApp();
+  const { tr, language } = useLanguage();
 
   // Form States
   const [patientName, setPatientName] = useState(user.fullName || 'Rajesh Kumar');
@@ -42,7 +44,11 @@ export const HospitalPrescriptionModal: React.FC<HospitalPrescriptionModalProps>
   const [diagnosis, setDiagnosis] = useState('');
   const [vitalsSummary, setVitalsSummary] = useState('BP: 120/80 mmHg | Temp: 98.4°F | SpO2: 98%');
   const [clinicalAdvice, setClinicalAdvice] = useState(
-    'Drink plenty of boiled water. Adequate rest for 3 days. Review in OPD if symptoms persist.'
+    language === 'hi' 
+      ? 'खूब उबला हुआ पानी पिएं। 3 दिनों तक पर्याप्त आराम करें। यदि लक्षण बने रहें तो ओपीडी में जांच कराएं।'
+      : (language === 'mr' 
+        ? 'उकळलेले पाणी भरपूर प्या. ३ दिवस पुरेशी विश्रांती घ्या. लक्षणे कायम राहिल्यास ओपीडीमध्ये पुन्हा भेटा.' 
+        : 'Drink plenty of boiled water. Adequate rest for 3 days. Review in OPD if symptoms persist.')
   );
 
   // Dynamic Medications List
@@ -80,7 +86,7 @@ export const HospitalPrescriptionModal: React.FC<HospitalPrescriptionModalProps>
 
   const handleRemoveMedication = (index: number) => {
     if (medications.length <= 1) {
-      alert('Prescription must contain at least one medication.');
+      alert(language === 'hi' ? 'नुस्खे में कम से कम एक दवा होनी चाहिए।' : (language === 'mr' ? 'प्रिस्क्रिप्शनमध्ये किमान एक औषध असणे आवश्यक आहे.' : 'Prescription must contain at least one medication.'));
       return;
     }
     setMedications(medications.filter((_, i) => i !== index));
@@ -96,7 +102,7 @@ export const HospitalPrescriptionModal: React.FC<HospitalPrescriptionModalProps>
     e.preventDefault();
 
     if (!diagnosis.trim()) {
-      alert('Please enter a clinical diagnosis or chief complaint.');
+      alert(language === 'hi' ? 'कृपया नैदानिक निदान या मुख्य लक्षण दर्ज करें।' : (language === 'mr' ? 'कृपया क्लिनिकल निदान किंवा मुख्य तक्रारी नोंदवा.' : 'Please enter a clinical diagnosis or chief complaint.'));
       return;
     }
 
@@ -124,7 +130,11 @@ export const HospitalPrescriptionModal: React.FC<HospitalPrescriptionModalProps>
       abhaId
     });
 
-    onNotify(`Prescription issued by ${hospital.name} and synced to ${patientName}'s ABHA profile!`);
+    onNotify(language === 'hi'
+      ? `${hospital.name} द्वारा डिजिटल नुस्खा जारी किया गया और ${patientName} की ABHA प्रोफाइल में सिंक हुआ!`
+      : (language === 'mr'
+        ? `${hospital.name} द्वारे डिजिटल प्रिस्क्रिप्शन जारी केले व ${patientName} च्या ABHA प्रोफाइलमध्ये सिंक झाले!`
+        : `Prescription issued by ${hospital.name} and synced to ${patientName}'s ABHA profile!`));
     onClose();
   };
 
@@ -140,10 +150,10 @@ export const HospitalPrescriptionModal: React.FC<HospitalPrescriptionModalProps>
             </div>
             <div>
               <h2 className="font-extrabold text-base sm:text-lg font-heading">
-                Issue Clinical Prescription & Patient Visit Record
+                {tr.hospital.prescriptionModalTitle}
               </h2>
               <p className="text-xs text-slate-400">
-                Authorized OPD Consultation • Ayushman Bharat Digital Mission (ABDM)
+                {tr.hospital.prescriptionModalSubtitle}
               </p>
             </div>
           </div>
@@ -164,7 +174,7 @@ export const HospitalPrescriptionModal: React.FC<HospitalPrescriptionModalProps>
             <div className="flex items-center gap-2.5">
               <Building2 className="w-5 h-5 text-blue-700 shrink-0" />
               <div>
-                <span className="text-[10px] uppercase font-bold text-blue-800">Issuing Healthcare Facility:</span>
+                <span className="text-[10px] uppercase font-bold text-blue-800">{tr.hospital.issuingFacility}:</span>
                 <h3 className="font-bold text-slate-900 text-sm">{hospital.name}</h3>
                 <p className="text-[11px] text-slate-500">{hospital.address} • {hospital.type}</p>
               </div>
@@ -181,11 +191,11 @@ export const HospitalPrescriptionModal: React.FC<HospitalPrescriptionModalProps>
             <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/60 space-y-3">
               <div className="flex items-center gap-2 font-bold text-slate-800">
                 <User className="w-4 h-4 text-emerald-600" />
-                <span>Patient Health Identity</span>
+                <span>{tr.hospital.patientHealthIdentity}</span>
               </div>
               
               <div>
-                <label className="block font-semibold text-slate-600 mb-1">Patient Name</label>
+                <label className="block font-semibold text-slate-600 mb-1">{tr.biodata.profileHeader}</label>
                 <input
                   type="text"
                   required
@@ -196,7 +206,7 @@ export const HospitalPrescriptionModal: React.FC<HospitalPrescriptionModalProps>
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-600 mb-1">ABHA Health ID</label>
+                <label className="block font-semibold text-slate-600 mb-1">{tr.biodata.abhaId}</label>
                 <input
                   type="text"
                   required
@@ -211,11 +221,11 @@ export const HospitalPrescriptionModal: React.FC<HospitalPrescriptionModalProps>
             <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/60 space-y-3">
               <div className="flex items-center gap-2 font-bold text-slate-800">
                 <Stethoscope className="w-4 h-4 text-blue-600" />
-                <span>Attending Medical Officer</span>
+                <span>{tr.hospital.attendingDoctor}</span>
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-600 mb-1">Select Doctor</label>
+                <label className="block font-semibold text-slate-600 mb-1">{tr.hospital.selectDoctor}</label>
                 <select
                   value={doctorName}
                   onChange={(e) => {
@@ -235,7 +245,7 @@ export const HospitalPrescriptionModal: React.FC<HospitalPrescriptionModalProps>
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-600 mb-1">Specialization / Department</label>
+                <label className="block font-semibold text-slate-600 mb-1">{tr.hospital.doctorSpecialty}</label>
                 <input
                   type="text"
                   value={doctorSpecialty}
@@ -251,21 +261,21 @@ export const HospitalPrescriptionModal: React.FC<HospitalPrescriptionModalProps>
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <label className="font-bold text-slate-800 text-sm">
-                Clinical Diagnosis & Chief Complaints *
+                {tr.hospital.clinicalDiagnosisChief}
               </label>
-              <span className="text-slate-400 text-[11px]">Primary reason for visit</span>
+              <span className="text-slate-400 text-[11px]">{tr.biodata.diagnosis}</span>
             </div>
             <input
               type="text"
               required
-              placeholder="e.g. Acute Gastroenteritis with Moderate Dehydration or Type 2 Diabetes Follow-up"
+              placeholder={tr.hospital.diagnosisPlaceholder}
               value={diagnosis}
               onChange={(e) => setDiagnosis(e.target.value)}
               className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
             />
 
             <div>
-              <label className="block font-bold text-slate-600 mb-1">Vitals Recorded at Visit</label>
+              <label className="block font-bold text-slate-600 mb-1">{tr.hospital.vitalsRecorded}</label>
               <input
                 type="text"
                 value={vitalsSummary}
@@ -281,7 +291,7 @@ export const HospitalPrescriptionModal: React.FC<HospitalPrescriptionModalProps>
               <div className="flex items-center gap-2">
                 <Pill className="w-4 h-4 text-rose-600" />
                 <label className="font-bold text-slate-900 text-sm">
-                  Prescribed Medications (Rx Table)
+                  {tr.hospital.medicationsRxTable}
                 </label>
               </div>
               <button
@@ -290,7 +300,7 @@ export const HospitalPrescriptionModal: React.FC<HospitalPrescriptionModalProps>
                 className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-lg border border-blue-200 transition flex items-center gap-1 cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Add Medication</span>
+                <span>{tr.hospital.addMedication}</span>
               </button>
             </div>
 
@@ -301,7 +311,7 @@ export const HospitalPrescriptionModal: React.FC<HospitalPrescriptionModalProps>
                     <input
                       type="text"
                       required
-                      placeholder="Medicine Name (e.g. Amoxicillin)"
+                      placeholder={tr.hospital.medicineName}
                       value={med.name}
                       onChange={(e) => handleMedChange(idx, 'name', e.target.value)}
                       className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg font-bold text-slate-800"
@@ -311,7 +321,7 @@ export const HospitalPrescriptionModal: React.FC<HospitalPrescriptionModalProps>
                   <div className="sm:col-span-2">
                     <input
                       type="text"
-                      placeholder="Dosage (500mg)"
+                      placeholder={`${tr.biodata.dosage} (500mg)`}
                       value={med.dosage}
                       onChange={(e) => handleMedChange(idx, 'dosage', e.target.value)}
                       className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg"
@@ -321,7 +331,7 @@ export const HospitalPrescriptionModal: React.FC<HospitalPrescriptionModalProps>
                   <div className="sm:col-span-3">
                     <input
                       type="text"
-                      placeholder="Frequency (1-0-1)"
+                      placeholder={`${tr.biodata.frequency} (1-0-1)`}
                       value={med.frequency}
                       onChange={(e) => handleMedChange(idx, 'frequency', e.target.value)}
                       className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg"
@@ -331,7 +341,7 @@ export const HospitalPrescriptionModal: React.FC<HospitalPrescriptionModalProps>
                   <div className="sm:col-span-2">
                     <input
                       type="text"
-                      placeholder="Duration (5 Days)"
+                      placeholder={`${tr.biodata.duration} (5 Days)`}
                       value={med.duration}
                       onChange={(e) => handleMedChange(idx, 'duration', e.target.value)}
                       className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg"
@@ -356,7 +366,7 @@ export const HospitalPrescriptionModal: React.FC<HospitalPrescriptionModalProps>
           {/* Clinical Advice & Follow-Up */}
           <div>
             <label className="block font-bold text-slate-700 mb-1">
-              Clinical Advice & Follow-Up Instructions
+              {tr.hospital.clinicalAdvice}
             </label>
             <textarea
               rows={2}
@@ -373,14 +383,14 @@ export const HospitalPrescriptionModal: React.FC<HospitalPrescriptionModalProps>
               onClick={onClose}
               className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition cursor-pointer"
             >
-              Cancel
+              {tr.common.cancel}
             </button>
             <button
               type="submit"
               className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-xl shadow-md transition flex items-center gap-2 cursor-pointer active:scale-95"
             >
               <Check className="w-4 h-4" />
-              <span>Issue & Sync to Patient Health Profile</span>
+              <span>{tr.hospital.issueAndSyncAbha}</span>
             </button>
           </div>
 
