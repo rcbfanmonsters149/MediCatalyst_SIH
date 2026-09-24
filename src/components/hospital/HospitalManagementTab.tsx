@@ -18,12 +18,14 @@ import {
   Scan,
   Droplets,
   Disc,
-  FileText
+  FileText,
+  QrCode
 } from '../icons';
 import { useApp } from '../../context/AppContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { Hospital, DoctorOnDuty, DoctorStatusType } from '../../types';
 import { HospitalPrescriptionModal } from './HospitalPrescriptionModal';
+import { DoctorQrScannerModal } from './DoctorQrScannerModal';
 
 interface HospitalManagementTabProps {
   hospital: Hospital;
@@ -42,6 +44,7 @@ export const HospitalManagementTab: React.FC<HospitalManagementTabProps> = ({ ho
   // Add Doctor Form State
   const [showAddDoctorModal, setShowAddDoctorModal] = useState(false);
   const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
+  const [showScannerModal, setShowScannerModal] = useState(false);
   const [docName, setDocName] = useState('');
   const [docDesignation, setDocDesignation] = useState('');
   const [docDepartment, setDocDepartment] = useState('');
@@ -136,6 +139,14 @@ export const HospitalManagementTab: React.FC<HospitalManagementTabProps> = ({ ho
 
           <div className="flex items-center gap-2 flex-wrap shrink-0">
             <button
+              onClick={() => setShowScannerModal(true)}
+              className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-1.5 cursor-pointer active:scale-95"
+            >
+              <QrCode className="w-4 h-4" />
+              <span>{tr.hospital.scanPatientQr}</span>
+            </button>
+
+            <button
               onClick={() => setShowPrescriptionModal(true)}
               className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-1.5 cursor-pointer active:scale-95"
             >
@@ -152,6 +163,15 @@ export const HospitalManagementTab: React.FC<HospitalManagementTabProps> = ({ ho
             </button>
           </div>
         </div>
+
+        {/* Modal to Scan Patient QR Code */}
+        <DoctorQrScannerModal
+          isOpen={showScannerModal}
+          onClose={() => setShowScannerModal(false)}
+          hospital={hospital}
+          onNotify={onNotify}
+          onOpenPrescriptionForUser={() => setShowPrescriptionModal(true)}
+        />
 
         {/* Modal to Issue Clinical Prescription */}
         <HospitalPrescriptionModal

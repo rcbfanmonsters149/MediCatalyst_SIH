@@ -186,13 +186,18 @@ export const mr: TranslationSchema = {
     dosage: "डोस (मात्रा)",
     frequency: "वेळ व प्रमाण",
     duration: "कालावधी",
-    instructions: "विशेष सूचना"
+    instructions: "विशेष सूचना",
+    qrCardTitle: "आभा स्मार्ट डिजिटल आरोग्य क्यूआर कोड",
+    downloadQrCard: "आरोग्य कार्ड डाउनलोड / प्रिंट करा",
+    doctorScanHint: "डॉक्टर फोन कॅमेरा किंवा हॉस्पिटल स्कॅनरद्वारे त्वरित सर्व नोंदी पाहू शकतात."
   },
   hospital: {
     title: "रुग्णालय परिचालन व खाटा व्यवस्थापन डेस्क",
     managementTab: "खाटा व उपकरण व्यवस्थापन",
     emergencyQueueTab: "आपत्कालीन SOS रांग",
     ambulanceFleetTab: "रुग्णवाहिका ताफा कक्ष",
+    scanPatientQr: "रुग्ण क्यूआर स्कॅन करा",
+    scanPatientQrSubtitle: "रुग्णाचा क्यूआर कोड कॅमेऱ्यासमोर धरा किंवा इमेज अपलोड करा",
     currentOccupancy: "थेट संसाधन उपलब्धता",
     adjustCapacity: "खाटांची संख्या व्यवस्थापित करा (+ / -)",
     adjustEquipment: "निदान उपकरणांची उपलब्धता बदला",

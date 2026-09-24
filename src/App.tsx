@@ -1,26 +1,46 @@
-import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Link, Navigate, useSearchParams } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navbar, ActiveTab } from './components/Navbar';
 import { CitizenPage } from './pages/CitizenPage';
 import { BioDataPage } from './pages/BioDataPage';
 import { EmergencyPage } from './pages/EmergencyPage';
+import { TeleConsultPage } from './pages/TeleConsultPage';
 import { HospitalDashboard } from './pages/HospitalDashboard';
 import { AmbulanceDashboard } from './pages/AmbulanceDashboard';
 import { AmbulanceLoginPage } from './pages/AmbulanceLoginPage';
 import { TrafficPoliceDashboard } from './pages/TrafficPoliceDashboard';
 import { TrafficPoliceLoginPage } from './pages/TrafficPoliceLoginPage';
+import { DoctorDashboard } from './pages/DoctorDashboard';
+import { DoctorLoginPage } from './pages/DoctorLoginPage';
 import { PublicWorkersPage } from './pages/PublicWorkersPage';
-import { Building2, ArrowRight, Truck, ShieldCheck } from './components/icons';
+import { PatientRecordViewPage } from './pages/PatientRecordViewPage';
+import { Building2, ArrowRight, Truck, ShieldCheck, Stethoscope } from './components/icons';
 
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 
 /**
  * Public Citizen Healthcare Portal (Route: /)
  */
-const CitizenPortal: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<ActiveTab>('citizen');
+const CitizenPortal: React.FC<{ defaultTab?: ActiveTab }> = ({ defaultTab }) => {
+  const [searchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab') as ActiveTab | null;
+  const [activeTab, setActiveTab] = useState<ActiveTab>(() => {
+    if (defaultTab) return defaultTab;
+    if (tabParam && ['citizen', 'emergency', 'profile', 'teleconsult'].includes(tabParam)) {
+      return tabParam;
+    }
+    return 'citizen';
+  });
   const { tr } = useLanguage();
+
+  useEffect(() => {
+    if (defaultTab) {
+      setActiveTab(defaultTab);
+    } else if (tabParam && ['citizen', 'emergency', 'profile', 'teleconsult'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [defaultTab, tabParam]);
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
@@ -32,6 +52,7 @@ const CitizenPortal: React.FC = () => {
         {activeTab === 'citizen' && (
           <CitizenPage 
             onOpenEmergency={() => setActiveTab('emergency')} 
+            onOpenTeleConsult={() => setActiveTab('teleconsult')}
           />
         )}
         {activeTab === 'emergency' && (
@@ -39,6 +60,9 @@ const CitizenPortal: React.FC = () => {
         )}
         {activeTab === 'profile' && (
           <BioDataPage />
+        )}
+        {activeTab === 'teleconsult' && (
+          <TeleConsultPage />
         )}
       </main>
 
@@ -66,6 +90,15 @@ const CitizenPortal: React.FC = () => {
           >
             <Building2 className="w-3.5 h-3.5 text-blue-400" />
             <span>{tr.nav.hospitalPortalFull}</span>
+            <ArrowRight className="w-3 h-3" />
+          </Link>
+
+          <Link
+            to="/doctor"
+            className="text-teal-400/90 hover:text-teal-300 transition inline-flex items-center gap-1.5 py-1 px-3 rounded-lg border border-teal-900/50 hover:border-teal-600 bg-teal-950/30"
+          >
+            <Stethoscope className="w-3.5 h-3.5 text-teal-400" />
+            <span>Doctor Portal</span>
             <ArrowRight className="w-3 h-3" />
           </Link>
 
@@ -135,6 +168,19 @@ const TrafficPolicePortal: React.FC = () => {
   return <TrafficPoliceDashboard />;
 };
 
+/**
+ * Dedicated Doctor Clinical OPD Portal (Route: /doctor)
+ */
+const DoctorPortal: React.FC = () => {
+  const { doctorUser } = useApp();
+
+  if (!doctorUser) {
+    return <DoctorLoginPage />;
+  }
+
+  return <DoctorDashboard />;
+};
+
 export default function App() {
   return (
     <LanguageProvider>
@@ -143,6 +189,11 @@ export default function App() {
           <Routes>
             {/* Public Citizen Portal */}
             <Route path="/" element={<CitizenPortal />} />
+            <Route path="/teleconsult" element={<CitizenPortal defaultTab="teleconsult" />} />
+
+            {/* Doctor Clinical & Tele-OPD Portal */}
+            <Route path="/doctor" element={<DoctorPortal />} />
+            <Route path="/doctor/login" element={<DoctorLoginPage />} />
 
             {/* Hospital Staff Portal */}
             <Route path="/hospital" element={<HospitalPortal />} />
@@ -158,6 +209,10 @@ export default function App() {
             <Route path="/workers" element={<PublicWorkersPage />} />
             <Route path="/asha" element={<Navigate to="/workers" replace />} />
             <Route path="/frontline" element={<Navigate to="/workers" replace />} />
+
+            {/* Doctor Clinical EHR & Patient QR Scan Route */}
+            <Route path="/records" element={<PatientRecordViewPage />} />
+            <Route path="/doctor/records" element={<Navigate to="/records" replace />} />
 
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />

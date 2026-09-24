@@ -26,10 +26,11 @@ import { RaiseAmbulanceRequestModal } from '../components/RaiseAmbulanceRequestM
 
 interface CitizenPageProps {
   onOpenEmergency: () => void;
+  onOpenTeleConsult?: () => void;
   onSelectHospitalForBooking?: (hospitalId: string) => void;
 }
 
-export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => {
+export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency, onOpenTeleConsult }) => {
   const { 
     hospitals, 
     selectedHospitalId, 
@@ -338,7 +339,15 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
                               <div>
                                 <div className="flex items-center justify-between gap-1">
                                   <span className="font-bold text-slate-900">{doc.name}</span>
-                                  {isAvailable ? (
+                                  {doc.scheduleSettings?.dutyMode === 'HOSPITAL_EMERGENCY' ? (
+                                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300 shrink-0 animate-pulse">
+                                      🚨 In Emergency OT ({doc.scheduleSettings.emergencyEstimatedResume || '~45m'})
+                                    </span>
+                                  ) : doc.scheduleSettings?.dutyMode === 'ON_LEAVE' ? (
+                                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-300 shrink-0">
+                                      🏖️ On Leave
+                                    </span>
+                                  ) : isAvailable ? (
                                     <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0">
                                       🟢 {tr.hospital.statusAvailable}
                                     </span>
@@ -362,7 +371,20 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency }) => 
 
                               <div className="text-[10px] text-slate-500 pt-1 border-t border-slate-200/60 flex items-center justify-between">
                                 <span>{tr.citizen.shift}: {doc.shift}</span>
-                                {doc.roomNumber && <span className="font-mono text-slate-700">{tr.citizen.room} {doc.roomNumber}</span>}
+                                {onOpenTeleConsult && isAvailable ? (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onOpenTeleConsult();
+                                    }}
+                                    className="text-[10px] font-bold text-teal-700 hover:text-teal-900 bg-teal-50 hover:bg-teal-100 border border-teal-200 px-2 py-0.5 rounded cursor-pointer transition flex items-center gap-1 shadow-2xs"
+                                  >
+                                    <span>📅 Book Tele-Consult</span>
+                                  </button>
+                                ) : (
+                                  doc.roomNumber && <span className="font-mono text-slate-700">{tr.citizen.room} {doc.roomNumber}</span>
+                                )}
                               </div>
                             </div>
                           );

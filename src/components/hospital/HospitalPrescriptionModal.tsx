@@ -10,7 +10,11 @@ import {
   User, 
   Pill, 
   Calendar,
-  AlertCircle
+  AlertCircle,
+  ShieldCheck,
+  Cpu,
+  Database,
+  Layers
 } from '../icons';
 import { useApp } from '../../context/AppContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -31,6 +35,8 @@ export const HospitalPrescriptionModal: React.FC<HospitalPrescriptionModalProps>
 }) => {
   const { user, addPatientPrescription } = useApp();
   const { tr, language } = useLanguage();
+  const [isMinting, setIsMinting] = useState(false);
+  const [mintStep, setMintStep] = useState('');
 
   // Form States
   const [patientName, setPatientName] = useState(user.fullName || 'Rajesh Kumar');
@@ -98,7 +104,7 @@ export const HospitalPrescriptionModal: React.FC<HospitalPrescriptionModalProps>
     setMedications(updated);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!diagnosis.trim()) {
@@ -117,25 +123,39 @@ export const HospitalPrescriptionModal: React.FC<HospitalPrescriptionModalProps>
       year: 'numeric'
     });
 
-    addPatientPrescription({
-      date: todayDate,
-      hospitalName: hospital.name,
-      hospitalId: hospital.id,
-      doctorName,
-      doctorSpecialty,
-      diagnosis: diagnosis.trim(),
-      prescriptionSummary: medSummary || 'Prescription medications issued.',
-      medications: medications.filter(m => m.name.trim().length > 0),
-      clinicalAdvice: clinicalAdvice.trim(),
-      abhaId
-    });
+    setIsMinting(true);
+    setMintStep(language === 'hi' ? '🔒 रोगी डेटा एन्क्रिप्ट किया जा रहा है (AES-256-GCM)...' : (language === 'mr' ? '🔒 रुग्ण डेटा एन्क्रिप्ट केला जात आहे (AES-256)...' : '🔒 Encrypting EHR client-side (AES-GCM-256)...'));
 
-    onNotify(language === 'hi'
-      ? `${hospital.name} द्वारा डिजिटल नुस्खा जारी किया गया और ${patientName} की ABHA प्रोफाइल में सिंक हुआ!`
-      : (language === 'mr'
-        ? `${hospital.name} द्वारे डिजिटल प्रिस्क्रिप्शन जारी केले व ${patientName} च्या ABHA प्रोफाइलमध्ये सिंक झाले!`
-        : `Prescription issued by ${hospital.name} and synced to ${patientName}'s ABHA profile!`));
-    onClose();
+    try {
+      const newRec = await addPatientPrescription({
+        date: todayDate,
+        hospitalName: hospital.name,
+        hospitalId: hospital.id,
+        doctorName,
+        doctorSpecialty,
+        diagnosis: diagnosis.trim(),
+        prescriptionSummary: medSummary || 'Prescription medications issued.',
+        medications: medications.filter(m => m.name.trim().length > 0),
+        clinicalAdvice: clinicalAdvice.trim(),
+        abhaId
+      });
+
+      setMintStep(language === 'hi' ? '⚡ पॉलीगॉन ब्लॉकचेन ब्लॉक माइन हो रहा है...' : (language === 'mr' ? '⚡ पॉलीगॉन ब्लॉकचेनवर ब्लॉक माइन होत आहे...' : '⚡ Minting block to Polygon Amoy Health Grid...'));
+
+      setTimeout(() => {
+        setIsMinting(false);
+        onNotify(language === 'hi'
+          ? `🛡️ ब्लॉकचेन ब्लॉक #${newRec.blockNumber || 4182905} पर डिजिटल नुस्खा मिंट हुआ! (Tx: ${newRec.blockchainTxHash?.slice(0, 10)}...)`
+          : (language === 'mr'
+            ? `🛡️ ब्लॉकचेन ब्लॉक #${newRec.blockNumber || 4182905} वर डिजिटल प्रिस्क्रिप्शन सुरक्षित झाले! (Tx: ${newRec.blockchainTxHash?.slice(0, 10)}...)`
+            : `🛡️ Encrypted & Minted to Polygon Amoy Block #${newRec.blockNumber || 4182905}! Tx: ${newRec.blockchainTxHash?.slice(0, 10)}... (IPFS: ${newRec.ipfsCID?.slice(0, 14)}...)`));
+        onClose();
+      }, 500);
+    } catch (err) {
+      console.error(err);
+      setIsMinting(false);
+      alert('Prescription creation failed.');
+    }
   };
 
   return (
@@ -377,21 +397,39 @@ export const HospitalPrescriptionModal: React.FC<HospitalPrescriptionModalProps>
           </div>
 
           {/* Footer Actions */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition cursor-pointer"
-            >
-              {tr.common.cancel}
-            </button>
-            <button
-              type="submit"
-              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-xl shadow-md transition flex items-center gap-2 cursor-pointer active:scale-95"
-            >
-              <Check className="w-4 h-4" />
-              <span>{tr.hospital.issueAndSyncAbha}</span>
-            </button>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-200">
+            <div className="flex items-center gap-2 text-xs font-semibold text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
+              <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{isMinting ? mintStep : 'Zero-Knowledge AES-256 + Polygon Amoy Ledger'}</span>
+            </div>
+
+            <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={isMinting}
+                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition cursor-pointer disabled:opacity-50"
+              >
+                {tr.common.cancel}
+              </button>
+              <button
+                type="submit"
+                disabled={isMinting}
+                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-extrabold rounded-xl shadow-md transition flex items-center gap-2 cursor-pointer active:scale-95"
+              >
+                {isMinting ? (
+                  <>
+                    <Cpu className="w-4 h-4 animate-spin" />
+                    <span>Mining Block...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span>{tr.hospital.issueAndSyncAbha}</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
 
         </form>

@@ -38,6 +38,7 @@ export interface DoctorOnDuty {
   statusDetail: DoctorStatusType;
   roomNumber?: string;
   contactNumber?: string;
+  scheduleSettings?: DoctorScheduleSettings;
 }
 
 export interface Hospital {
@@ -129,7 +130,58 @@ export interface PatientRecord {
   medications?: PrescriptionMedication[];
   clinicalAdvice?: string;
   abhaId?: string;
+
+  // Blockchain & Decentralized IPFS Storage Layer
+  blockchainTxHash?: string;
+  blockNumber?: number;
+  ipfsCID?: string;
+  integrityHash?: string;
+  isBlockchainVerified?: boolean;
+  contractAddress?: string;
+  networkName?: string;
+  encryptedPayload?: string;
+  mintedAtTimestamp?: number;
 }
+
+export type BlockchainActionType = 
+  | 'RECORD_MINTED' 
+  | 'RECORD_ACCESSED' 
+  | 'ACCESS_GRANTED' 
+  | 'ACCESS_REVOKED' 
+  | 'EMERGENCY_BREAKGLASS' 
+  | 'INTEGRITY_VERIFIED';
+
+export interface BlockchainAuditEvent {
+  id: string;
+  recordIdHash: string;
+  accessor: string;
+  accessorName: string;
+  actionType: BlockchainActionType;
+  timestamp: string;
+  blockNumber: number;
+  txHash: string;
+  details: string;
+}
+
+export interface ConsentGrant {
+  providerAddress: string;
+  providerName: string;
+  providerType: 'HOSPITAL' | 'AMBULANCE' | 'SPECIALIST';
+  validUntil: string;
+  isActive: boolean;
+  grantedAt: string;
+}
+
+export interface BlockchainNetworkStatus {
+  network: string;
+  chainId: number;
+  contractAddress: string;
+  currentBlock: number;
+  gasPriceGwei: number;
+  isLiveConnected: boolean;
+  walletAddress: string;
+}
+
 
 export type AmbulanceStatus = 
   | 'AVAILABLE'
@@ -366,4 +418,85 @@ export interface LiveMovingAmbulance {
   hospLat: number;
   hospLng: number;
 }
+
+export type AppointmentStatus = 'SCHEDULED' | 'IN_CALL' | 'COMPLETED' | 'CANCELLED';
+export type UrgencyType = 'ROUTINE' | 'PRIORITY' | 'FOLLOW_UP';
+
+export type DoctorDutyMode = 
+  | 'AVAILABLE' 
+  | 'HOSPITAL_EMERGENCY' 
+  | 'ON_LEAVE' 
+  | 'OFF_DUTY';
+
+export type InHospitalEmergencyType = 
+  | 'EMERGENCY_OT' 
+  | 'TRAUMA_RESUSCITATION' 
+  | 'ICU_CODE_RED' 
+  | 'WARD_ROUNDS' 
+  | 'OTHER_EMERGENCY';
+
+export interface DoctorScheduleSettings {
+  dutyMode: DoctorDutyMode;
+  acceptingAppointments: boolean;
+  readyForInstantConsult: boolean;
+  
+  // Emergency duty details
+  emergencyType?: InHospitalEmergencyType;
+  emergencyNote?: string;
+  emergencyEstimatedResume?: string;
+
+  // Leave details
+  isOnLeave: boolean;
+  leaveType?: 'CASUAL_LEAVE' | 'MEDICAL_LEAVE' | 'DUTY_TRAVEL' | 'EMERGENCY_LEAVE';
+  leaveReason?: string;
+  leaveDate?: string;
+
+  // Consultation time slots
+  availableTimeSlots: string[];
+  customOPDHours?: string;
+}
+
+export interface TeleAppointment {
+  id: string;
+  patientId: string;
+  patientName: string;
+  patientPhone: string;
+  patientAbhaId: string;
+  patientAge: number;
+  patientGender: string;
+  patientBloodGroup?: string;
+  
+  doctorId: string;
+  doctorName: string;
+  doctorSpecialty: string;
+  hospitalId: string;
+  hospitalName: string;
+  
+  date: string;
+  timeSlot: string;
+  symptoms: string;
+  urgency: UrgencyType;
+  consultationType: 'VIDEO' | 'AUDIO';
+  status: AppointmentStatus;
+  isInstantConsult?: boolean;
+  
+  prescriptionIssued?: boolean;
+  prescriptionId?: string;
+  clinicalNotes?: string;
+  bookedAt: string;
+}
+
+export interface DoctorUser {
+  id: string;
+  name: string;
+  designation: string;
+  department: string;
+  shift: string;
+  hospitalId: string;
+  hospitalName: string;
+  roomNumber?: string;
+  isOnlineForTeleConsult: boolean;
+  scheduleSettings?: DoctorScheduleSettings;
+}
+
 

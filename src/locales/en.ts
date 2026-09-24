@@ -184,13 +184,18 @@ export const en = {
     dosage: "Dosage",
     frequency: "Frequency",
     duration: "Duration",
-    instructions: "Instructions"
+    instructions: "Instructions",
+    qrCardTitle: "Smart Patient Health QR & Emergency Badge",
+    downloadQrCard: "Download / Print Health Card",
+    doctorScanHint: "Point any mobile camera or clinic scanner at this code to open instant verified health records."
   },
   hospital: {
     title: "Hospital Operations & Bed Management Desk",
     managementTab: "Bed & Equipment Management",
     emergencyQueueTab: "Emergency SOS Queue",
     ambulanceFleetTab: "Ambulance Fleet Desk",
+    scanPatientQr: "Scan Patient QR",
+    scanPatientQrSubtitle: "Hold patient QR code in front of camera or upload image",
     currentOccupancy: "Live Resource Availability",
     adjustCapacity: "Manage Bed Counts (+ / -)",
     adjustEquipment: "Manage Diagnostic Equipment Availability",

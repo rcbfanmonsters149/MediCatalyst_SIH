@@ -241,15 +241,15 @@ export const HospitalAmbulancePortalTab: React.FC<HospitalAmbulancePortalTabProp
                   {tr.ambulance.patientDataAutoTransferred}
                 </h3>
                 <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-                  {tr.ambulance.abhaVerified}
+                  {tr.ambulance.abhaVerified} • Blockchain Secured
                 </span>
               </div>
               <p className="text-[11px] text-slate-600">
                 {language === 'hi' 
-                  ? 'जुड़ा हुआ नागरिक स्वास्थ्य प्रोफाइल • डिजिटल स्वास्थ्य आईडी नेटवर्क द्वारा प्री-लोडेड'
+                  ? 'जुड़ा हुआ नागरिक स्वास्थ्य प्रोफाइल • पॉलीगॉन ब्लॉकचेन और IPFS द्वारा सुरक्षित (ब्रेक-ग्लास प्रोटोकॉल)'
                   : (language === 'mr'
-                    ? 'जोडलेली नागरिक आरोग्य प्रोफाइल • डिजिटल आरोग्य आयडी नेटवर्कद्वारे आधीच लोड केलेली'
-                    : 'Connected Citizen Health Profile • Pre-loaded via Digital Health ID Network')}
+                    ? 'जोडलेली नागरिक आरोग्य प्रोफाइल • पॉलीगॉन ब्लॉकचेन व IPFS द्वारे सुरक्षित (ब्रेक-ग्लास प्रोटोकॉल)'
+                    : 'Connected Citizen Health Profile • Secured by Polygon Amoy Blockchain & IPFS (Emergency Break-Glass Protocol)')}
               </p>
             </div>
           </div>

@@ -11,14 +11,15 @@ import {
   ChevronDown,
   Menu,
   X,
-  ArrowRight
+  ArrowRight,
+  Stethoscope
 } from './icons';
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
 import { LanguageSelector } from './LanguageSelector';
 
-export type ActiveTab = 'citizen' | 'emergency' | 'profile';
+export type ActiveTab = 'citizen' | 'teleconsult' | 'emergency' | 'profile';
 
 interface NavbarProps {
   activeTab: ActiveTab;
@@ -27,7 +28,7 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
   const { activeDispatch, user, isLoggedIn } = useApp();
-  const { tr } = useLanguage();
+  const { tr, language } = useLanguage();
   const [isPortalsOpen, setIsPortalsOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const portalsRef = useRef<HTMLDivElement>(null);
@@ -44,6 +45,13 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
   }, []);
 
   const portalsList = [
+    {
+      to: '/doctor',
+      title: language === 'hi' ? 'डॉक्टर क्लिनिकल पोर्टल' : (language === 'mr' ? 'डॉक्टर क्लिनिकल पोर्टल' : 'Doctor Clinical Portal'),
+      desc: 'Tele-Consults, Bookings & Prescription Desk',
+      icon: Stethoscope,
+      color: 'text-teal-600 bg-teal-50 border-teal-200'
+    },
     {
       to: '/hospital',
       title: tr.nav.hospitalPortal,
@@ -117,6 +125,18 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
             >
               <Activity className="w-4 h-4 text-emerald-600" />
               <span>{tr.nav.hospitalsAndDoctors}</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('teleconsult')}
+              className={`h-9 px-3.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+                activeTab === 'teleconsult'
+                  ? 'bg-white text-teal-700 shadow-xs border border-teal-200/80 font-bold'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+              }`}
+            >
+              <Stethoscope className="w-4 h-4 text-teal-600" />
+              <span>{language === 'hi' ? 'टेली-ओपीडी' : (language === 'mr' ? 'टेलि-ओपीडी' : 'Tele-Consult OPD')}</span>
             </button>
 
             <button
@@ -263,20 +283,35 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
         {isMobileMenuOpen && (
           <div className="lg:hidden py-4 border-t border-slate-100 space-y-4 animate-in fade-in duration-150">
             {/* Primary Mobile Tabs */}
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-1.5">
               <button
                 onClick={() => {
                   setActiveTab('citizen');
                   setIsMobileMenuOpen(false);
                 }}
-                className={`h-11 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border transition-all ${
+                className={`h-11 px-2 rounded-xl text-xs font-bold flex flex-col items-center justify-center gap-1 border transition-all ${
                   activeTab === 'citizen'
                     ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
                     : 'bg-white text-slate-700 border-slate-200'
                 }`}
               >
                 <Activity className="w-4 h-4 text-emerald-600" />
-                <span>{tr.nav.hospitalsAndDoctors}</span>
+                <span className="truncate">Hospitals</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setActiveTab('teleconsult');
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`h-11 px-2 rounded-xl text-xs font-bold flex flex-col items-center justify-center gap-1 border transition-all ${
+                  activeTab === 'teleconsult'
+                    ? 'bg-teal-50 text-teal-700 border-teal-300'
+                    : 'bg-white text-slate-700 border-slate-200'
+                }`}
+              >
+                <Stethoscope className="w-4 h-4 text-teal-600" />
+                <span className="truncate">Tele-OPD</span>
               </button>
 
               <button
@@ -284,14 +319,14 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
                   setActiveTab('emergency');
                   setIsMobileMenuOpen(false);
                 }}
-                className={`h-11 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border transition-all ${
+                className={`h-11 px-2 rounded-xl text-xs font-bold flex flex-col items-center justify-center gap-1 border transition-all ${
                   activeTab === 'emergency'
                     ? 'bg-red-600 text-white border-red-700'
                     : 'bg-red-50 text-red-700 border-red-200'
                 }`}
               >
                 <AlertOctagon className="w-4 h-4" />
-                <span>{tr.nav.emergencySOS}</span>
+                <span className="truncate">SOS</span>
               </button>
             </div>
 
