@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { 
   Hospital, 
   UserBioData, 
@@ -22,6 +22,7 @@ import {
   createInitialTrafficEmergency, 
   identifyRouteSignals 
 } from '../utils/trafficCorridor';
+import { fetchAmbulanceMissionRoadRoute, getPointAlongPolyline } from '../utils/routing';
 
 export type HospitalResourceType = 
   | 'general' 
@@ -108,7 +109,7 @@ interface AppContextType {
   relocateToUserLocation: (lat: number, lng: number, areaName?: string) => void;
 
   // Uber/Rapido-Style Live Moving Ambulance Tracking Telemetry
-  liveAmbulance: LiveMovingAmbulance;
+  liveAmbulance: LiveMovingAmbulance | null;
 }
 
 const INITIAL_HOSPITALS: Hospital[] = [
@@ -777,57 +778,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [ambulances]);
 
   const [activeDispatch, setActiveDispatch] = useState<EmergencyDispatch | null>(() => {
-    const saved = localStorage.getItem('medcatalyst_active_dispatch') || localStorage.getItem('sanjeevani_active_dispatch');
+    // By default, NO ambulance moves without an explicit user-created emergency request
+    const saved = localStorage.getItem('medcatalyst_active_dispatch');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (parsed && parsed.id === 'disp-2026-9041') {
+        if (parsed && parsed.id && parsed.id !== 'disp-2026-9041' && parsed.status && parsed.status !== 'ARRIVED' && parsed.status !== 'CANCELLED') {
           return parsed;
         }
       } catch (e) {
         console.error(e);
       }
     }
-    
-    // Default active dispatch matching live incident:
-    return {
-      id: 'disp-2026-9041',
-      callerName: 'Rameshwar Singh',
-      callerPhone: '+91 98765 43210',
-      callerVoiceTranscript: 'Road bike accident, head impact with helmet cracked, patient groaning with low consciousness',
-      callerIssue: 'Road bike accident, head impact with helmet cracked, patient groaning with low consciousness',
-      urgencyLevel: 'CRITICAL',
-      patientCount: 1,
-      currentStep: 4,
-      pickupAddress: 'Near Milestone 34, Old GT Road, Rampur Outskirts',
-      pickupLat: 28.7080,
-      pickupLng: 77.0980,
-      createdAt: new Date().toLocaleTimeString(),
-      status: 'ACCEPTED',
-      currentHospitalId: 'hosp-rampur-phc',
-      assignedAmbulanceId: 'amb-01',
-      timeoutSecondsRemaining: 92,
-      waterfallHistory: [
-        {
-          hospitalId: 'hosp-rampur-phc',
-          hospitalName: 'Rampur Primary Health Center (PHC)',
-          sentAt: '01:31 AM',
-          status: 'ACCEPTED',
-          responseTimeSeconds: 28,
-          note: 'Nearest Ambulance HR-10-EM-1081 (0.4 km away) dispatched first; Rampur PHC confirmed trauma intake'
-        }
-      ],
-      ambulanceAssessment: INITIAL_ASSESSMENT,
-      vitals: INITIAL_ASSESSMENT,
-      mlAcuity: 'ESI-1',
-      mlRequiredCapabilities: ['NEURO_SURGERY_ICU', 'TRAUMA_OT', 'MECHANICAL_VENTILATOR'],
-      messages: [
-        { sender: 'CITIZEN', text: 'Road bike accident, head impact with helmet cracked, patient groaning with low consciousness. Please hurry!', timestamp: '01:31 AM', type: 'VOICE' },
-        { sender: 'PARAMEDIC', text: '🚨 Nearest Ambulance HR-10-EM-1081 (0.4 km away, ETA 2 mins) dispatched immediately to your coordinates! Driver: Jagdish Kumar.', timestamp: '01:31 AM', type: 'TEXT' },
-        { sender: 'HOSPITAL', text: 'Rampur PHC confirmed bed readiness. Trauma OT and Dr. Kavita Sharma alerted.', timestamp: '01:32 AM', type: 'TEXT' },
-        { sender: 'PARAMEDIC', text: 'Patient onboard. Vitals recorded in in-ambulance assessment form: GCS 8, SpO2 89%.', timestamp: '01:35 AM', type: 'TEXT' }
-      ]
-    };
+    // Clean up any stale saved demo dispatches
+    try {
+      localStorage.removeItem('medcatalyst_active_dispatch');
+      localStorage.removeItem('sanjeevani_active_dispatch');
+    } catch (e) {}
+    return null;
   });
 
   const [ambulanceAssessment, setAmbulanceAssessment] = useState<AmbulanceAssessmentForm>(INITIAL_ASSESSMENT);
@@ -967,86 +935,160 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [relocateToUserLocation]);
 
-  // Uber/Rapido-Style Live Moving Ambulance State (Shared across all portals)
-  const [liveAmbulance, setLiveAmbulance] = useState<LiveMovingAmbulance>(() => {
-    const defaultLat = 28.7080;
-    const defaultLng = 77.0980;
-    const hosp = INITIAL_HOSPITALS[0];
-    return {
-      lat: defaultLat + 0.0050,
-      lng: defaultLng + 0.0040,
-      speedKmH: 48,
-      heading: 215,
-      progress: 0.15,
-      phase: 'EN_ROUTE_TO_PATIENT',
-      distanceToPatientKm: 0.6,
-      distancePatientToHospitalKm: 1.2,
-      etaToPatientMinutes: 2,
-      etaToHospitalMinutes: 4,
-      vehicleNumber: 'HR-10-EM-1081',
-      driverName: 'Jagdish Kumar',
-      driverPhone: '+91 98765 43210',
-      originLat: defaultLat + 0.0075,
-      originLng: defaultLng + 0.0065,
-      pickupLat: defaultLat,
-      pickupLng: defaultLng,
-      hospLat: hosp.lat,
-      hospLng: hosp.lng
-    };
-  });
+  // Uber/Rapido-Style Live Moving Ambulance State (Only active during an ongoing emergency dispatch)
+  const [liveAmbulance, setLiveAmbulance] = useState<LiveMovingAmbulance | null>(null);
 
-  // Smooth Live Ambulance Movement Simulation (Updates location & distances every second)
+  // Cached road mission routes for active emergency dispatch (OSRM turn-by-turn road geometries)
+  const ambulanceRoadMissionRef = useRef<{
+    dispatchId: string;
+    phase1: [number, number][];
+    phase2: [number, number][];
+    fullRoute: [number, number][];
+    isLoading: boolean;
+  } | null>(null);
+
+  // Pre-fetch turn-by-turn street navigation road geometries when emergency is dispatched
   useEffect(() => {
+    if (!activeDispatch || activeDispatch.status === 'ARRIVED') {
+      ambulanceRoadMissionRef.current = null;
+      return;
+    }
+
+    const patientLat = activeDispatch.pickupLat || userLocation?.lat || 18.7479;
+    const patientLng = activeDispatch.pickupLng || userLocation?.lng || 73.7144;
+    const targetHosp = hospitals.find(h => h.id === activeDispatch.currentHospitalId) || hospitals[0] || INITIAL_HOSPITALS[0];
+    const hospLat = targetHosp.lat;
+    const hospLng = targetHosp.lng;
+
+    const assignedAmb = ambulances.find(a => a.id === activeDispatch.assignedAmbulanceId) || ambulances[0];
+    const originLat = assignedAmb?.currentLat ?? (patientLat + 0.0075);
+    const originLng = assignedAmb?.currentLng ?? (patientLng + 0.0065);
+
+    let active = true;
+    ambulanceRoadMissionRef.current = {
+      dispatchId: activeDispatch.id,
+      phase1: [],
+      phase2: [],
+      fullRoute: [],
+      isLoading: true
+    };
+
+    fetchAmbulanceMissionRoadRoute(originLat, originLng, patientLat, patientLng, hospLat, hospLng)
+      .then(mission => {
+        if (!active) return;
+        ambulanceRoadMissionRef.current = {
+          dispatchId: activeDispatch.id,
+          phase1: mission.phase1.coordinates,
+          phase2: mission.phase2.coordinates,
+          fullRoute: mission.fullRouteCoordinates,
+          isLoading: false
+        };
+      })
+      .catch(err => {
+        console.warn('Could not fetch real road mission coordinates (using straight fallback):', err);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [
+    activeDispatch?.id,
+    activeDispatch?.status,
+    activeDispatch?.pickupLat,
+    activeDispatch?.pickupLng,
+    activeDispatch?.currentHospitalId,
+    activeDispatch?.assignedAmbulanceId,
+    hospitals,
+    ambulances,
+    userLocation
+  ]);
+
+  // Smooth Live Ambulance Movement Simulation (Updates location & distances along real roads every second)
+  useEffect(() => {
+    if (!activeDispatch || activeDispatch.status === 'ARRIVED') {
+      setLiveAmbulance(null);
+      return;
+    }
+
     const timer = setInterval(() => {
       setLiveAmbulance(prev => {
-        const patientLat = activeDispatch?.pickupLat || userLocation?.lat || 28.7080;
-        const patientLng = activeDispatch?.pickupLng || userLocation?.lng || 77.0980;
-        const targetHosp = hospitals.find(h => h.id === activeDispatch?.currentHospitalId) || hospitals[0] || INITIAL_HOSPITALS[0];
+        const patientLat = activeDispatch.pickupLat || userLocation?.lat || 18.7479;
+        const patientLng = activeDispatch.pickupLng || userLocation?.lng || 73.7144;
+        const targetHosp = hospitals.find(h => h.id === activeDispatch.currentHospitalId) || hospitals[0] || INITIAL_HOSPITALS[0];
         const hospLat = targetHosp.lat;
         const hospLng = targetHosp.lng;
 
         // Origin ambulance station/depot
-        const assignedAmb = ambulances.find(a => a.id === activeDispatch?.assignedAmbulanceId);
+        const assignedAmb = ambulances.find(a => a.id === activeDispatch.assignedAmbulanceId) || ambulances[0];
         const originLat = assignedAmb?.currentLat ?? (patientLat + 0.0075);
         const originLng = assignedAmb?.currentLng ?? (patientLng + 0.0065);
 
-        let nextProgress = prev.progress + 0.008;
+        let curProgress = prev?.progress ?? 0.02;
+        let nextProgress = curProgress + 0.006;
         if (nextProgress >= 1.0) nextProgress = 0.0;
+
+        const roadMission = ambulanceRoadMissionRef.current;
+        const hasRoadRoute = !!(roadMission && !roadMission.isLoading && roadMission.phase1.length > 1 && roadMission.phase2.length > 1);
 
         let curLat: number;
         let curLng: number;
         let phase: 'EN_ROUTE_TO_PATIENT' | 'TRANSPORTING_TO_HOSPITAL';
         let heading: number;
+        let distToPatient: number;
+        let distToHosp: number;
+        let etaPatient: number;
+        let etaHosp: number;
 
         if (nextProgress < 0.45) {
-          // Phase 1: Moving from depot to patient pickup
+          // Phase 1: Moving from depot to patient pickup along real roads
           phase = 'EN_ROUTE_TO_PATIENT';
           const subT = nextProgress / 0.45;
-          curLat = originLat + (patientLat - originLat) * subT;
-          curLng = originLng + (patientLng - originLng) * subT;
-          heading = 210;
+
+          if (hasRoadRoute && roadMission) {
+            const pt = getPointAlongPolyline(roadMission.phase1, subT);
+            curLat = pt.lat;
+            curLng = pt.lng;
+            heading = pt.heading;
+            distToPatient = pt.remainingDistanceKm;
+          } else {
+            curLat = originLat + (patientLat - originLat) * subT;
+            curLng = originLng + (patientLng - originLng) * subT;
+            heading = 210;
+            distToPatient = calculateHaversineKm(curLat, curLng, patientLat, patientLng);
+          }
+
+          distToHosp = calculateHaversineKm(patientLat, patientLng, hospLat, hospLng);
+          etaPatient = Math.max(1, Math.round(distToPatient * 2.0));
+          etaHosp = Math.max(1, Math.round(distToHosp * 2.0));
         } else {
-          // Phase 2: Transporting patient to destination hospital
+          // Phase 2: Transporting patient to destination hospital along real roads
           phase = 'TRANSPORTING_TO_HOSPITAL';
           const subT = (nextProgress - 0.45) / 0.55;
-          curLat = patientLat + (hospLat - patientLat) * subT;
-          curLng = patientLng + (hospLng - patientLng) * subT;
-          heading = 45;
+
+          if (hasRoadRoute && roadMission) {
+            const pt = getPointAlongPolyline(roadMission.phase2, subT);
+            curLat = pt.lat;
+            curLng = pt.lng;
+            heading = pt.heading;
+            distToHosp = pt.remainingDistanceKm;
+          } else {
+            curLat = patientLat + (hospLat - patientLat) * subT;
+            curLng = patientLng + (hospLng - patientLng) * subT;
+            heading = 45;
+            distToHosp = calculateHaversineKm(curLat, curLng, hospLat, hospLng);
+          }
+
+          distToPatient = 0;
+          etaPatient = 0;
+          etaHosp = Math.max(1, Math.round(distToHosp * 2.0));
         }
 
-        const distToPatient = phase === 'EN_ROUTE_TO_PATIENT' 
-          ? calculateHaversineKm(curLat, curLng, patientLat, patientLng)
-          : 0;
-        const distPatientToHosp = calculateHaversineKm(patientLat, patientLng, hospLat, hospLng);
-        const distToHosp = calculateHaversineKm(curLat, curLng, hospLat, hospLng);
+        const distPatientToHosp = hasRoadRoute && roadMission && roadMission.phase2.length > 1
+          ? getPointAlongPolyline(roadMission.phase2, 0).totalDistanceKm
+          : calculateHaversineKm(patientLat, patientLng, hospLat, hospLng);
 
-        const etaPatient = phase === 'EN_ROUTE_TO_PATIENT' 
-          ? Math.max(1, Math.round(distToPatient * 2.2))
-          : 0;
-        const etaHosp = Math.max(1, Math.round(distToHosp * 2.2));
-
-        const baseSpeed = 46;
-        const jitter = Math.sin(Date.now() / 1500) * 5;
+        const baseSpeed = 48;
+        const jitter = Math.sin(Date.now() / 1500) * 4;
         const speed = Math.round(baseSpeed + jitter);
 
         return {
@@ -1060,21 +1102,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           distancePatientToHospitalKm: distPatientToHosp,
           etaToPatientMinutes: etaPatient,
           etaToHospitalMinutes: etaHosp,
-          vehicleNumber: 'HR-10-EM-1081',
-          driverName: 'Jagdish Kumar',
-          driverPhone: '+91 98765 43210',
+          vehicleNumber: assignedAmb?.vehicleNumber || 'HR-10-EM-1081',
+          driverName: assignedAmb?.driverName || 'Jagdish Kumar',
+          driverPhone: assignedAmb?.driverPhone || '+91 98765 43210',
           originLat,
           originLng,
           pickupLat: patientLat,
           pickupLng: patientLng,
           hospLat,
-          hospLng
+          hospLng,
+          roadRouteCoordinates: roadMission?.fullRoute && roadMission.fullRoute.length > 1 ? roadMission.fullRoute : undefined,
+          phase1Route: roadMission?.phase1 && roadMission.phase1.length > 1 ? roadMission.phase1 : undefined,
+          phase2Route: roadMission?.phase2 && roadMission.phase2.length > 1 ? roadMission.phase2 : undefined
         };
       });
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [activeDispatch?.pickupLat, activeDispatch?.pickupLng, activeDispatch?.currentHospitalId, hospitals, userLocation]);
+  }, [activeDispatch?.id, activeDispatch?.status, activeDispatch?.pickupLat, activeDispatch?.pickupLng, activeDispatch?.currentHospitalId, activeDispatch?.assignedAmbulanceId, hospitals, ambulances, userLocation]);
 
   // Keep logged-in police signal in sync with live corridor progress
   useEffect(() => {
@@ -1443,12 +1488,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Immediately dispatch the closest ambulance to minimize critical pickup wait time
     updateAmbulanceStatus(nearestAmb.id, 'DISPATCHED');
+    try {
+      sessionStorage.removeItem('medcatalyst_dispatch_cancelled');
+    } catch (e) {}
 
     // 2. Nearest hospital contacted in parallel for emergency bed reservation
     const nearestHosp = hospitals[0];
 
     const newDispatch: EmergencyDispatch = {
-      id: issueText.includes('bike') ? 'disp-2026-9041' : `disp-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+      id: `disp-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`,
       callerName: user.fullName || 'Rameshwar Singh',
       callerPhone: user.phone || '+91 98765 43210',
       callerVoiceTranscript: voiceTranscript || issueText,
@@ -1605,39 +1653,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const cancelDispatch = () => {
-    setActiveDispatch({
-      id: 'disp-2026-9041',
-      callerName: 'Rameshwar Singh',
-      callerPhone: '+91 98765 43210',
-      callerVoiceTranscript: 'Road bike accident, head impact with helmet cracked, patient groaning with low consciousness',
-      callerIssue: 'Road bike accident, head impact with helmet cracked, patient groaning with low consciousness',
-      urgencyLevel: 'CRITICAL',
-      patientCount: 1,
-      currentStep: 1,
-      pickupAddress: 'Near Milestone 34, Old GT Road, Rampur Outskirts',
-      pickupLat: 28.7080,
-      pickupLng: 77.0980,
-      createdAt: new Date().toLocaleTimeString(),
-      status: 'PENDING_HOSPITAL_ACCEPT',
-      currentHospitalId: 'hosp-rampur-phc',
-      assignedAmbulanceId: 'amb-01',
-      timeoutSecondsRemaining: 120,
-      waterfallHistory: [
-        {
-          hospitalId: 'hosp-rampur-phc',
-          hospitalName: 'Rampur Primary Health Center (PHC)',
-          sentAt: new Date().toLocaleTimeString(),
-          status: 'WAITING',
-          note: 'Emergency broadcast triggered with patient GPS coordinates'
-        }
-      ],
-      vitals: INITIAL_VITALS,
-      mlAcuity: 'ESI-1',
-      mlRequiredCapabilities: ['NEURO_SURGERY_ICU', 'TRAUMA_OT', 'MECHANICAL_VENTILATOR'],
-      messages: [
-        { sender: 'CITIZEN', text: 'Road bike accident, head impact with helmet cracked, patient groaning with low consciousness. Please hurry!', timestamp: new Date().toLocaleTimeString(), type: 'VOICE' }
-      ]
-    });
+    try {
+      sessionStorage.setItem('medcatalyst_dispatch_cancelled', 'true');
+      localStorage.removeItem('medcatalyst_active_dispatch');
+      localStorage.removeItem('sanjeevani_active_dispatch');
+    } catch (e) {}
+    setActiveDispatch(null);
+    setLiveAmbulance(null);
   };
 
   const updateDispatchStep = (step: number) => {
