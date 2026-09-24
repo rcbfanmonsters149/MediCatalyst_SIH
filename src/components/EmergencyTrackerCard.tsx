@@ -132,7 +132,7 @@ export const EmergencyTrackerCard: React.FC<EmergencyTrackerCardProps> = ({
   }, [controlledStep]);
 
   return (
-    <div className={`bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xs max-w-2xl font-sans ${className}`}>
+    <div className={`bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/90 shadow-xs font-sans w-full ${className}`}>
       
       {/* Header Row */}
       <div className="flex flex-wrap items-center justify-between gap-3 pb-5 border-b border-slate-100">

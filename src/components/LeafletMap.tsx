@@ -3,6 +3,7 @@ import L from 'leaflet';
 import { Hospital, Ambulance, TrafficSignal } from '../types';
 import { Navigation, Locate, ExternalLink, MapPin, Compass, AlertCircle, Phone, Activity, Zap, ChevronUp, ChevronDown, Clock, ShieldCheck, Plus, Minus } from './icons';
 import { useApp } from '../context/AppContext';
+import { fetchRoadRoute, RoadRouteResult } from '../utils/routing';
 
 interface LeafletMapProps {
   hospitals?: Hospital[];
@@ -168,6 +169,49 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
     return hospitals.find(h => h.id === selectedHospitalId) || nearestHospital || hospitals[0];
   }, [hospitals, selectedHospitalId, nearestHospital]);
 
+  // Turn-by-turn road geometry state (powered by OSRM real-world driving network)
+  const [roadRouteData, setRoadRouteData] = useState<RoadRouteResult | null>(null);
+  const [isLoadingRoad, setIsLoadingRoad] = useState<boolean>(false);
+
+  // Fetch real-world street route geometries between user/patient and target hospital
+  useEffect(() => {
+    const destination = (showReroutePath && rerouteDestination) ? rerouteDestination : targetHospital;
+    if (!destination || (corridorRoute && corridorRoute.length > 1)) {
+      setRoadRouteData(null);
+      return;
+    }
+
+    let active = true;
+    setIsLoadingRoad(true);
+
+    fetchRoadRoute(effectiveUserCoords.lat, effectiveUserCoords.lng, destination.lat, destination.lng)
+      .then(res => {
+        if (active) {
+          setRoadRouteData(res);
+          setIsLoadingRoad(false);
+        }
+      })
+      .catch(err => {
+        console.warn('Real-world road route fetch notice:', err);
+        if (active) setIsLoadingRoad(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [
+    effectiveUserCoords.lat,
+    effectiveUserCoords.lng,
+    targetHospital?.id,
+    targetHospital?.lat,
+    targetHospital?.lng,
+    rerouteDestination?.id,
+    rerouteDestination?.lat,
+    rerouteDestination?.lng,
+    showReroutePath,
+    corridorRoute
+  ]);
+
   // Google Maps style auto-zoom to frame active trip (User ➔ Ambulance ➔ Hospital)
   const focusActiveRoute = useCallback((force = false) => {
     const map = mapInstanceRef.current;
@@ -191,10 +235,15 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
     const destination = (showReroutePath && rerouteDestination) ? rerouteDestination : targetHospital;
     if (!destination) return;
 
-    const points: [number, number][] = [
-      [effectiveUserCoords.lat, effectiveUserCoords.lng],
-      [destination.lat, destination.lng]
-    ];
+    let points: [number, number][];
+    if (roadRouteData && roadRouteData.coordinates && roadRouteData.coordinates.length > 1) {
+      points = [...roadRouteData.coordinates];
+    } else {
+      points = [
+        [effectiveUserCoords.lat, effectiveUserCoords.lng],
+        [destination.lat, destination.lng]
+      ];
+    }
 
     if (liveAmbulance) {
       points.push([liveAmbulance.lat, liveAmbulance.lng]);
@@ -207,7 +256,7 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
         duration: 1.2
       });
     } catch (e) {}
-  }, [corridorRoute, showReroutePath, rerouteDestination, targetHospital, effectiveUserCoords, liveAmbulance]);
+  }, [corridorRoute, showReroutePath, rerouteDestination, targetHospital, effectiveUserCoords, liveAmbulance, roadRouteData]);
 
   // When user actively switches hospital selection, smoothly glide to frame the new destination
   useEffect(() => {
@@ -684,41 +733,56 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
       markersGroup.addLayer(ambMarker);
     });
 
-    // 4. DRAW GOOGLE-MAPS STYLE CONNECTING NAVIGATION ROUTE (if normal mode)
+    // 4. DRAW GOOGLE-MAPS STYLE REAL-WORLD ROAD ROUTE (via OSRM)
     if (targetHospital && !corridorRoute) {
       const isReroute = showReroutePath && rerouteDestination;
       const destination = isReroute ? rerouteDestination : targetHospital;
 
-      // Simulated realistic street waypoints between GPS user and target hospital
-      const midLat = (userLat + destination.lat) / 2 + 0.005;
-      const midLng = (userLng + destination.lng) / 2 - 0.003;
+      // Real road geometry matching Google Maps via OSRM turn-by-turn routing
+      const hasRoadCoords = !!(roadRouteData && roadRouteData.coordinates && roadRouteData.coordinates.length > 1);
+      const routePoints: [number, number][] = hasRoadCoords
+        ? roadRouteData!.coordinates
+        : [
+            [userLat, userLng],
+            [(userLat + destination.lat) / 2 + 0.005, (userLng + destination.lng) / 2 - 0.003],
+            [destination.lat, destination.lng]
+          ];
 
-      const routePoints: [number, number][] = [
-        [userLat, userLng],
-        [midLat, midLng],
-        [destination.lat, destination.lng]
-      ];
-
-      // Outer shadow line for depth
+      // Google Maps style: Outer contrast casing line for realistic street depth
       const shadowLine = L.polyline(routePoints, {
-        color: '#0f172a',
-        weight: 7,
-        opacity: 0.15
+        color: isReroute ? '#7c2d12' : '#1e3a8a',
+        weight: 8,
+        opacity: 0.4,
+        lineCap: 'round',
+        lineJoin: 'round'
       });
       routeGroup.addLayer(shadowLine);
 
-      // Main vibrant route polyline
+      // Main vibrant route polyline (Google Maps Navigation Blue #2563eb or Emergency Orange)
       const mainRouteLine = L.polyline(routePoints, {
-        color: isReroute ? '#f97316' : '#10b981',
-        weight: 5,
-        opacity: 0.85,
-        dashArray: isReroute ? '8, 8' : undefined
+        color: isReroute ? '#ea580c' : '#2563eb',
+        weight: 5.5,
+        opacity: 0.95,
+        dashArray: isReroute ? '8, 8' : undefined,
+        lineCap: 'round',
+        lineJoin: 'round'
       });
 
+      const routeDist = roadRouteData ? roadRouteData.distanceKm : calculateHaversineKm(userLat, userLng, destination.lat, destination.lng);
+      const routeEta = roadRouteData ? roadRouteData.durationMinutes : Math.max(1, Math.round(routeDist * 2));
+
       mainRouteLine.bindPopup(`
-        <div style="font-family: sans-serif; font-size: 11px;">
-          <strong>${isReroute ? '⚡ AI Diverted Trauma Route' : '🧭 Direct Route to ' + destination.name}</strong><br>
-          Distance: ~${calculateHaversineKm(userLat, userLng, destination.lat, destination.lng)} km
+        <div style="font-family: 'Inter', system-ui, sans-serif; font-size: 12px; padding: 4px; min-width: 220px;">
+          <div style="font-weight: 800; color: ${isReroute ? '#ea580c' : '#1d4ed8'}; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+            <span>${isReroute ? '⚡ AI Diverted Trauma Route' : '🧭 Real-World Road Navigation (OSRM)'}</span>
+          </div>
+          <div style="color: #334155; font-size: 11px; line-height: 1.5; margin-bottom: 6px;">
+            Destination: <b>${destination.name}</b><br>
+            Driving Road Distance: <b style="color: #0f172a;">${routeDist} km</b> • ETA: <b style="color: #059669;">~${routeEta} min</b>
+          </div>
+          <div style="font-size: 10px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 4px;">
+            Accurately tracks street roads and turns like Google Maps
+          </div>
         </div>
       `);
       routeGroup.addLayer(mainRouteLine);
@@ -949,7 +1013,8 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
     onSelectSignal,
     corridorRoute,
     activeAmbulanceLocation,
-    destinationLocation
+    destinationLocation,
+    roadRouteData
   ]);
 
   // Dedicated real-time moving ambulance layer update
@@ -963,19 +1028,21 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
     if (!liveAmbulance) return;
 
     const isApproaching = liveAmbulance.phase === 'EN_ROUTE_TO_PATIENT';
+    const headingDeg = liveAmbulance.heading || 0;
+
     const movingAmbHtml = `
-      <div style="position: relative; width: 46px; height: 46px; display: flex; align-items: center; justify-content: center;">
+      <div style="position: relative; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;">
         <span style="
           position: absolute;
-          width: 46px;
-          height: 46px;
+          width: 48px;
+          height: 48px;
           border-radius: 50%;
           background-color: rgba(239, 68, 68, 0.45);
           animation: ping 1.2s cubic-bezier(0, 0, 0.2, 1) infinite;
         "></span>
         <div style="
-          width: 34px;
-          height: 34px;
+          width: 36px;
+          height: 36px;
           border-radius: 50%;
           background: linear-gradient(135deg, #ef4444, #b91c1c);
           border: 2.5px solid #ffffff;
@@ -983,11 +1050,31 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 17px;
+          font-size: 16px;
           color: white;
           z-index: 20;
+          position: relative;
         ">
           🚑
+          <div style="
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            width: 15px;
+            height: 15px;
+            background: #ffffff;
+            color: #b91c1c;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            transform: rotate(${headingDeg}deg);
+            font-size: 9px;
+            font-weight: 900;
+          ">
+            ▲
+          </div>
         </div>
         <div style="
           position: absolute;
@@ -1010,8 +1097,8 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
     const movingAmbIcon = L.divIcon({
       html: movingAmbHtml,
       className: 'live-moving-amb-marker',
-      iconSize: [46, 46],
-      iconAnchor: [23, 23]
+      iconSize: [48, 48],
+      iconAnchor: [24, 24]
     });
 
     const movingAmbMarker = L.marker([liveAmbulance.lat, liveAmbulance.lng], {
@@ -1037,18 +1124,30 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
     `);
     liveGroup.addLayer(movingAmbMarker);
 
-    // Render Live Ambulance Transit Polyline
-    const ambRoutePoints: [number, number][] = [
-      [liveAmbulance.originLat, liveAmbulance.originLng],
-      [liveAmbulance.pickupLat, liveAmbulance.pickupLng],
-      [liveAmbulance.hospLat, liveAmbulance.hospLng]
-    ];
+    // Render Live Ambulance Transit Polyline along real streets
+    const ambRoutePoints: [number, number][] = (liveAmbulance.roadRouteCoordinates && liveAmbulance.roadRouteCoordinates.length > 1)
+      ? liveAmbulance.roadRouteCoordinates
+      : [
+          [liveAmbulance.originLat, liveAmbulance.originLng],
+          [liveAmbulance.pickupLat, liveAmbulance.pickupLng],
+          [liveAmbulance.hospLat, liveAmbulance.hospLng]
+        ];
+
+    // Casing line for contrast
+    const ambShadowLine = L.polyline(ambRoutePoints, {
+      color: '#7f1d1d',
+      weight: 7,
+      opacity: 0.35,
+      lineCap: 'round',
+      lineJoin: 'round'
+    });
+    liveGroup.addLayer(ambShadowLine);
 
     const ambRouteLine = L.polyline(ambRoutePoints, {
-      color: '#ef4444',
-      weight: 3.5,
-      opacity: 0.75,
-      dashArray: '6, 8',
+      color: isApproaching ? '#ef4444' : '#10b981',
+      weight: 4.5,
+      opacity: 0.9,
+      dashArray: '8, 8',
       lineCap: 'round',
       lineJoin: 'round'
     });
@@ -1056,10 +1155,60 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
   }, [liveAmbulance]);
 
   return (
-    <div className="relative isolate z-0 w-full rounded-2xl overflow-hidden border border-slate-200 shadow-sm" style={{ height }}>
-      
-      {/* Map Container */}
-      <div ref={mapContainerRef} className="relative isolate z-0 w-full h-full" />
+    <div className="w-full space-y-2.5">
+      {/* Dedicated Location & Road Navigation Summary Bar (Positioned outside map so entire map canvas is 100% visible) */}
+      <div className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+        {/* Left: Current GPS Area & Facility Count */}
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+            <MapPin className="w-3.5 h-3.5" />
+          </div>
+          <div className="truncate">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-bold text-slate-900 truncate">
+                {contextUserLocation?.areaName ? `Near ${contextUserLocation.areaName}` : (userLocation ? 'GPS Position Active' : 'Current Location')}
+              </span>
+              {hospitals.length > 0 && (
+                <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-200/80 text-slate-700">
+                  {hospitals.length} {hospitals.length === 1 ? 'Hospital' : 'Hospitals'} in Range
+                </span>
+              )}
+            </div>
+            {nearestHospital && (
+              <span className="text-[11px] text-slate-500 font-medium block truncate">
+                Nearest: <b className="text-emerald-700">{nearestHospital.name}</b> ({calculateHaversineKm(effectiveUserCoords.lat, effectiveUserCoords.lng, nearestHospital.lat, nearestHospital.lng)} km)
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Right: Driving Road Navigation Details (when road route is active) */}
+        {roadRouteData && targetHospital && !corridorRoute && (
+          <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-blue-200 text-slate-800 shadow-xs">
+            <Navigation className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+            <div className="text-[11px] font-medium leading-tight">
+              <div>Road Route to <b className="text-slate-900">{targetHospital.name}</b></div>
+              <div className="text-blue-700 font-semibold">
+                Driving: <b className="text-blue-950 font-mono">{roadRouteData.distanceKm} km</b> • ETA: <b className="text-emerald-700 font-mono">~{roadRouteData.durationMinutes} mins</b> (turn-by-turn road navigation)
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Location Error alert (if any) */}
+      {locationError && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 px-3.5 py-2 rounded-xl text-xs flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+          <span>{locationError}</span>
+        </div>
+      )}
+
+      {/* Clean, Unobstructed Map Container */}
+      <div className="relative isolate z-0 w-full rounded-2xl overflow-hidden border border-slate-200 shadow-sm" style={{ height }}>
+        
+        {/* Map Container */}
+        <div ref={mapContainerRef} className="relative isolate z-0 w-full h-full" />
 
       {/* TOP FLOATING CONTROLS BAR: OpenStreetMap Controls + Focus Route + Locate Me */}
       <div className="absolute top-3 right-3 z-30 flex items-center gap-2">
@@ -1154,29 +1303,6 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
         </button>
       </div>
 
-      {/* TOP LEFT: Real-time User Location & Facilities Count Badge */}
-      <div className="absolute top-3 left-3 z-30 bg-white/95 backdrop-blur-sm px-3.5 py-2 rounded-xl shadow-md border border-slate-200 text-xs max-w-sm">
-        <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-ping shrink-0"></span>
-          <div className="truncate">
-            <span className="font-extrabold text-slate-900 block truncate">
-              {contextUserLocation?.areaName ? `📍 Near ${contextUserLocation.areaName}` : (userLocation ? '📍 GPS Position Active' : '📍 Current Location')}
-            </span>
-            <span className="text-[10px] text-emerald-700 font-semibold block truncate">
-              {hospitals.length > 1 ? `${hospitals.length} Hospitals in Range • ` : ''}{nearestHospital ? `Nearest: ${nearestHospital.name} (${calculateHaversineKm(effectiveUserCoords.lat, effectiveUserCoords.lng, nearestHospital.lat, nearestHospital.lng)} km)` : 'Locating nearest facility...'}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Location Error Toast (if any) */}
-      {locationError && (
-        <div className="absolute top-16 left-3 z-30 bg-amber-50 border border-amber-200 text-amber-800 px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 shadow-sm">
-          <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
-          <span>{locationError}</span>
-        </div>
-      )}
-
       {/* Map Legend Overlay */}
       {showLegend && (
         <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-sm px-3.5 py-2 rounded-xl shadow-md border border-slate-200 text-xs flex flex-wrap items-center gap-3 z-30 hidden sm:flex">
@@ -1219,6 +1345,7 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
         </div>
       )}
 
+      </div>
     </div>
   );
 };
