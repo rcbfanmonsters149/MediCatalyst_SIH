@@ -417,6 +417,9 @@ export interface LiveMovingAmbulance {
   pickupLng: number;
   hospLat: number;
   hospLng: number;
+  roadRouteCoordinates?: [number, number][];
+  phase1Route?: [number, number][];
+  phase2Route?: [number, number][];
 }
 
 export type AppointmentStatus = 'SCHEDULED' | 'IN_CALL' | 'COMPLETED' | 'CANCELLED';

@@ -36,6 +36,7 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
     ambulances,
     sendDispatchMessage,
     updateDispatchStep,
+    cancelDispatch,
     user
   } = useApp();
   const { tr, language } = useLanguage();
@@ -148,11 +149,72 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
           </button>
         </div>
 
-        {/* ACTIVE EMERGENCY DISPATCH DISPLAY */}
-        <div className="space-y-6">
+        {/* ACTIVE EMERGENCY DISPATCH DISPLAY: SIMULTANEOUS SIDE-BY-SIDE SPLIT VIEW */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
-          {/* Clean 10-Stage Incident Progress Stepper Card */}
-          <div className="flex justify-center">
+          {/* LEFT COLUMN (5 Cols): The Process of Requests (10-Stage Stepper & Ambulance Info) */}
+          <div className="lg:col-span-5 space-y-4">
+            {/* Nearest Ambulance Live Response Banner */}
+            <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white rounded-2xl p-4 sm:p-5 border border-slate-700 shadow-md">
+              <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-700/80">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+                    <Truck className="w-5 h-5 animate-pulse" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-base font-extrabold text-white tracking-wide font-mono">
+                        {assignedAmb.vehicleNumber}
+                      </span>
+                      <span className="text-[9px] uppercase font-black tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                        ⚡ {language === 'mr' ? 'नियुक्त' : language === 'hi' ? 'सौंपी गई' : 'Assigned First'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300 mt-0.5 truncate max-w-[220px]">
+                      {assignedAmb.type} • <strong className="text-slate-100">{assignedAmb.hospitalName}</strong>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="text-right bg-slate-950/70 border border-slate-700 px-3 py-1.5 rounded-xl shrink-0">
+                  <div className="text-[9px] uppercase tracking-wider text-slate-400 font-semibold">
+                    {tr.citizen.estArrival}
+                  </div>
+                  <div className="text-xl font-mono font-black text-emerald-400">
+                    ~{assignedAmb.etaMinutes || 3} {tr.common.unitMin}
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div className="text-slate-300 text-[11px] truncate">
+                  {tr.emergency.driverName}: <b className="text-white">{assignedAmb.driverName}</b> • <a href={`tel:${assignedAmb.driverPhone}`} className="text-emerald-400 underline font-mono">{assignedAmb.driverPhone}</a>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {onNavigateToAmbulance && (
+                    <button
+                      type="button"
+                      onClick={onNavigateToAmbulance}
+                      className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition flex items-center gap-1 shadow-xs cursor-pointer"
+                    >
+                      <span>{tr.nav.ambulance}</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={cancelDispatch}
+                    className="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg transition shadow-xs cursor-pointer"
+                    title="Cancel emergency dispatch"
+                  >
+                    <span>{language === 'mr' ? 'रद्द करा' : language === 'hi' ? 'रद्द करें' : 'Cancel SOS'}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Clean 10-Stage Incident Progress Stepper Card */}
             <EmergencyTrackerCard
               incidentId={dispatch.id}
               title={dispatch.callerIssue}
@@ -161,86 +223,43 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
               currentStep={dispatch.currentStep || 4}
               onStepChange={(step) => updateDispatchStep(step)}
               showControls={false}
-              className="w-full shadow-md"
+              className="w-full shadow-xs"
             />
           </div>
 
-          {/* Nearest Ambulance Live Response Banner */}
-          <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white rounded-2xl p-5 border border-slate-700 shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div className="flex items-center gap-3.5">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
-                <Truck className="w-6 h-6 animate-pulse" />
-              </div>
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-base font-extrabold text-white tracking-wide font-mono">
-                    {assignedAmb.vehicleNumber}
-                  </span>
-                  <span className="text-[10px] uppercase font-black tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-                    ⚡ {language === 'mr' ? 'सर्वात जवळची रुग्णवाहिका नियुक्त' : language === 'hi' ? 'निकटतम एम्बुलेंस पहले सौंपी गई' : 'Closest GPS Ambulance Assigned First'}
+          {/* RIGHT COLUMN (7 Cols): Live Interactive GPS Radar & Tracking Map (Simultaneous) */}
+          <div className="lg:col-span-7 space-y-4 lg:sticky lg:top-4">
+            <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping"></span>
+                  <h3 className="font-bold text-slate-900 text-base font-heading">
+                    {language === 'mr' ? 'थेट रवानगी रडार व रुग्णवाहिका ट्रॅकिंग' : language === 'hi' ? 'लाइव प्रेषण रडार एवं एम्बुलेंस ट्रैकिंग' : 'Live Dispatch Radar & Moving Ambulance Tracking'}
+                  </h3>
+                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 font-mono">
+                    {tr.common.live}
                   </span>
                 </div>
-                <p className="text-xs text-slate-300 mt-1">
-                  {assignedAmb.type} • {language === 'mr' ? 'मूळ केंद्र' : language === 'hi' ? 'मूल केंद्र' : 'Home Depot'}: <strong className="text-slate-100">{assignedAmb.hospitalName}</strong>
-                </p>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  {tr.emergency.driverName}: <span className="text-slate-200 font-semibold">{assignedAmb.driverName}</span> • {tr.biodata.phone}: <a href={`tel:${assignedAmb.driverPhone}`} className="text-emerald-400 underline font-mono">{assignedAmb.driverPhone}</a>
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 self-end md:self-center">
-              <div className="text-right bg-slate-950/60 border border-slate-700 px-4 py-2.5 rounded-xl">
-                <div className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
-                  {tr.citizen.estArrival}
-                </div>
-                <div className="text-2xl font-mono font-black text-emerald-400">
-                  ~{assignedAmb.etaMinutes || 3} {tr.common.unitMin}
-                </div>
-              </div>
-
-              {onNavigateToAmbulance && (
-                <button
-                  onClick={onNavigateToAmbulance}
-                  className="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-xs shrink-0 cursor-pointer"
-                >
-                  <span>{tr.nav.ambulance}</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* INTERACTIVE LIVE MOVING GPS RADAR & TRACKING MAP */}
-          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping"></span>
-                <h3 className="font-bold text-slate-900 text-base font-heading">
-                  {language === 'mr' ? 'थेट रवानगी रडार व रुग्णवाहिका ट्रॅकिंग' : language === 'hi' ? 'लाइव प्रेषण रडार एवं एम्बुलेंस ट्रैकिंग' : 'Live Dispatch Radar & Moving Ambulance Tracking'}
-                </h3>
-                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 font-mono">
-                  {tr.common.live}
+                <span className="text-xs text-slate-500 font-medium">
+                  {language === 'mr' ? 'रुग्णवाहिका प्रवासानुसार थेट अंतर सतत अद्यतनित होते' : language === 'hi' ? 'एम्बुलेंस यात्रा के दौरान वास्तविक दूरी निरंतर अद्यतन होती है' : 'Live distances update continuously as ambulance travels'}
                 </span>
               </div>
-              <span className="text-xs text-slate-500 font-medium">
-                {language === 'mr' ? 'रुग्णवाहिका प्रवासानुसार थेट अंतर सतत अद्यतनित होते' : language === 'hi' ? 'एम्बुलेंस यात्रा के दौरान वास्तविक दूरी निरंतर अद्यतन होती है' : 'Live distances update continuously as ambulance travels'}
-              </span>
+
+              <LeafletMap
+                hospitals={hospitals}
+                ambulances={ambulances}
+                selectedHospitalId={dispatch.currentHospitalId}
+                pickupLocation={memoizedPickup}
+                height="460px"
+                showRouteLine={true}
+              />
+
+              {/* DEDICATED SEPARATE LIVE AMBULANCE TELEMETRY & ROUTE TRACKER CARD */}
+              <LiveAmbulanceTrackerCard />
             </div>
-
-            <LeafletMap
-              hospitals={hospitals}
-              ambulances={ambulances}
-              selectedHospitalId={dispatch.currentHospitalId}
-              pickupLocation={memoizedPickup}
-              height="460px"
-              showRouteLine={true}
-            />
-
-            {/* DEDICATED SEPARATE LIVE AMBULANCE TELEMETRY & ROUTE TRACKER CARD */}
-            <LiveAmbulanceTrackerCard />
           </div>
+
+        </div>
 
           {/* TWO-COLUMN LIVE COORDINATION & AUDIT GRID */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -447,8 +466,6 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
           </div>
 
         </div>
-
-      </div>
 
       {/* 3-Language Elderly Speech Recognition Voice SOS Modal */}
       <VoiceSOSRecognitionModal

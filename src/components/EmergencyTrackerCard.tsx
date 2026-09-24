@@ -172,7 +172,7 @@ export const EmergencyTrackerCard: React.FC<EmergencyTrackerCardProps> = ({
   }, [controlledStep]);
 
   return (
-    <div className={`bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden font-sans transition-all ${className}`}>
+    <div className={`bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden font-sans transition-all w-full ${className}`}>
       
       {/* 1. TOP MISSION STATUS BAR */}
       <div className="bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 text-white p-5 sm:p-6 border-b border-slate-800">
