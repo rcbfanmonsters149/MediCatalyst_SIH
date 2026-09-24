@@ -37,6 +37,7 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
     sendDispatchMessage,
     updateDispatchStep,
     cancelDispatch,
+    createEmergencyDispatch,
     user
   } = useApp();
   const { tr, language } = useLanguage();
@@ -46,34 +47,15 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
 
   const dispatch = activeDispatch;
 
-  if (!dispatch) {
-    return (
-      <div className="space-y-6">
-        <TollFreeBanner />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center space-y-4">
-          <ShieldAlert className="w-16 h-16 text-slate-300 mx-auto" />
-          <h2 className="text-xl font-bold text-slate-700">{tr.emergency.noActiveEmergency}</h2>
-          <p className="text-sm text-slate-500">{tr.emergency.useSosPrompt}</p>
-          <button 
-            onClick={() => setIsVoiceModalOpen(true)}
-            className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md transition cursor-pointer"
-          >
-            {tr.emergency.triggerEmergency}
-          </button>
-        </div>
-        <VoiceSOSRecognitionModal
-          isOpen={isVoiceModalOpen}
-          onClose={() => setIsVoiceModalOpen(false)}
-        />
-      </div>
-    );
-  }
-
-  const memoizedPickup = useMemo(() => ({
-    lat: dispatch.pickupLat,
-    lng: dispatch.pickupLng,
-    label: dispatch.pickupAddress
-  }), [dispatch.pickupLat, dispatch.pickupLng, dispatch.pickupAddress]);
+  // Unconditionally call hook at top level to satisfy React Rules of Hooks
+  const memoizedPickup = useMemo(() => {
+    if (!dispatch) return undefined;
+    return {
+      lat: dispatch.pickupLat,
+      lng: dispatch.pickupLng,
+      label: dispatch.pickupAddress
+    };
+  }, [dispatch?.pickupLat, dispatch?.pickupLng, dispatch?.pickupAddress]);
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,7 +73,146 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
 
   // Qualified hospitals with 24/7 ambulance service
   const eligibleEmergencyHospitals = hospitals.filter(h => h.hasAmbulanceService);
-  const assignedAmb = ambulances.find(a => a.id === dispatch.assignedAmbulanceId) || ambulances[0];
+  const assignedAmb = (dispatch ? ambulances.find(a => a.id === dispatch.assignedAmbulanceId) : null) || ambulances[0];
+
+  if (!dispatch) {
+    return (
+      <div className="space-y-6">
+        {/* Pinned Top Toll Free Banner */}
+        <TollFreeBanner />
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 space-y-6">
+          {/* Status Alert Banner */}
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 border border-amber-200 flex items-center justify-center text-amber-700 shrink-0">
+                <ShieldAlert className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm sm:text-base">
+                  {language === 'mr' ? 'कोणतीही सक्रिय आपत्कालीन रवानगी सुरू नाही' : language === 'hi' ? 'कोई सक्रिय आपातकालीन केस नहीं है' : 'Emergency Network On Standby • No Active SOS'}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {language === 'mr' 
+                    ? 'आपत्कालीन SOS रद्द करण्यात आला आहे किंवा नेटवर्क स्टँडबायवर आहे. नवीन आपत्कालीन विनंती नोंदवण्यासाठी खालील बटण वापरा.' 
+                    : language === 'hi' 
+                    ? 'आपातकालीन अनुरोध रद्द कर दिया गया है अथवा नेटवर्क तत्पर अवस्था में है। नई आपातकालीन सहायता के लिए नीचे दिए गए बटन पर टैप करें।' 
+                    : 'The emergency network is ready. Tap below to immediately broadcast a high-priority SOS alert.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  createEmergencyDispatch(
+                    language === 'mr' ? 'तातडीचा आपत्कालीन कॉल (कॉल सेंटर / SOS)' : language === 'hi' ? 'गंभीर आपातकालीन सहायता अनुरोध (SOS)' : 'Acute Medical Emergency (SOS Dispatch)',
+                    undefined,
+                    'CRITICAL'
+                  );
+                }}
+                className="flex-1 sm:flex-initial px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <AlertTriangle className="w-4 h-4" />
+                <span>{tr.emergency.triggerEmergency}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsVoiceModalOpen(true)}
+                className="flex-1 sm:flex-initial px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+              >
+                <Mic className="w-4 h-4 text-red-600" />
+                <span>{language === 'mr' ? 'आवाजी SOS' : language === 'hi' ? 'वॉइस SOS' : 'Voice SOS'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Quick Helplines */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <a 
+              href="tel:108"
+              className="p-4 rounded-xl bg-white border border-slate-200 hover:border-red-300 hover:bg-red-50/40 transition flex items-center justify-between group shadow-2xs"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-100 text-red-700 flex items-center justify-center font-bold text-sm">
+                  108
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-900 text-xs">National Ambulance Hotline</h4>
+                  <span className="text-[11px] text-slate-500">24/7 Immediate Dispatch</span>
+                </div>
+              </div>
+              <PhoneCall className="w-4 h-4 text-red-600 group-hover:scale-110 transition" />
+            </a>
+
+            <a 
+              href="tel:112"
+              className="p-4 rounded-xl bg-white border border-slate-200 hover:border-blue-300 hover:bg-blue-50/40 transition flex items-center justify-between group shadow-2xs"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm">
+                  112
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-900 text-xs">All-India Emergency Help</h4>
+                  <span className="text-[11px] text-slate-500">Police, Fire & Medical</span>
+                </div>
+              </div>
+              <PhoneCall className="w-4 h-4 text-blue-600 group-hover:scale-110 transition" />
+            </a>
+
+            <a 
+              href="tel:102"
+              className="p-4 rounded-xl bg-white border border-slate-200 hover:border-pink-300 hover:bg-pink-50/40 transition flex items-center justify-between group shadow-2xs"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-sm">
+                  102
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-900 text-xs">Maternal & Infant Health</h4>
+                  <span className="text-[11px] text-slate-500">Free Janani Shishu Express</span>
+                </div>
+              </div>
+              <PhoneCall className="w-4 h-4 text-pink-600 group-hover:scale-110 transition" />
+            </a>
+          </div>
+
+          {/* Regional Emergency Radar Map */}
+          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                <h3 className="font-bold text-slate-900 text-base font-heading">
+                  {language === 'mr' ? 'प्रादेशिक आपत्कालीन रुग्णालये व उपलब्ध रुग्णवाहिका' : language === 'hi' ? 'क्षेत्रीय आपातकालीन अस्पताल एवं उपलब्ध एम्बुलेंस' : 'Regional Emergency Facilities & Ready Ambulances'}
+                </h3>
+                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono">
+                  {eligibleEmergencyHospitals.length} Active Centers
+                </span>
+              </div>
+              <span className="text-xs text-slate-500 font-medium">
+                {language === 'mr' ? 'सर्व २४/७ ट्रॉमा युनिट्स सज्ज स्थितीत आहेत' : language === 'hi' ? 'सभी 24/7 ट्रॉमा इकाइयां तत्पर अवस्था में हैं' : 'All 24/7 trauma & resuscitation units online'}
+              </span>
+            </div>
+
+            <LeafletMap
+              hospitals={eligibleEmergencyHospitals}
+              ambulances={ambulances}
+              height="460px"
+              showRouteLine={false}
+            />
+          </div>
+        </div>
+
+        <VoiceSOSRecognitionModal
+          isOpen={isVoiceModalOpen}
+          onClose={() => setIsVoiceModalOpen(false)}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
