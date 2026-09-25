@@ -26,6 +26,8 @@ import { LiveAmbulanceTrackerCard } from '../components/LiveAmbulanceTrackerCard
 import { HandoverModeSelector } from '../components/HandoverModeSelector';
 import { HandoverETAComparisonCard } from '../components/HandoverETAComparisonCard';
 import { HandoverSimulationBar } from '../components/HandoverSimulationBar';
+import { EnRouteDemoController } from '../components/enroute/EnRouteDemoController';
+import { EnRouteStabilizationCard } from '../components/enroute/EnRouteStabilizationCard';
 import { Link } from 'react-router-dom';
 
 interface EmergencyPageProps {
@@ -272,6 +274,12 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
             <span>{language === 'mr' ? '🎙️ आवाजाने मदत मागा (Tap to Speak)' : language === 'hi' ? '🎙️ बोलकर सहायता लें (Tap to Speak)' : '🎙️ Tap to Speak (Voice SOS)'}</span>
           </button>
         </div>
+
+        {/* HACKATHON DEMO SIMULATION CONTROLLER (OPTION C: EN-ROUTE STABILIZATION) */}
+        <EnRouteDemoController />
+
+        {/* EN-ROUTE STABILIZATION COCKPIT & STRATEGY SELECTOR (OPTION C) */}
+        <EnRouteStabilizationCard />
 
         {/* HACKATHON DEMO SIMULATION CONTROLLER */}
         <HandoverSimulationBar />

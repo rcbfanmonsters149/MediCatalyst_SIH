@@ -76,7 +76,9 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
     liveAmbulance, 
     activeHandover, 
     caretakerTelemetry, 
-    activeDispatch
+    activeDispatch,
+    stabilizationSession,
+    activeTransportStrategy
   } = useApp();
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -1341,7 +1343,116 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
         liveGroup.addLayer(hospitalTransitLine);
       }
     }
-  }, [liveAmbulance, activeHandover, caretakerTelemetry, activeDispatch?.transportMode, hospitals]);
+
+    // =========================================================================
+    // DYNAMIC EN-ROUTE EMERGENCY STABILIZATION OVERLAYS (OPTION C)
+    // =========================================================================
+    if (stabilizationSession && (activeTransportStrategy === 'OPTION_C_EN_ROUTE_STABILIZATION' || stabilizationSession.stabilizationStatus !== 'NOT_ACTIVATED')) {
+      const candidate = stabilizationSession.selectedCandidate || stabilizationSession.candidateFacilities[0];
+      if (candidate) {
+        const hosp = candidate.hospital;
+        const isDocked = stabilizationSession.stabilizationStatus === 'PATIENT_ARRIVED_STABILIZATION';
+
+        // 1. Supporting Hospital Distinct Teal Marker with Badge
+        const supportingHtml = `
+          <div style="position: relative; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;">
+            <span style="
+              position: absolute;
+              width: 50px;
+              height: 50px;
+              border-radius: 50%;
+              background-color: ${isDocked ? 'rgba(245, 158, 11, 0.5)' : 'rgba(13, 148, 136, 0.45)'};
+              animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+            "></span>
+            <div style="
+              position: relative;
+              z-index: 10;
+              width: 38px;
+              height: 38px;
+              border-radius: 50%;
+              background: linear-gradient(135deg, #0d9488, #047857);
+              border: 3px solid #ffffff;
+              box-shadow: 0 4px 12px rgba(13, 148, 136, 0.6);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 18px;
+              color: #ffffff;
+            ">
+              🏥
+            </div>
+            <div style="
+              position: absolute;
+              bottom: -18px;
+              left: 50%;
+              transform: translateX(-50%);
+              white-space: nowrap;
+              background: #134e4a;
+              color: #ccfbf1;
+              font-size: 8.5px;
+              font-weight: 800;
+              padding: 1.5px 7px;
+              border-radius: 6px;
+              border: 1px solid #14b8a6;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+              letter-spacing: 0.5px;
+            ">
+              ${isDocked ? 'STABILIZATION IN PROGRESS' : 'INTERIM STABILIZATION BAY'}
+            </div>
+          </div>
+        `;
+        const supportingIcon = L.divIcon({ html: supportingHtml, className: 'supporting-hospital-marker', iconSize: [50, 50], iconAnchor: [25, 25] });
+        const supportingMarker = L.marker([hosp.lat, hosp.lng], { icon: supportingIcon, zIndexOffset: 1280 });
+        supportingMarker.bindPopup(`
+          <div style="font-family: 'Inter', system-ui, sans-serif; min-width: 250px; padding: 2px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 5px;">
+              <strong style="color: #0d9488; font-size: 13px;">🏥 ${hosp.name}</strong>
+              <span style="background: #ccfbf1; color: #115e59; font-size: 9px; font-weight: 800; padding: 1px 6px; border-radius: 4px;">EN-ROUTE BAY</span>
+            </div>
+            <div style="font-size: 10px; color: #475569; margin-bottom: 6px;">
+              📍 ${hosp.address}
+            </div>
+            <div style="background: #f0fdfa; border: 1px solid #99f6e4; border-radius: 6px; padding: 6px; font-size: 11px; margin-bottom: 6px; display: flex; flex-direction: column; gap: 3px;">
+              <div>⚡ <b>Route Proximity:</b> <span style="color: #0d9488; font-weight: 800;">${candidate.distanceFromRouteMeters}m off highway</span></div>
+              <div>⏱️ <b>Detour Cost:</b> <span style="color: #047857; font-weight: 800;">+${candidate.detourTimeMinutes} mins</span> (+${candidate.detourDistanceKm} km)</div>
+              <div>🚨 <b>Status:</b> <span style="color: #0f766e; font-weight: 800;">${candidate.availabilityStatus}</span></div>
+            </div>
+            <div style="font-size: 10px; color: #047857; font-weight: 600;">
+              ✓ Active Bleeding Control • Vitals Normalization • O2 Support
+            </div>
+          </div>
+        `);
+        liveGroup.addLayer(supportingMarker);
+
+        // 2. 500m Route Proximity Perimeter Circle (Teal Dashed Circle)
+        const proximityCircle = L.circle([hosp.lat, hosp.lng], {
+          radius: 500,
+          color: '#0d9488',
+          weight: 2,
+          dashArray: '5, 5',
+          fillColor: '#14b8a6',
+          fillOpacity: 0.12
+        });
+        liveGroup.addLayer(proximityCircle);
+
+        // 3. Interim Detour Polyline (Teal)
+        const ambCurrentLat = liveAmbulance ? liveAmbulance.lat : 28.7180;
+        const ambCurrentLng = liveAmbulance ? liveAmbulance.lng : 77.0980;
+        const detourLine = L.polyline([
+          [ambCurrentLat, ambCurrentLng],
+          [hosp.lat, hosp.lng]
+        ], {
+          color: '#0d9488',
+          weight: 3.5,
+          opacity: 0.85,
+          dashArray: '4, 6',
+          lineCap: 'round',
+          lineJoin: 'round'
+        });
+        liveGroup.addLayer(detourLine);
+      }
+    }
+  }, [liveAmbulance, activeHandover, caretakerTelemetry, activeDispatch?.transportMode, hospitals, stabilizationSession, activeTransportStrategy]);
 
   return (
     <div className="w-full space-y-2.5">
@@ -1511,6 +1622,12 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
             <div className="flex items-center gap-1.5">
               <span className="w-3 h-3 rounded-full bg-rose-500 inline-block animate-pulse"></span>
               <span className="text-slate-700 font-medium">Live Ambulance</span>
+            </div>
+          )}
+          {stabilizationSession && (
+            <div className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-full bg-teal-600 inline-block border border-teal-300"></span>
+              <span className="text-teal-900 font-bold">En-Route Stabilization Bay (500m)</span>
             </div>
           )}
           {trafficSignals.length > 0 && (

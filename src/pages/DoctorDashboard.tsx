@@ -45,6 +45,7 @@ import { HospitalPrescriptionModal } from '../components/hospital/HospitalPrescr
 import { DoctorNavbar, DoctorTabType } from '../components/doctor/DoctorNavbar';
 import { DoctorProfileTab } from '../components/doctor/DoctorProfileTab';
 import { DoctorQueueHUD } from '../components/doctor/DoctorQueueHUD';
+import { DoctorCoordinationModal } from '../components/enroute/DoctorCoordinationModal';
 import { Link, useNavigate } from 'react-router-dom';
 
 type DoctorTab = DoctorTabType;
@@ -61,7 +62,11 @@ export const DoctorDashboard: React.FC = () => {
     markPatientNoShow,
     hospitals,
     user,
-    updateDoctorScheduleSettings
+    updateDoctorScheduleSettings,
+    stabilizationSession,
+    sendDoctorCoordinationMessage,
+    startStabilizationAtSupporting,
+    completeStabilizationAtSupporting
   } = useApp();
   const { language } = useLanguage();
   const navigate = useNavigate();
@@ -78,6 +83,7 @@ export const DoctorDashboard: React.FC = () => {
   const [prescriptionAppt, setPrescriptionAppt] = useState<TeleAppointment | null>(null);
   const [inspectPatientModal, setInspectPatientModal] = useState<TeleAppointment | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isCoordModalOpen, setIsCoordModalOpen] = useState(false);
 
   // Custom Slot Input State
   const [customSlotInput, setCustomSlotInput] = useState('');
@@ -306,6 +312,53 @@ export const DoctorDashboard: React.FC = () => {
         appointmentsCount={doctorAppointments.length}
         scheduledCount={stats.scheduled}
       />
+
+      {/* ACTIVE EMERGENCY TRANSFER / EN-ROUTE STABILIZATION BANNER */}
+      {stabilizationSession && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4 w-full">
+          <div className="bg-gradient-to-r from-teal-900 via-slate-900 to-slate-900 text-white rounded-2xl p-4 sm:p-5 border border-teal-700/60 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-teal-500/20 border border-teal-400/40 flex items-center justify-center text-teal-300">
+                <Stethoscope className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono uppercase tracking-wider bg-teal-500/30 text-teal-200 px-2.5 py-0.5 rounded-full border border-teal-400/30 font-black">
+                    ACTIVE HIGHWAY STABILIZATION TRANSFER
+                  </span>
+                  <span className="text-[10px] font-mono bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-bold">
+                    ESI-1 Polytrauma
+                  </span>
+                </div>
+                <h3 className="text-sm sm:text-base font-extrabold text-white mt-0.5">
+                  {stabilizationSession.parentHospitalName} ➔ {stabilizationSession.supportingHospitalName} (+2 min detour)
+                </h3>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsCoordModalOpen(true)}
+              className="px-4 py-2 bg-gradient-to-r from-teal-400 to-emerald-400 hover:from-teal-300 hover:to-emerald-300 text-teal-950 rounded-xl text-xs font-black uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+            >
+              <Stethoscope className="w-3.5 h-3.5" />
+              <span>Coordinate Stabilization</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Doctor Coordination Modal */}
+      {stabilizationSession && (
+        <DoctorCoordinationModal
+          isOpen={isCoordModalOpen}
+          onClose={() => setIsCoordModalOpen(false)}
+          session={stabilizationSession}
+          onSendMessage={sendDoctorCoordinationMessage}
+          onStartStabilization={startStabilizationAtSupporting}
+          onCompleteStabilization={completeStabilizationAtSupporting}
+        />
+      )}
 
       {/* Active Incoming Instant Consultation Call Banner */}
       {incomingInstantCall && (

@@ -34,8 +34,23 @@ import {
   HandoverStatus,
   HandoverLandmark,
   CaretakerTelemetry,
-  MeetingPointCoordination
-} from '../types';
+  MeetingPointCoordination,
+  EmergencyTransportStrategy,
+  EnRouteStabilizationStatus,
+  EnRouteTransportStatus,
+  SupportingHospitalCandidate,
+  DoctorStructuredOrder,
+  DoctorCoordinationMessage,
+  EmergencyTimelineEvent,
+  EnRouteStabilizationSession
+} from '../types';
+import { 
+  evaluateEnRouteSupportingHospitals, 
+  createInitialStabilizationSession, 
+  STRUCTURED_DOCTOR_ORDERS, 
+  getStructuredOrderConfig, 
+  buildInitialTimeline 
+} from '../utils/enRouteStabilization';
 import { 
   calculateRollingAverage, 
   generateNextToken, 
@@ -198,6 +213,22 @@ interface AppContextType {
   setHandoverSimulationSpeed: (speed: number) => void;
   resetHandoverSimulation: () => void;
   simulateHandoverDetour: () => void;
+
+  // Dynamic En-Route Emergency Stabilization (Option C)
+  activeTransportStrategy: EmergencyTransportStrategy;
+  stabilizationSession: EnRouteStabilizationSession | null;
+  isEnRouteDemoActive: boolean;
+  enRouteDemoStep: number;
+  setTransportStrategy: (strategy: EmergencyTransportStrategy) => void;
+  requestEnRouteStabilization: () => void;
+  sendDoctorCoordinationMessage: (order?: DoctorStructuredOrder, customText?: string) => void;
+  startStabilizationAtSupporting: () => void;
+  completeStabilizationAtSupporting: () => void;
+  bypassEnRouteStabilization: () => void;
+  startEnRouteDemo: () => void;
+  pauseEnRouteDemo: () => void;
+  resetEnRouteDemo: () => void;
+  setEnRouteDemoStep: (step: number) => void;
 }
 
 export const DEFAULT_DOCTOR_SLOTS: string[] = [
@@ -2377,6 +2408,257 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, 1500);
   }, [caretakerTelemetry, activeHandover, recalculateMeetingPointManual]);
 
+  // ============================================================================
+  // DYNAMIC EN-ROUTE EMERGENCY STABILIZATION (OPTION C)
+  // ============================================================================
+  const [activeTransportStrategy, setActiveTransportStrategy] = useState<EmergencyTransportStrategy>('OPTION_C_EN_ROUTE_STABILIZATION');
+  const [stabilizationSession, setStabilizationSession] = useState<EnRouteStabilizationSession | null>(null);
+  const [isEnRouteDemoActive, setIsEnRouteDemoActive] = useState<boolean>(false);
+  const [enRouteDemoStep, setEnRouteDemoStep] = useState<number>(4);
+
+  // Initialize or synchronize stabilization session with active emergency
+  useEffect(() => {
+    if (!activeDispatch) {
+      if (!isEnRouteDemoActive) {
+        setStabilizationSession(null);
+      }
+      return;
+    }
+
+    setStabilizationSession((prev: EnRouteStabilizationSession | null) => {
+      if (prev && prev.emergencyId === activeDispatch.id) {
+        return prev;
+      }
+      const parentId = activeDispatch.currentHospitalId || hospitals[2]?.id || 'hosp-apex-trauma';
+      const initial = createInitialStabilizationSession(hospitals, parentId);
+      initial.emergencyId = activeDispatch.id;
+      return initial;
+    });
+  }, [activeDispatch, hospitals, isEnRouteDemoActive]);
+
+  const setTransportStrategy = useCallback((strategy: EmergencyTransportStrategy) => {
+    setActiveTransportStrategy(strategy);
+    if (strategy === 'OPTION_B_MIDWAY_HANDOVER') {
+      setTransportMode('MEET_HALFWAY');
+    } else {
+      setTransportMode('DIRECT_AMBULANCE');
+    }
+  }, [setTransportMode]);
+
+  const requestEnRouteStabilization = useCallback(() => {
+    setStabilizationSession((prev: EnRouteStabilizationSession | null) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        stabilizationStatus: 'STABILIZATION_REQUESTED',
+        transportStatus: 'TRANSPORTING_TO_SUPPORTING',
+        timeline: prev.timeline.map((e: EmergencyTimelineEvent) => 
+          e.stageKey === 'SUPPORTING_HOSPITAL_IDENTIFIED' ? { ...e, completed: true, active: false } :
+          e.stageKey === 'PARENT_DOCTOR_NOTIFIED' ? { ...e, active: true } : e
+        )
+      };
+    });
+  }, []);
+
+  const sendDoctorCoordinationMessage = useCallback((order?: DoctorStructuredOrder, customText?: string) => {
+    const selectedOrderKey: DoctorStructuredOrder = order || 'CUSTOM_INSTRUCTION';
+    const cfg = getStructuredOrderConfig(selectedOrderKey);
+    const text = customText || cfg.recommendedText;
+    const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    setStabilizationSession((prev: EnRouteStabilizationSession | null) => {
+      if (!prev) return null;
+      const newMsg: DoctorCoordinationMessage = {
+        id: `msg-${Date.now()}`,
+        senderRole: 'PARENT_HOSPITAL_DOCTOR',
+        senderDoctorName: prev.parentDoctorName,
+        senderHospitalName: prev.parentHospitalName,
+        priority: 'EMERGENCY',
+        text,
+        structuredOrder: selectedOrderKey,
+        structuredOrderLabel: cfg.label,
+        timestamp: nowStr
+      };
+
+      const ackMsg: DoctorCoordinationMessage = {
+        id: `msg-ack-${Date.now()}`,
+        senderRole: 'SUPPORTING_HOSPITAL_DOCTOR',
+        senderDoctorName: prev.supportingDoctorName || 'Duty Medical Officer',
+        senderHospitalName: prev.supportingHospitalName || 'Supporting Facility',
+        priority: 'ROUTINE',
+        text: `Directive received & acknowledged: "${cfg.label}". Prepared clinical response unit.`,
+        timestamp: nowStr
+      };
+
+      return {
+        ...prev,
+        doctorCommunicationStatus: 'ACCEPTED',
+        stabilizationStatus: 'DOCTOR_COORDINATING',
+        doctorMessages: [...prev.doctorMessages, newMsg, ackMsg],
+        timeline: prev.timeline.map((e: EmergencyTimelineEvent) => 
+          e.stageKey === 'PARENT_DOCTOR_NOTIFIED' ? { ...e, completed: true, active: false } :
+          e.stageKey === 'SUPPORTING_HOSPITAL_ACCEPTED' ? { ...e, completed: true, active: false } :
+          e.stageKey === 'PATIENT_ARRIVED_SUPPORTING' ? { ...e, active: true } : e
+        )
+      };
+    });
+  }, []);
+
+  const startStabilizationAtSupporting = useCallback(() => {
+    setStabilizationSession((prev: EnRouteStabilizationSession | null) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        stabilizationStatus: 'PATIENT_ARRIVED_STABILIZATION',
+        transportStatus: 'AT_SUPPORTING_HOSPITAL',
+        timeline: prev.timeline.map((e: EmergencyTimelineEvent) => 
+          e.stageKey === 'PATIENT_ARRIVED_SUPPORTING' ? { ...e, completed: true, active: false } :
+          e.stageKey === 'STABILIZATION_COMPLETED' ? { ...e, active: true } : e
+        )
+      };
+    });
+  }, []);
+
+  const completeStabilizationAtSupporting = useCallback(() => {
+    setStabilizationSession((prev: EnRouteStabilizationSession | null) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        stabilizationStatus: 'STABILIZATION_COMPLETE',
+        transportStatus: 'TRANSPORTING_TO_PARENT',
+        timeline: prev.timeline.map((e: EmergencyTimelineEvent) => 
+          e.stageKey === 'STABILIZATION_COMPLETED' ? { ...e, completed: true, active: false } :
+          e.stageKey === 'AMBULANCE_RESUMED_JOURNEY' ? { ...e, completed: true, active: true } : e
+        )
+      };
+    });
+
+    // Auto resume highway transit after 2 seconds
+    setTimeout(() => {
+      setStabilizationSession((prev: EnRouteStabilizationSession | null) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          stabilizationStatus: 'RESUMING_TRANSIT_TO_PARENT',
+          timeline: prev.timeline.map((e: EmergencyTimelineEvent) => 
+            e.stageKey === 'AMBULANCE_RESUMED_JOURNEY' ? { ...e, completed: true, active: false } :
+            e.stageKey === 'PATIENT_ARRIVED_PARENT' ? { ...e, active: true } : e
+          )
+        };
+      });
+    }, 2000);
+  }, []);
+
+  const bypassEnRouteStabilization = useCallback(() => {
+    setStabilizationSession((prev: EnRouteStabilizationSession | null) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        stabilizationStatus: 'BYPASS_OR_REJECTED'
+      };
+    });
+    setActiveTransportStrategy('OPTION_A_DIRECT_PICKUP');
+  }, []);
+
+  const applyDemoStepState = useCallback((step: number) => {
+    setEnRouteDemoStep(step);
+    const parentHosp = hospitals.find((h: Hospital) => h.id === 'hosp-apex-trauma') || hospitals[2] || hospitals[0];
+
+    // Ensure session exists
+    setStabilizationSession((prev: EnRouteStabilizationSession | null) => {
+      const base = prev || createInitialStabilizationSession(hospitals, parentHosp.id);
+      let status: EnRouteStabilizationStatus = base.stabilizationStatus;
+      let tStatus: EnRouteTransportStatus = base.transportStatus;
+
+      if (step === 1) {
+        status = 'NOT_ACTIVATED';
+        tStatus = 'EN_ROUTE_PICKUP';
+      } else if (step === 2 || step === 3) {
+        status = 'SEARCHING_EN_ROUTE_STABILIZATION';
+        tStatus = 'EN_ROUTE_PICKUP';
+      } else if (step === 4 || step === 5) {
+        status = 'STABILIZATION_AVAILABLE';
+        tStatus = 'EN_ROUTE_PICKUP';
+      } else if (step === 6) {
+        status = 'STABILIZATION_REQUESTED';
+        tStatus = 'TRANSPORTING_TO_SUPPORTING';
+      } else if (step === 7) {
+        status = 'DOCTOR_COORDINATING';
+        tStatus = 'TRANSPORTING_TO_SUPPORTING';
+      } else if (step === 8) {
+        status = 'AMBULANCE_APPROACHING_SUPPORTING';
+        tStatus = 'TRANSPORTING_TO_SUPPORTING';
+      } else if (step === 9) {
+        status = 'PATIENT_ARRIVED_STABILIZATION';
+        tStatus = 'AT_SUPPORTING_HOSPITAL';
+      } else if (step === 10) {
+        status = 'STABILIZATION_COMPLETE';
+        tStatus = 'TRANSPORTING_TO_PARENT';
+      } else if (step >= 11) {
+        status = 'ARRIVED_PARENT_HOSPITAL';
+        tStatus = 'ARRIVED_AT_PARENT';
+      }
+
+      const updatedTimeline = base.timeline.map((item: EmergencyTimelineEvent, idx: number) => {
+        const itemStepIndex = idx + 1;
+        const isDone = itemStepIndex < step;
+        const isActive = itemStepIndex === step;
+        return {
+          ...item,
+          completed: isDone,
+          active: isActive
+        };
+      });
+
+      return {
+        ...base,
+        stabilizationStatus: status,
+        transportStatus: tStatus,
+        demoStepIndex: step,
+        timeline: updatedTimeline
+      };
+    });
+
+    if (step >= 6 && step < 11) {
+      setActiveTransportStrategy('OPTION_C_EN_ROUTE_STABILIZATION');
+    }
+  }, [hospitals]);
+
+  // Demo ticker
+  useEffect(() => {
+    if (!isEnRouteDemoActive) return;
+    const timer = setInterval(() => {
+      setEnRouteDemoStep((prev: number) => {
+        const next = prev >= 11 ? 1 : prev + 1;
+        applyDemoStepState(next);
+        return next;
+      });
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [isEnRouteDemoActive, applyDemoStepState]);
+
+  const startEnRouteDemo = useCallback(() => {
+    setIsEnRouteDemoActive(true);
+    if (!stabilizationSession) {
+      const parentHosp = hospitals.find((h: Hospital) => h.id === 'hosp-apex-trauma') || hospitals[2] || hospitals[0];
+      setStabilizationSession(createInitialStabilizationSession(hospitals, parentHosp.id));
+    }
+    applyDemoStepState(enRouteDemoStep);
+  }, [stabilizationSession, hospitals, enRouteDemoStep, applyDemoStepState]);
+
+  const pauseEnRouteDemo = useCallback(() => {
+    setIsEnRouteDemoActive(false);
+  }, []);
+
+  const resetEnRouteDemo = useCallback(() => {
+    setIsEnRouteDemoActive(false);
+    applyDemoStepState(1);
+  }, [applyDemoStepState]);
+
+  const setEnRouteDemoStepManual = useCallback((step: number) => {
+    applyDemoStepState(step);
+  }, [applyDemoStepState]);
+
   const [liveAmbulance, setLiveAmbulance] = useState<LiveMovingAmbulance | null>(null);
 
   // Cached road mission routes for active emergency dispatch (OSRM turn-by-turn road geometries)
@@ -3329,6 +3611,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActiveHandover(null);
     setCaretakerTelemetry(null);
     setHandoverProgress(0.05);
+    setStabilizationSession(null);
+    setIsEnRouteDemoActive(false);
   };
 
   const updateDispatchStep = (step: number) => {
@@ -3910,8 +4194,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       toggleHandoverSimulation,
       setHandoverSimulationSpeed,
       resetHandoverSimulation,
-      simulateHandoverDetour
-        }), [
+      simulateHandoverDetour,
+      activeTransportStrategy,
+      stabilizationSession,
+      isEnRouteDemoActive,
+      enRouteDemoStep,
+      setTransportStrategy,
+      requestEnRouteStabilization,
+      sendDoctorCoordinationMessage,
+      startStabilizationAtSupporting,
+      completeStabilizationAtSupporting,
+      bypassEnRouteStabilization,
+      startEnRouteDemo,
+      pauseEnRouteDemo,
+      resetEnRouteDemo,
+      setEnRouteDemoStep: setEnRouteDemoStepManual,
+    }), [
       hospitals,
       selectedHospitalId,
       hospitalUser,
@@ -3941,7 +4239,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       activeHandover,
       caretakerTelemetry,
       isHandoverSimulating,
-      handoverSimSpeed
+      handoverSimSpeed,
+      activeTransportStrategy,
+      stabilizationSession,
+      isEnRouteDemoActive,
+      enRouteDemoStep,
+      setTransportStrategy,
+      requestEnRouteStabilization,
+      sendDoctorCoordinationMessage,
+      startStabilizationAtSupporting,
+      completeStabilizationAtSupporting,
+      bypassEnRouteStabilization,
+      startEnRouteDemo,
+      pauseEnRouteDemo,
+      resetEnRouteDemo,
+      setEnRouteDemoStepManual
     ]);
 
   return (

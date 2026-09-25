@@ -704,6 +704,127 @@ export interface MeetingPointCoordination {
   lastRecalculatedAt: string;
 }
 
+// ============================================================================
+// DYNAMIC EN-ROUTE EMERGENCY STABILIZATION TYPES (OPTION C)
+// ============================================================================
+
+export type EmergencyTransportStrategy = 
+  | 'OPTION_A_DIRECT_PICKUP'
+  | 'OPTION_B_MIDWAY_HANDOVER'
+  | 'OPTION_C_EN_ROUTE_STABILIZATION';
+
+export type EnRouteStabilizationStatus =
+  | 'NOT_ACTIVATED'
+  | 'SEARCHING_EN_ROUTE_STABILIZATION'
+  | 'STABILIZATION_AVAILABLE'
+  | 'STABILIZATION_REQUESTED'
+  | 'DOCTOR_COORDINATING'
+  | 'AMBULANCE_APPROACHING_SUPPORTING'
+  | 'PATIENT_ARRIVED_STABILIZATION'
+  | 'STABILIZATION_COMPLETE'
+  | 'RESUMING_TRANSIT_TO_PARENT'
+  | 'ARRIVED_PARENT_HOSPITAL'
+  | 'BYPASS_OR_REJECTED';
+
+export type EnRouteTransportStatus = 
+  | 'EN_ROUTE_PICKUP'
+  | 'TRANSPORTING_TO_SUPPORTING'
+  | 'AT_SUPPORTING_HOSPITAL'
+  | 'TRANSPORTING_TO_PARENT'
+  | 'ARRIVED_AT_PARENT';
+
+export interface SupportingHospitalCandidate {
+  hospital: Hospital;
+  distanceFromRouteMeters: number;
+  detourDistanceKm: number;
+  detourTimeMinutes: number;
+  availableCapabilities: string[];
+  availabilityStatus: 'OPEN_AND_READY' | 'OCCUPIED' | 'STANDBY';
+  distanceFromAmbulanceKm: number;
+  estimatedArrivalTimeMinutes: number;
+  isOnOptimalRoute: boolean;
+  stabilizationCapabilities: {
+    canStabilizeBleeding: boolean;
+    canMonitorVitals: boolean;
+    canAdministerOxygen: boolean;
+    hasEmergencyBeds: boolean;
+  };
+}
+
+export type DoctorStructuredOrder = 
+  | 'CONTROL_ACTIVE_BLEEDING'
+  | 'MONITOR_VITAL_SIGNS'
+  | 'MAINTAIN_STABILIZATION'
+  | 'PREPARE_FOR_TRANSFER'
+  | 'OXYGEN_SUPPORT'
+  | 'IV_ACCESS_FLUIDS'
+  | 'CUSTOM_INSTRUCTION';
+
+export interface DoctorCoordinationMessage {
+  id: string;
+  senderRole: 'PARENT_HOSPITAL_DOCTOR' | 'SUPPORTING_HOSPITAL_DOCTOR';
+  senderDoctorName: string;
+  senderHospitalName: string;
+  priority: 'EMERGENCY' | 'ROUTINE';
+  text: string;
+  structuredOrder?: DoctorStructuredOrder;
+  structuredOrderLabel?: string;
+  timestamp: string;
+}
+
+export interface EmergencyTimelineEvent {
+  id: string;
+  timestamp: string;
+  title: string;
+  description: string;
+  stageKey: 
+    | 'REQUEST_CREATED'
+    | 'AI_TRIAGE_COMPLETED'
+    | 'PARENT_HOSPITAL_SELECTED'
+    | 'AMBULANCE_ASSIGNED'
+    | 'AMBULANCE_JOURNEY_STARTED'
+    | 'SUPPORTING_HOSPITAL_IDENTIFIED'
+    | 'PARENT_DOCTOR_NOTIFIED'
+    | 'SUPPORTING_HOSPITAL_ACCEPTED'
+    | 'PATIENT_ARRIVED_SUPPORTING'
+    | 'STABILIZATION_COMPLETED'
+    | 'AMBULANCE_RESUMED_JOURNEY'
+    | 'PATIENT_ARRIVED_PARENT';
+  completed: boolean;
+  active?: boolean;
+}
+
+export interface EnRouteStabilizationSession {
+  emergencyId: string;
+  parentHospitalId: string;
+  parentHospitalName: string;
+  parentHospitalLocation: { lat: number; lng: number };
+  supportingHospitalId?: string;
+  supportingHospitalName?: string;
+  supportingHospitalLocation?: { lat: number; lng: number };
+  ambulanceId: string;
+  ambulanceLocation: { lat: number; lng: number };
+  supportingHospitalDistance?: number;
+  routeDistance?: number;
+  detourDistance?: number;
+  detourTime?: number;
+  stabilizationStatus: EnRouteStabilizationStatus;
+  doctorCommunicationStatus: 'PENDING' | 'CONNECTED' | 'INSTRUCTIONS_SENT' | 'ACCEPTED';
+  handoverStatus: HandoverStatus;
+  transportStatus: EnRouteTransportStatus;
+  createdAt: string;
+  updatedAt: string;
+  candidateFacilities: SupportingHospitalCandidate[];
+  selectedCandidate?: SupportingHospitalCandidate;
+  parentDoctorName: string;
+  supportingDoctorName?: string;
+  doctorMessages: DoctorCoordinationMessage[];
+  stabilizationNotes?: string;
+  timeline: EmergencyTimelineEvent[];
+  isDemoActive?: boolean;
+  demoStepIndex?: number;
+}
+
 
 
 

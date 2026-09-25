@@ -21,8 +21,10 @@ import {
   User,
   ShieldCheck,
   AlertCircle,
-  Pill
+  Pill,
+  Stethoscope
 } from '../icons';
+import { DoctorCoordinationModal } from '../enroute/DoctorCoordinationModal';
 import { useApp } from '../../context/AppContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { Hospital } from '../../types';
@@ -49,11 +51,16 @@ export const HospitalEmergencyTab: React.FC<HospitalEmergencyTabProps> = ({
     ambulanceAssessment,
     sendDispatchMessage,
     updateDispatchStep,
-    hospitals
+    hospitals,
+    stabilizationSession,
+    sendDoctorCoordinationMessage,
+    startStabilizationAtSupporting,
+    completeStabilizationAtSupporting
   } = useApp();
   const { tr, language } = useLanguage();
 
   const [chatInput, setChatInput] = useState('');
+  const [isCoordModalOpen, setIsCoordModalOpen] = useState(false);
 
   const assessment = activeDispatch?.ambulanceAssessment || ambulanceAssessment;
   const triagePrediction = evaluateAmbulanceAssessment(assessment);
@@ -77,6 +84,94 @@ export const HospitalEmergencyTab: React.FC<HospitalEmergencyTabProps> = ({
 
   return (
     <div className="space-y-6">
+
+      {/* EN-ROUTE EMERGENCY STABILIZATION COORDINATION DESK */}
+      {stabilizationSession && (
+        <div className="bg-gradient-to-r from-teal-900 via-slate-900 to-slate-900 text-white rounded-2xl p-5 shadow-xl border border-teal-700/60 space-y-3.5 animate-in fade-in">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-teal-800/80">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-teal-500/20 border border-teal-400/40 flex items-center justify-center text-teal-300">
+                <Stethoscope className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono uppercase tracking-wider bg-teal-500/30 text-teal-200 px-2.5 py-0.5 rounded-full border border-teal-400/30 font-black">
+                    EN-ROUTE STABILIZATION TELEMETRY
+                  </span>
+                  <span className="text-[10px] font-mono bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-400/30 font-semibold">
+                    Zero-Prescription Protocol
+                  </span>
+                </div>
+                <h3 className="text-base sm:text-lg font-black text-white mt-0.5">
+                  Inter-Hospital Clinical Stabilization Bridge
+                </h3>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsCoordModalOpen(true)}
+                className="px-4 py-2 bg-gradient-to-r from-teal-400 to-emerald-400 hover:from-teal-300 hover:to-emerald-300 text-teal-950 rounded-xl text-xs font-black uppercase tracking-wider transition shadow-md flex items-center gap-1.5 cursor-pointer"
+              >
+                <Stethoscope className="w-3.5 h-3.5" />
+                <span>Coordinate Stabilization</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+            <div className="bg-white/5 border border-white/10 rounded-xl p-3 space-y-1">
+              <span className="text-[10px] text-teal-300 uppercase font-black block">Definitive Treatment Destination</span>
+              <p className="font-extrabold text-white text-sm">🏛️ {stabilizationSession.parentHospitalName}</p>
+              <p className="text-teal-200/80 text-[11px]">Lead: {stabilizationSession.parentDoctorName} • Tertiary Trauma OT & Cath Lab</p>
+            </div>
+
+            <div className="bg-teal-500/10 border border-teal-500/20 rounded-xl p-3 space-y-1">
+              <span className="text-[10px] text-emerald-300 uppercase font-black block">Nearby Interim Stabilization Facility</span>
+              <p className="font-extrabold text-white text-sm">🏥 {stabilizationSession.supportingHospitalName}</p>
+              <p className="text-teal-200/80 text-[11px]">300m off highway (+{stabilizationSession.detourDistance || 0.4} km, +{stabilizationSession.detourTime || 2} min detour)</p>
+            </div>
+          </div>
+
+          {/* Action buttons if this hospital is the Supporting Hospital */}
+          {hospital.id === stabilizationSession.supportingHospitalId && (
+            <div className="pt-2 flex items-center justify-between border-t border-teal-800/60">
+              <span className="text-xs text-teal-200 font-bold">
+                Supporting CHC Bed Control:
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={startStabilizationAtSupporting}
+                  className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg text-xs font-bold transition shadow-xs cursor-pointer"
+                >
+                  START STABILIZATION
+                </button>
+                <button
+                  type="button"
+                  onClick={completeStabilizationAtSupporting}
+                  className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-lg text-xs font-bold transition shadow-xs cursor-pointer"
+                >
+                  STABILIZATION COMPLETE
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Doctor Coordination Modal */}
+      {stabilizationSession && (
+        <DoctorCoordinationModal
+          isOpen={isCoordModalOpen}
+          onClose={() => setIsCoordModalOpen(false)}
+          session={stabilizationSession}
+          onSendMessage={sendDoctorCoordinationMessage}
+          onStartStabilization={startStabilizationAtSupporting}
+          onCompleteStabilization={completeStabilizationAtSupporting}
+        />
+      )}
 
       {/* ACTIVE EMERGENCY INFLOW DECISION BANNER */}
       {isTargetOfActiveDispatch && activeDispatch ? (
