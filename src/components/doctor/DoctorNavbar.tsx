@@ -23,7 +23,7 @@ import { LanguageSelector } from '../LanguageSelector';
 import { DoctorDutyMode } from '../../types';
 import { Link, useNavigate } from 'react-router-dom';
 
-export type DoctorTabType = 'appointments' | 'schedule' | 'ehr' | 'hospital' | 'profile';
+export type DoctorTabType = 'appointments' | 'schedule' | 'ehr' | 'profile';
 
 interface DoctorNavbarProps {
   activeTab: DoctorTabType;
@@ -387,21 +387,6 @@ export const DoctorNavbar: React.FC<DoctorNavbarProps> = ({
             >
               <FileText className={`w-3.5 h-3.5 ${activeTab === 'ehr' ? 'text-teal-600' : 'text-slate-400'}`} />
               <span>Patient EHR & History</span>
-            </button>
-
-            {/* Tab: Facility Telemetry */}
-            <button
-              type="button"
-              onClick={() => setActiveTab('hospital')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
-                activeTab === 'hospital'
-                  ? 'bg-white text-teal-700 border border-teal-200 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-              }`}
-            >
-              <Building2 className={`w-3.5 h-3.5 ${activeTab === 'hospital' ? 'text-teal-600' : 'text-slate-400'}`} />
-              <span className="hidden sm:inline">Facility Telemetry</span>
-              <span className="sm:hidden">Facility</span>
             </button>
 
             {/* Tab: Doctor Profile & Ratings */}
