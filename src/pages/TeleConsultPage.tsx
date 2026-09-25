@@ -19,9 +19,7 @@ import {
   ExternalLink,
   Activity,
   Check,
-  Star,
-  FileText,
-  CheckCircle2
+  Star
 } from '../components/icons';
 import { useApp, DEFAULT_DOCTOR_SLOTS } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -29,10 +27,8 @@ import { DoctorOnDuty, Hospital, TeleAppointment, UrgencyType } from '../types';
 import { VideoConsultModal } from '../components/teleconsult/VideoConsultModal';
 import { STANDARD_TIME_WINDOWS, generateNextToken } from '../utils/queueEngine';
 import { VirtualQueueTrackerCard } from '../components/teleconsult/VirtualQueueTrackerCard';
-import { DoctorCallHistoryCard } from '../components/teleconsult/DoctorCallHistoryCard';
 
 type ConsultMode = 'INSTANT' | 'SCHEDULE';
-type UserConsultsTab = 'CALL_HISTORY' | 'ACTIVE_QUEUE';
 
 export const TeleConsultPage: React.FC = () => {
   const { 
@@ -48,7 +44,6 @@ export const TeleConsultPage: React.FC = () => {
   const [consultMode, setConsultMode] = useState<ConsultMode>('INSTANT');
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [userConsultsTab, setUserConsultsTab] = useState<UserConsultsTab>('CALL_HISTORY');
 
   // Modals state
   const [bookingDoctor, setBookingDoctor] = useState<{ doctor: DoctorOnDuty; hospital: Hospital } | null>(null);
@@ -98,13 +93,11 @@ export const TeleConsultPage: React.FC = () => {
     return matchesSpecialty && matchesSearch;
   });
 
-  // Filter appointments for current patient
+  // Filter appointments for current patient (active/scheduled queue only)
   const myAppointments = appointments.filter(a => 
-    a.patientId === user.id || a.patientAbhaId === user.healthId || a.patientName === user.fullName
+    (a.patientId === user.id || a.patientAbhaId === user.healthId || a.patientName === user.fullName) &&
+    a.status !== 'COMPLETED' && a.status !== 'CANCELLED'
   );
-
-  const activeAppointments = myAppointments.filter(a => a.status !== 'COMPLETED' && a.status !== 'CANCELLED');
-  const completedCalls = myAppointments.filter(a => a.status === 'COMPLETED');
 
   const quickSymptoms = [
     'Fever and chills for 2 days',
@@ -238,106 +231,39 @@ export const TeleConsultPage: React.FC = () => {
         </button>
       </div>
 
-      {/* 3. MY CONSULTATIONS QUEUE & DOCTOR CALLS HISTORY */}
-      <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-xs space-y-5">
-        
-        {/* Section Header with Tabs */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+      {/* 3. MY CONSULTATIONS QUEUE */}
+      <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-xs space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
           <div>
             <h2 className="text-lg font-extrabold text-slate-900 font-heading flex items-center gap-2">
-              <Stethoscope className="w-5 h-5 text-teal-600" />
-              <span>My Doctor Consultations & Tele-OPD Desk</span>
+              <Clock className="w-5 h-5 text-teal-600" />
+              <span>My Consultations & Bookings Queue</span>
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Review your completed doctor calls with digital prescriptions, or monitor active waiting tokens.
+              Active video consultation rooms and scheduled appointments for {user.fullName}.
             </p>
           </div>
-
-          {/* Toggle between Call History and Active Queue */}
-          <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-2xl shrink-0 self-start sm:self-auto border border-slate-200">
-            <button
-              type="button"
-              onClick={() => setUserConsultsTab('CALL_HISTORY')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
-                userConsultsTab === 'CALL_HISTORY'
-                  ? 'bg-white text-teal-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <FileText className="w-3.5 h-3.5 text-teal-600" />
-              <span>Calls & Prescriptions</span>
-              <span className={`text-[10px] font-black px-1.5 py-0.2 rounded-full font-mono ${
-                userConsultsTab === 'CALL_HISTORY' ? 'bg-teal-100 text-teal-800' : 'bg-slate-200 text-slate-700'
-              }`}>
-                {completedCalls.length}
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setUserConsultsTab('ACTIVE_QUEUE')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
-                userConsultsTab === 'ACTIVE_QUEUE'
-                  ? 'bg-white text-teal-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Clock className="w-3.5 h-3.5 text-teal-600" />
-              <span>Live Queue Tokens</span>
-              <span className={`text-[10px] font-black px-1.5 py-0.2 rounded-full font-mono ${
-                userConsultsTab === 'ACTIVE_QUEUE' ? 'bg-teal-100 text-teal-800' : 'bg-slate-200 text-slate-700'
-              }`}>
-                {activeAppointments.length}
-              </span>
-            </button>
-          </div>
+          <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-teal-50 text-teal-800 border border-teal-200 font-mono">
+            {myAppointments.length} Bookings
+          </span>
         </div>
 
-        {/* Tab 1: Completed Doctor Calls with Attached Prescriptions */}
-        {userConsultsTab === 'CALL_HISTORY' && (
-          <div className="space-y-5">
-            {completedCalls.length > 0 ? (
-              <div className="space-y-5">
-                {completedCalls.map(appt => (
-                  <DoctorCallHistoryCard
-                    key={appt.id}
-                    appointment={appt}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-slate-500 text-xs space-y-2 bg-slate-50 rounded-2xl border border-slate-200">
-                <FileText className="w-8 h-8 text-slate-300 mx-auto" />
-                <p className="font-semibold text-slate-700">No completed doctor calls found yet.</p>
-                <p className="text-slate-400">When you complete a video consultation with an available doctor, your session timing and official e-prescription will appear here.</p>
-              </div>
-            )}
+        {myAppointments.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {myAppointments.map(appt => (
+              <VirtualQueueTrackerCard
+                key={appt.id}
+                appointment={appt}
+                onJoinCall={(a) => setActiveCallAppt(a)}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-6 text-slate-500 text-xs space-y-2">
+            <Clock className="w-8 h-8 text-slate-300 mx-auto" />
+            <p>You have no active appointments booked yet. Choose an on-duty doctor below to start or schedule a consultation.</p>
           </div>
         )}
-
-        {/* Tab 2: Active Queue & Upcoming Scheduled Bookings */}
-        {userConsultsTab === 'ACTIVE_QUEUE' && (
-          <div>
-            {activeAppointments.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {activeAppointments.map(appt => (
-                  <VirtualQueueTrackerCard
-                    key={appt.id}
-                    appointment={appt}
-                    onJoinCall={(a) => setActiveCallAppt(a)}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-slate-500 text-xs space-y-2 bg-slate-50 rounded-2xl border border-slate-200">
-                <Clock className="w-8 h-8 text-slate-300 mx-auto" />
-                <p className="font-semibold text-slate-700">You have no active waiting tokens right now.</p>
-                <p className="text-slate-400">All your consultations are up to date. You can connect with an available on-duty doctor below.</p>
-              </div>
-            )}
-          </div>
-        )}
-
       </div>
 
       {/* 4. DOCTOR DIRECTORY: Mode A (Instant) vs Mode B (Schedule) - ONLY AVAILABLE DOCTORS */}

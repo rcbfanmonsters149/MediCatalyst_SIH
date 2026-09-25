@@ -325,31 +325,14 @@ export const AbhaQrCard: React.FC<AbhaQrCardProps> = ({ user, isOpen, onClose })
                   <span>{language === 'hi' ? 'डॉक्टर के लिए एक्सेस स्कोप:' : (language === 'mr' ? 'डॉक्टरांसाठी ऍक्सेस स्कोप:' : 'Doctor Access Scope on Scan:')}</span>
                 </span>
                 
-                <div className="grid grid-cols-2 gap-2">
+                <div>
                   <button
                     type="button"
                     onClick={() => setScope('FULL_EHR')}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                      scope === 'FULL_EHR'
-                        ? 'bg-emerald-600 text-white shadow-xs'
-                        : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-                    }`}
+                    className="w-full py-2.5 px-3 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-xs flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    <Stethoscope className="w-3.5 h-3.5" />
+                    <Stethoscope className="w-4 h-4" />
                     <span>Full Medical Records</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setScope('EMERGENCY_ONLY')}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                      scope === 'EMERGENCY_ONLY'
-                        ? 'bg-emerald-600 text-white shadow-xs'
-                        : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-                    }`}
-                  >
-                    <Heart className="w-3.5 h-3.5 text-rose-500" />
-                    <span>Emergency Triage Only</span>
                   </button>
                 </div>
               </div>

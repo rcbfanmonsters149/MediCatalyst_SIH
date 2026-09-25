@@ -19,9 +19,7 @@ import {
   Lock,
   Calendar,
   ShieldCheck,
-  Database,
   Key,
-  Unlock,
   ExternalLink,
   Cpu,
   Layers,
@@ -44,9 +42,6 @@ export const BioDataPage: React.FC = () => {
     setIsLoggedIn, 
     loginUser, 
     verifyPatientRecord, 
-    auditLogs, 
-    consentGrants, 
-    revokeProviderConsent, 
     blockchainNetwork 
   } = useApp();
   const { tr, language } = useLanguage();
@@ -55,11 +50,9 @@ export const BioDataPage: React.FC = () => {
   const [selectedRecordForPreview, setSelectedRecordForPreview] = useState<PatientRecord | null>(null);
 
   // Blockchain & Decentralized Health Vault States
-  const [activeTab, setActiveTab] = useState<'RECORDS' | 'CONSENTS' | 'AUDIT'>('RECORDS');
   const [verifyingRecord, setVerifyingRecord] = useState<PatientRecord | null>(null);
   const [verificationResult, setVerificationResult] = useState<any>(null);
   const [isVerifying, setIsVerifying] = useState<boolean>(false);
-  const [revokingAddress, setRevokingAddress] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [showQrModal, setShowQrModal] = useState<boolean>(false);
 
@@ -74,19 +67,6 @@ export const BioDataPage: React.FC = () => {
       console.error(err);
     } finally {
       setIsVerifying(false);
-    }
-  };
-
-  const handleRevokeAccess = async (providerAddress: string) => {
-    setRevokingAddress(providerAddress);
-    try {
-      await revokeProviderConsent(providerAddress);
-      setToastMessage(language === 'hi' ? 'अस्पताल की अनुमति सफलतापूर्वक रद्द की गई।' : (language === 'mr' ? 'रुग्णालयाची परवानगी यशस्वीपणे मागे घेण्यात आली.' : 'Provider access consent revoked on-chain.'));
-      setTimeout(() => setToastMessage(null), 4000);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setRevokingAddress(null);
     }
   };
 
@@ -380,56 +360,56 @@ export const BioDataPage: React.FC = () => {
       )}
 
       {/* Top National Health Blockchain Grid Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-5 sm:p-6 shadow-xl border border-indigo-900/60 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+      <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-xs border border-slate-200 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
         <div className="space-y-1.5">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span>National Health Blockchain Grid • Live Node</span>
             </span>
-            <span className="text-[11px] font-mono text-slate-400">
+            <span className="text-[11px] font-mono text-slate-500">
               Polygon Amoy (Chain ID: 80002)
             </span>
           </div>
 
-          <h2 className="text-lg sm:text-xl font-black font-heading tracking-tight text-white flex items-center gap-2">
-            <ShieldCheck className="w-6 h-6 text-emerald-400 shrink-0" />
+          <h2 className="text-lg sm:text-xl font-black font-heading tracking-tight text-slate-900 flex items-center gap-2">
+            <ShieldCheck className="w-6 h-6 text-emerald-600 shrink-0" />
             <span>Decentralized Sovereign Health Record Vault</span>
           </h2>
 
-          <p className="text-xs text-slate-300 max-w-3xl leading-relaxed">
-            All medical records are encrypted client-side using <strong>AES-GCM-256</strong> with your sovereign key, stored across <strong>IPFS</strong>, and immutably anchored on-chain with zero raw Protected Health Information (PHI) exposure.
+          <p className="text-xs text-slate-600 max-w-3xl leading-relaxed">
+            All medical records are encrypted client-side using <strong className="text-slate-800 font-semibold">AES-GCM-256</strong> with your sovereign key, stored across <strong className="text-slate-800 font-semibold">IPFS</strong>, and immutably anchored on-chain with zero raw Protected Health Information (PHI) exposure.
           </p>
         </div>
 
         {/* Blockchain Metadata Chips */}
         <div className="flex flex-col sm:flex-row lg:flex-col gap-2 shrink-0 text-[11px] w-full lg:w-auto">
-          <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between gap-3">
-            <span className="text-slate-400 flex items-center gap-1.5">
-              <Cpu className="w-3.5 h-3.5 text-indigo-400" />
+          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
+            <span className="text-slate-600 flex items-center gap-1.5">
+              <Cpu className="w-3.5 h-3.5 text-indigo-600" />
               <span>Smart Contract:</span>
             </span>
-            <span className="font-mono font-bold text-indigo-200">
+            <span className="font-mono font-bold text-indigo-700">
               0x8A72...7B91
             </span>
           </div>
 
-          <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between gap-3">
-            <span className="text-slate-400 flex items-center gap-1.5">
-              <Layers className="w-3.5 h-3.5 text-emerald-400" />
+          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
+            <span className="text-slate-600 flex items-center gap-1.5">
+              <Layers className="w-3.5 h-3.5 text-emerald-600" />
               <span>Block Height:</span>
             </span>
-            <span className="font-mono font-bold text-emerald-300">
+            <span className="font-mono font-bold text-emerald-700">
               #{blockchainNetwork.currentBlock}
             </span>
           </div>
 
-          <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between gap-3">
-            <span className="text-slate-400 flex items-center gap-1.5">
-              <Key className="w-3.5 h-3.5 text-amber-400" />
+          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
+            <span className="text-slate-600 flex items-center gap-1.5">
+              <Key className="w-3.5 h-3.5 text-amber-600" />
               <span>Patient Sovereign DID:</span>
             </span>
-            <span className="font-mono font-bold text-amber-200">
+            <span className="font-mono font-bold text-amber-700">
               0x3F2b...E02B
             </span>
           </div>
@@ -450,10 +430,6 @@ export const BioDataPage: React.FC = () => {
               </h1>
               <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
                 {tr.biodata.abhaId}: {user.healthId}
-              </span>
-              <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200 flex items-center gap-1">
-                <ShieldCheck className="w-3 h-3 text-indigo-600" />
-                <span>Zero-Knowledge EHR</span>
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-1">
@@ -493,51 +469,13 @@ export const BioDataPage: React.FC = () => {
         onClose={() => setShowQrModal(false)} 
       />
 
-      {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-1 overflow-x-auto">
-        <button
-          type="button"
-          onClick={() => setActiveTab('RECORDS')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition cursor-pointer shrink-0 ${
-            activeTab === 'RECORDS'
-              ? 'bg-indigo-600 text-white shadow-md'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
+      {/* Electronic Health Records Section Header */}
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-1">
+        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-indigo-600 text-white shadow-xs">
           <FileText className="w-4 h-4" />
           <span>Electronic Health Records ({user.pastRecords.length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('CONSENTS')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition cursor-pointer shrink-0 ${
-            activeTab === 'CONSENTS'
-              ? 'bg-indigo-600 text-white shadow-md'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          <Key className="w-4 h-4" />
-          <span>Consent & Access Control ({consentGrants.filter(g => g.isActive).length} Active)</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('AUDIT')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition cursor-pointer shrink-0 ${
-            activeTab === 'AUDIT'
-              ? 'bg-indigo-600 text-white shadow-md'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          <Database className="w-4 h-4" />
-          <span>On-Chain Audit Trail ({auditLogs.length})</span>
-        </button>
+        </div>
       </div>
-
-      {/* TAB 1: ELECTRONIC HEALTH RECORDS */}
-      {activeTab === 'RECORDS' && (
-        <>
           {/* Two Column Layout: Current Conditions & Active Medications */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
@@ -744,140 +682,7 @@ export const BioDataPage: React.FC = () => {
               ))}
             </div>
           </div>
-        </>
-      )}
 
-      {/* TAB 2: CONSENT & ACCESS CONTROL (DPDP ACT 2023) */}
-      {activeTab === 'CONSENTS' && (
-        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs space-y-6 animate-in fade-in">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-extrabold text-slate-900 text-lg font-heading">
-                  Dynamic Consent & Access Governance
-                </h3>
-                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-                  DPDP Act 2023 Compliant
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 mt-1 max-w-3xl">
-                Under India's Digital Personal Data Protection Act 2023 and ABDM Data Governance standards, you retain 100% sovereign ownership of your health data. Hospitals, doctors, and emergency responders can only access your records while your smart contract consent token remains valid.
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {consentGrants.map((grant) => (
-              <div key={grant.providerAddress} className={`p-5 rounded-2xl border transition ${grant.isActive ? 'bg-white border-slate-200 shadow-xs' : 'bg-slate-50 border-slate-200 opacity-60'}`}>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="space-y-1">
-                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${grant.providerType === 'AMBULANCE' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}>
-                      {grant.providerType}
-                    </span>
-                    <h4 className="font-bold text-sm text-slate-900 leading-tight pt-1">
-                      {grant.providerName}
-                    </h4>
-                  </div>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${grant.isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${grant.isActive ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                    <span>{grant.isActive ? 'Active Grant' : 'Revoked'}</span>
-                  </span>
-                </div>
-
-                <div className="mt-4 space-y-2 text-xs text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-150">
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-slate-400">DID Address:</span>
-                    <span className="font-mono text-indigo-700 font-bold">{grant.providerAddress.slice(0, 10)}...{grant.providerAddress.slice(-4)}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-slate-400">Validity:</span>
-                    <span className="font-bold text-slate-800">{grant.validUntil}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-slate-400">Granted On:</span>
-                    <span className="text-slate-600">{grant.grantedAt}</span>
-                  </div>
-                </div>
-
-                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-[11px] text-slate-400 flex items-center gap-1">
-                    <Lock className="w-3 h-3 text-emerald-600" />
-                    <span>Time-Bounded</span>
-                  </span>
-                  {grant.isActive ? (
-                    <button
-                      type="button"
-                      disabled={revokingAddress === grant.providerAddress}
-                      onClick={() => handleRevokeAccess(grant.providerAddress)}
-                      className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold rounded-xl transition cursor-pointer active:scale-95 disabled:opacity-50 flex items-center gap-1.5"
-                    >
-                      <Unlock className="w-3.5 h-3.5" />
-                      <span>{revokingAddress === grant.providerAddress ? 'Revoking On-Chain...' : 'Revoke Access'}</span>
-                    </button>
-                  ) : (
-                    <span className="text-xs text-slate-400 font-medium italic">Access Terminated</span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* TAB 3: IMMUTABLE ON-CHAIN AUDIT TRAIL */}
-      {activeTab === 'AUDIT' && (
-        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs space-y-4 animate-in fade-in">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-extrabold text-slate-900 text-lg font-heading">
-                  Immutable On-Chain Audit Trail
-                </h3>
-                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-300">
-                  Smart Contract Event Stream
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 mt-1">
-                Non-repudiable forensic ledger tracking every issuance, integrity verification check, and patient consent change. Emitted via <code>EHRRegistry.sol</code> smart contract.
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-3 pt-2">
-            {auditLogs.map((log) => (
-              <div key={log.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 hover:border-slate-300 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full ${
-                      log.actionType === 'RECORD_MINTED' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
-                      log.actionType === 'INTEGRITY_VERIFIED' ? 'bg-purple-100 text-purple-800 border border-purple-200' :
-                      log.actionType === 'ACCESS_REVOKED' ? 'bg-rose-100 text-rose-800 border border-rose-200' :
-                      log.actionType === 'EMERGENCY_BREAKGLASS' ? 'bg-red-100 text-red-800 border border-red-300' :
-                      'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                    }`}>
-                      {log.actionType.replace('_', ' ')}
-                    </span>
-                    <span className="font-bold text-slate-800">{log.accessorName}</span>
-                    <span className="text-slate-400 font-mono text-[11px]">({log.accessor.slice(0, 8)}...{log.accessor.slice(-4)})</span>
-                  </div>
-                  <p className="text-slate-700 font-medium">{log.details}</p>
-                  <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono">
-                    <span>Tx: {log.txHash.slice(0, 16)}...</span>
-                    <span>•</span>
-                    <span>Block #{log.blockNumber}</span>
-                  </div>
-                </div>
-
-                <div className="text-right shrink-0">
-                  <span className="text-[11px] font-semibold text-slate-500 bg-white px-2.5 py-1 rounded-lg border border-slate-200 block sm:inline-block">
-                    {log.timestamp}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Cryptographic On-Chain Integrity Proof Modal */}
       {verifyingRecord && (
