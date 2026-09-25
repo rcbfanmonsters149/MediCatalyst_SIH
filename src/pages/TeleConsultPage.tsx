@@ -19,7 +19,9 @@ import {
   ExternalLink,
   Activity,
   Check,
-  Star
+  Star,
+  FileText,
+  CheckCircle2
 } from '../components/icons';
 import { useApp, DEFAULT_DOCTOR_SLOTS } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -27,8 +29,10 @@ import { DoctorOnDuty, Hospital, TeleAppointment, UrgencyType } from '../types';
 import { VideoConsultModal } from '../components/teleconsult/VideoConsultModal';
 import { STANDARD_TIME_WINDOWS, generateNextToken } from '../utils/queueEngine';
 import { VirtualQueueTrackerCard } from '../components/teleconsult/VirtualQueueTrackerCard';
+import { DoctorCallHistoryCard } from '../components/teleconsult/DoctorCallHistoryCard';
 
 type ConsultMode = 'INSTANT' | 'SCHEDULE';
+type UserConsultsTab = 'CALL_HISTORY' | 'ACTIVE_QUEUE';
 
 export const TeleConsultPage: React.FC = () => {
   const { 
@@ -44,6 +48,7 @@ export const TeleConsultPage: React.FC = () => {
   const [consultMode, setConsultMode] = useState<ConsultMode>('INSTANT');
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [userConsultsTab, setUserConsultsTab] = useState<UserConsultsTab>('CALL_HISTORY');
 
   // Modals state
   const [bookingDoctor, setBookingDoctor] = useState<{ doctor: DoctorOnDuty; hospital: Hospital } | null>(null);
@@ -59,9 +64,17 @@ export const TeleConsultPage: React.FC = () => {
   const [urgency, setUrgency] = useState<UrgencyType>('ROUTINE');
   const [consultType, setConsultType] = useState<'VIDEO' | 'AUDIO'>('VIDEO');
 
-  // Compile all doctors across all available hospitals
-  const allDoctors = hospitals.flatMap(h => 
-    h.doctorsOnDuty.map(d => ({ doctor: d, hospital: h }))
+  // Compile ONLY AVAILABLE doctors across all available hospitals
+  // Strictly hide off duty, unavailable, on leave, or emergency-busy doctors
+  const availableDoctors = hospitals.flatMap(h => 
+    h.doctorsOnDuty
+      .filter(d => {
+        const sched = d.scheduleSettings;
+        const isOffDuty = !d.available || d.statusDetail === 'OFF_DUTY' || d.statusDetail === 'BUSY';
+        const isModeUnavailable = sched && (sched.dutyMode === 'OFF_DUTY' || sched.dutyMode === 'ON_LEAVE' || sched.dutyMode === 'HOSPITAL_EMERGENCY');
+        return !isOffDuty && !isModeUnavailable;
+      })
+      .map(d => ({ doctor: d, hospital: h }))
   );
 
   const specialties = [
@@ -75,7 +88,7 @@ export const TeleConsultPage: React.FC = () => {
     { id: 'Neurosurgery & Critical Trauma', label: 'Neurosurgery' }
   ];
 
-  const filteredDoctors = allDoctors.filter(({ doctor, hospital }) => {
+  const filteredDoctors = availableDoctors.filter(({ doctor, hospital }) => {
     const matchesSpecialty = selectedSpecialty === 'ALL' || 
       doctor.department?.includes(selectedSpecialty) || 
       doctor.designation.includes(selectedSpecialty);
@@ -89,6 +102,9 @@ export const TeleConsultPage: React.FC = () => {
   const myAppointments = appointments.filter(a => 
     a.patientId === user.id || a.patientAbhaId === user.healthId || a.patientName === user.fullName
   );
+
+  const activeAppointments = myAppointments.filter(a => a.status !== 'COMPLETED' && a.status !== 'CANCELLED');
+  const completedCalls = myAppointments.filter(a => a.status === 'COMPLETED');
 
   const quickSymptoms = [
     'Fever and chills for 2 days',
@@ -222,56 +238,126 @@ export const TeleConsultPage: React.FC = () => {
         </button>
       </div>
 
-      {/* 3. MY CONSULTATIONS QUEUE */}
-      <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-xs space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+      {/* 3. MY CONSULTATIONS QUEUE & DOCTOR CALLS HISTORY */}
+      <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-xs space-y-5">
+        
+        {/* Section Header with Tabs */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
           <div>
             <h2 className="text-lg font-extrabold text-slate-900 font-heading flex items-center gap-2">
-              <Clock className="w-5 h-5 text-teal-600" />
-              <span>My Consultations & Bookings Queue</span>
+              <Stethoscope className="w-5 h-5 text-teal-600" />
+              <span>My Doctor Consultations & Tele-OPD Desk</span>
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Active video consultation rooms and scheduled appointments for {user.fullName}.
+              Review your completed doctor calls with digital prescriptions, or monitor active waiting tokens.
             </p>
           </div>
-          <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-teal-50 text-teal-800 border border-teal-200 font-mono">
-            {myAppointments.length} Bookings
-          </span>
+
+          {/* Toggle between Call History and Active Queue */}
+          <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-2xl shrink-0 self-start sm:self-auto border border-slate-200">
+            <button
+              type="button"
+              onClick={() => setUserConsultsTab('CALL_HISTORY')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                userConsultsTab === 'CALL_HISTORY'
+                  ? 'bg-white text-teal-900 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5 text-teal-600" />
+              <span>Calls & Prescriptions</span>
+              <span className={`text-[10px] font-black px-1.5 py-0.2 rounded-full font-mono ${
+                userConsultsTab === 'CALL_HISTORY' ? 'bg-teal-100 text-teal-800' : 'bg-slate-200 text-slate-700'
+              }`}>
+                {completedCalls.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setUserConsultsTab('ACTIVE_QUEUE')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                userConsultsTab === 'ACTIVE_QUEUE'
+                  ? 'bg-white text-teal-900 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Clock className="w-3.5 h-3.5 text-teal-600" />
+              <span>Live Queue Tokens</span>
+              <span className={`text-[10px] font-black px-1.5 py-0.2 rounded-full font-mono ${
+                userConsultsTab === 'ACTIVE_QUEUE' ? 'bg-teal-100 text-teal-800' : 'bg-slate-200 text-slate-700'
+              }`}>
+                {activeAppointments.length}
+              </span>
+            </button>
+          </div>
         </div>
 
-        {myAppointments.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {myAppointments.map(appt => (
-              <VirtualQueueTrackerCard
-                key={appt.id}
-                appointment={appt}
-                onJoinCall={(a) => setActiveCallAppt(a)}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-6 text-slate-500 text-xs space-y-2">
-            <Clock className="w-8 h-8 text-slate-300 mx-auto" />
-            <p>You have no active appointments booked yet. Choose an on-duty doctor below to start or schedule a consultation.</p>
+        {/* Tab 1: Completed Doctor Calls with Attached Prescriptions */}
+        {userConsultsTab === 'CALL_HISTORY' && (
+          <div className="space-y-5">
+            {completedCalls.length > 0 ? (
+              <div className="space-y-5">
+                {completedCalls.map(appt => (
+                  <DoctorCallHistoryCard
+                    key={appt.id}
+                    appointment={appt}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-slate-500 text-xs space-y-2 bg-slate-50 rounded-2xl border border-slate-200">
+                <FileText className="w-8 h-8 text-slate-300 mx-auto" />
+                <p className="font-semibold text-slate-700">No completed doctor calls found yet.</p>
+                <p className="text-slate-400">When you complete a video consultation with an available doctor, your session timing and official e-prescription will appear here.</p>
+              </div>
+            )}
           </div>
         )}
+
+        {/* Tab 2: Active Queue & Upcoming Scheduled Bookings */}
+        {userConsultsTab === 'ACTIVE_QUEUE' && (
+          <div>
+            {activeAppointments.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {activeAppointments.map(appt => (
+                  <VirtualQueueTrackerCard
+                    key={appt.id}
+                    appointment={appt}
+                    onJoinCall={(a) => setActiveCallAppt(a)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-slate-500 text-xs space-y-2 bg-slate-50 rounded-2xl border border-slate-200">
+                <Clock className="w-8 h-8 text-slate-300 mx-auto" />
+                <p className="font-semibold text-slate-700">You have no active waiting tokens right now.</p>
+                <p className="text-slate-400">All your consultations are up to date. You can connect with an available on-duty doctor below.</p>
+              </div>
+            )}
+          </div>
+        )}
+
       </div>
 
-      {/* 4. DOCTOR DIRECTORY: Mode A (Instant) vs Mode B (Schedule) */}
+      {/* 4. DOCTOR DIRECTORY: Mode A (Instant) vs Mode B (Schedule) - ONLY AVAILABLE DOCTORS */}
       <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-xs space-y-6">
         
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Stethoscope className="w-5 h-5 text-teal-600" />
               <h2 className="text-xl font-extrabold text-slate-900 font-heading">
-                {consultMode === 'INSTANT' ? 'Meet an On-Duty Doctor Right Now' : 'Schedule a Tele-OPD Consultation Slot'}
+                {consultMode === 'INSTANT' ? 'Meet an Available Doctor Right Now' : 'Schedule with an Available Specialist'}
               </h2>
+              <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                Only Available Doctors Shown
+              </span>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
               {consultMode === 'INSTANT' 
-                ? 'Doctors currently logged in and ready for immediate 1-on-1 video consultations.' 
-                : 'Select an on-duty specialist and choose from their active consultation hours.'}
+                ? 'Doctors currently on duty and online for immediate 1-on-1 video consultations.' 
+                : 'Choose an active on-duty specialist to book an advance consultation window.'}
             </p>
           </div>
 
@@ -280,7 +366,7 @@ export const TeleConsultPage: React.FC = () => {
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
             <input 
               type="text"
-              placeholder="Search doctor or hospital..."
+              placeholder="Search available doctor or hospital..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-teal-500 focus:bg-white"
@@ -305,136 +391,84 @@ export const TeleConsultPage: React.FC = () => {
           ))}
         </div>
 
-        {/* Doctors Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredDoctors.map(({ doctor, hospital }) => {
-            const sched = doctor.scheduleSettings;
-            const isAvailableForInstant = (!sched || sched.dutyMode === 'AVAILABLE') && doctor.available && sched?.readyForInstantConsult !== false;
-            const isInEmergency = sched?.dutyMode === 'HOSPITAL_EMERGENCY';
-            const isOnLeave = sched?.dutyMode === 'ON_LEAVE';
-            const isOffDuty = sched?.dutyMode === 'OFF_DUTY' || !doctor.available;
+        {/* Available Doctors Notice Banner */}
+        <div className="p-3 rounded-2xl bg-emerald-50/70 border border-emerald-200 flex items-center justify-between text-xs text-emerald-950">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+            <span className="font-semibold">
+              Live Filter Active: Showing {filteredDoctors.length} available medical officer{filteredDoctors.length === 1 ? '' : 's'}. Off-duty and unavailable personnel are hidden.
+            </span>
+          </div>
+        </div>
 
-            return (
-              <div 
-                key={`${hospital.id}-${doctor.id}`}
-                className={`p-5 rounded-2xl border transition-all space-y-4 flex flex-col justify-between ${
-                  isAvailableForInstant
-                    ? 'bg-white border-emerald-200 hover:border-emerald-400 shadow-xs hover:shadow-md ring-1 ring-emerald-500/10'
-                    : isInEmergency
-                      ? 'bg-rose-50/40 border-rose-200 hover:border-rose-300'
-                      : isOnLeave
-                        ? 'bg-purple-50/40 border-purple-200'
-                        : 'bg-slate-50 border-slate-200 opacity-90'
-                }`}
-              >
-                <div className="space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-lg shadow-md shrink-0 text-white ${
-                        isAvailableForInstant
-                          ? 'bg-gradient-to-br from-emerald-500 to-teal-600'
-                          : isInEmergency
-                            ? 'bg-gradient-to-br from-rose-500 to-red-600'
-                            : isOnLeave
-                              ? 'bg-gradient-to-br from-purple-500 to-indigo-600'
-                              : 'bg-slate-400'
-                      }`}>
-                        {doctor.name.replace('Dr. ', '').charAt(0)}
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-slate-900 text-base leading-tight">
-                          {doctor.name}
-                        </h4>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <p className="text-xs text-teal-700 font-semibold">
-                            {doctor.designation}
-                          </p>
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-md bg-amber-50 text-amber-900 border border-amber-200 text-[10px] font-black">
-                            <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
-                            <span>{doctor.profile?.averageRating || 4.9}</span>
-                          </span>
+        {/* Doctors Grid - ONLY Available Doctors */}
+        {filteredDoctors.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {filteredDoctors.map(({ doctor, hospital }) => {
+              const sched = doctor.scheduleSettings;
+
+              return (
+                <div 
+                  key={`${hospital.id}-${doctor.id}`}
+                  className="p-5 rounded-2xl border transition-all space-y-4 flex flex-col justify-between bg-white border-emerald-200 hover:border-emerald-400 shadow-xs hover:shadow-md ring-1 ring-emerald-500/10"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-lg shadow-md shrink-0 text-white bg-gradient-to-br from-emerald-500 to-teal-600">
+                          {doctor.name.replace('Dr. ', '').charAt(0)}
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-slate-900 text-base leading-tight">
+                            {doctor.name}
+                          </h4>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <p className="text-xs text-teal-700 font-semibold">
+                              {doctor.designation}
+                            </p>
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-md bg-amber-50 text-amber-900 border border-amber-200 text-[10px] font-black">
+                              <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
+                              <span>{doctor.profile?.averageRating || 4.9}</span>
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Status Ribbon */}
-                    <div className="shrink-0">
-                      {isAvailableForInstant && (
-                        <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                      {/* Status Ribbon - Guaranteed Available */}
+                      <div className="shrink-0">
+                        <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
                           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                           <span>Available Now</span>
                         </span>
-                      )}
-                      {isInEmergency && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300 animate-pulse">
-                          <span>🚨 In Emergency OT</span>
+                      </div>
+                    </div>
+
+                    {/* Hospital & Location Details */}
+                    <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-200/80 text-xs space-y-1">
+                      <div className="flex items-center gap-1.5 text-slate-700 font-medium">
+                        <Building2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                        <span className="truncate">{hospital.name}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-slate-500 text-[11px]">
+                        <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <span>Shift: {doctor.shift}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-200/60">
+                        <span className="text-teal-700 font-semibold">
+                          OPD Room: {doctor.roomNumber || 'Room 101'}
                         </span>
-                      )}
-                      {isOnLeave && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-300">
-                          <span>🏖️ On Leave</span>
-                        </span>
-                      )}
-                      {isOffDuty && !isInEmergency && !isOnLeave && (
-                        <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">
-                          Off Duty
-                        </span>
-                      )}
+                        {sched?.availableTimeSlots && (
+                          <span className="font-mono text-slate-500 text-[10px]">
+                            {sched.availableTimeSlots.length} slots active
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  {/* Hospital & Location Details */}
-                  <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-200/80 text-xs space-y-1">
-                    <div className="flex items-center gap-1.5 text-slate-700 font-medium">
-                      <Building2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                      <span className="truncate">{hospital.name}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-slate-500 text-[11px]">
-                      <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span>Shift: {doctor.shift}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-200/60">
-                      <span className="text-teal-700 font-semibold">
-                        OPD Room: {doctor.roomNumber || 'Room 101'}
-                      </span>
-                      {sched?.availableTimeSlots && (
-                        <span className="font-mono text-slate-500 text-[10px]">
-                          {sched.availableTimeSlots.length} slots active
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Advisory Notice (if in emergency or on leave) */}
-                  {isInEmergency && (
-                    <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-[11px] text-rose-900 space-y-0.5">
-                      <span className="font-bold flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3 text-rose-600 shrink-0" />
-                        <span>Resuming in {sched?.emergencyEstimatedResume || '~45 mins'}</span>
-                      </span>
-                      <p className="text-rose-700 text-[10px]">
-                        "{sched?.emergencyNote || 'Operating in Emergency OT. Live calls delayed.'}"
-                      </p>
-                    </div>
-                  )}
-
-                  {isOnLeave && (
-                    <div className="p-2.5 rounded-xl bg-purple-50 border border-purple-200 text-[11px] text-purple-900 space-y-0.5">
-                      <span className="font-bold flex items-center gap-1">
-                        <Calendar className="w-3 h-3 text-purple-600 shrink-0" />
-                        <span>On Leave ({sched?.leaveDate || 'Today'})</span>
-                      </span>
-                      <p className="text-purple-700 text-[10px]">
-                        "{sched?.leaveReason || 'Official approved leave.'}"
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Primary Action Button Based on Mode */}
-                <div className="pt-2">
-                  {consultMode === 'INSTANT' ? (
-                    isAvailableForInstant ? (
+                  {/* Primary Action Button Based on Mode */}
+                  <div className="pt-2">
+                    {consultMode === 'INSTANT' ? (
                       <button
                         type="button"
                         onClick={() => setInstantDoctorModal({ doctor, hospital })}
@@ -446,31 +480,25 @@ export const TeleConsultPage: React.FC = () => {
                     ) : (
                       <button
                         type="button"
-                        onClick={() => {
-                          setConsultMode('SCHEDULE');
-                          setBookingDoctor({ doctor, hospital });
-                        }}
-                        className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 transition flex items-center justify-center gap-1.5 cursor-pointer"
+                        onClick={() => setBookingDoctor({ doctor, hospital })}
+                        className="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
                       >
-                        <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                        <span>Book Advance Slot Instead</span>
+                        <Calendar className="w-4 h-4" />
+                        <span>Book Tele-Consult Slot</span>
                       </button>
-                    )
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setBookingDoctor({ doctor, hospital })}
-                      className="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
-                    >
-                      <Calendar className="w-4 h-4" />
-                      <span>Book Tele-Consult Slot</span>
-                    </button>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="p-8 text-center rounded-2xl bg-slate-50 border border-slate-200 text-slate-500 text-xs space-y-2">
+            <Stethoscope className="w-8 h-8 text-slate-300 mx-auto" />
+            <p className="font-semibold text-slate-700">No available doctors found matching your criteria.</p>
+            <p className="text-slate-400">All doctors in this specialty are currently off duty or in consultation. Please select "All Specialties" or try again shortly.</p>
+          </div>
+        )}
 
       </div>
 

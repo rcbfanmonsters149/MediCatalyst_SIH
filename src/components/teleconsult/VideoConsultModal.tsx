@@ -118,7 +118,32 @@ export const VideoConsultModal: React.FC<VideoConsultModalProps> = ({
 
   const handleEndCall = () => {
     if (appointment) {
-      updateAppointmentStatus(appointment.id, 'COMPLETED');
+      const durationMins = Math.max(1, Math.round(callDuration / 60) || 1);
+      const now = new Date();
+      const startTime = new Date(now.getTime() - callDuration * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const endTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      
+      const defaultPrescription = appointment.prescription || {
+        id: `rx-${Date.now()}`,
+        diagnosis: appointment.symptoms || 'Acute Symptomatic Management',
+        medications: [
+          { name: 'Paracetamol', dosage: '650 mg', frequency: '1-0-1 (Morning & Night)', duration: '3 Days', instructions: 'Take after meals with warm water' },
+          { name: 'Pantoprazole', dosage: '40 mg', frequency: '1-0-0 (Morning)', duration: '5 Days', instructions: 'Take empty stomach 30 mins before breakfast' },
+          { name: 'Cetirizine', dosage: '10 mg', frequency: '0-0-1 (Bedtime)', duration: '3 Days', instructions: 'At night if fever/cold symptoms persist' }
+        ],
+        instructions: 'Rest adequately, monitor vitals twice daily. Drink warm water.',
+        advice: 'Follow up in 3 days if symptoms do not improve or visit nearest PHC.',
+        issuedAt: `${now.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}, ${endTime}`,
+        doctorSignature: `${appointment.doctorName} (Reg. No: MCI-2018-8821)`
+      };
+
+      updateAppointmentStatus(appointment.id, 'COMPLETED', {
+        actualStartTime: appointment.actualStartTime || startTime,
+        actualEndTime: endTime,
+        actualDurationMinutes: durationMins,
+        prescriptionIssued: true,
+        prescription: defaultPrescription
+      });
       if (onConsultationCompleted) onConsultationCompleted(appointment.id);
     }
     if (userRole === 'CITIZEN') {

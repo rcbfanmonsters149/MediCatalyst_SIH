@@ -557,6 +557,15 @@ export interface TeleAppointment {
   prescriptionIssued?: boolean;
   prescriptionId?: string;
   clinicalNotes?: string;
+  prescription?: {
+    id?: string;
+    diagnosis?: string;
+    medications: PrescriptionMedication[];
+    instructions?: string;
+    advice?: string;
+    issuedAt?: string;
+    doctorSignature?: string;
+  };
 }
 
 export interface DoctorPatientReview {

@@ -161,7 +161,7 @@ interface AppContextType {
   appointments: TeleAppointment[];
   bookAppointment: (appt: Omit<TeleAppointment, 'id' | 'bookedAt' | 'status' | 'tokenNumber' | 'tokenSequence' | 'queueStatus'> & { timeWindow?: string }) => TeleAppointment;
   initiateInstantConsultation: (doctorId: string, symptomText?: string) => TeleAppointment;
-  updateAppointmentStatus: (id: string, status: TeleAppointment['status']) => void;
+  updateAppointmentStatus: (id: string, status: TeleAppointment['status'], extra?: Partial<TeleAppointment>) => void;
   doctorUser: DoctorUser | null;
   loginDoctor: (doctorId: string) => boolean;
   logoutDoctor: () => void;
@@ -523,6 +523,98 @@ const INITIAL_APPOINTMENTS: TeleAppointment[] = [
     status: 'SCHEDULED',
     bookedAt: 'Yesterday, 04:15 PM',
     bookedAtTimestamp: Date.now() - 120 * 60000
+  },
+  {
+    id: 'appt-call-completed-01',
+    patientId: 'user-rameshwar-singh',
+    patientName: 'Rameshwar Singh',
+    patientPhone: '+91 98765 43210',
+    patientAbhaId: '91-2849-5830-1092',
+    patientAge: 52,
+    patientGender: 'Male',
+    patientBloodGroup: 'O+ (Positive)',
+    doctorId: 'doc-1',
+    doctorName: 'Dr. Kavita Sharma',
+    doctorSpecialty: 'Medical Officer (MBBS) • General OPD',
+    hospitalId: 'hosp-rampur-phc',
+    hospitalName: 'Rampur Primary Health Center (PHC)',
+    date: '20 Sep 2026',
+    timeSlot: '10:00 AM – 12:00 PM',
+    timeWindow: '10:00 AM – 12:00 PM',
+    tokenNumber: 'A-04',
+    tokenSequence: 4,
+    queueStatus: 'COMPLETED',
+    status: 'COMPLETED',
+    actualStartTime: '10:22 AM',
+    actualEndTime: '10:38 AM',
+    actualDurationMinutes: 16,
+    symptoms: 'Persistent dry cough, mild chest tightness and seasonal allergic rhinitis',
+    urgency: 'ROUTINE',
+    consultationType: 'VIDEO',
+    bookedAt: '20 Sep 2026, 09:30 AM',
+    bookedAtTimestamp: Date.now() - 5 * 86400000,
+    prescriptionIssued: true,
+    prescriptionId: 'rx-2026-0920-01',
+    clinicalNotes: 'Upper respiratory allergic response confirmed. Vitals stable. Advised home steam inhalation and prescribed oral bronchodilator therapy.',
+    prescription: {
+      id: 'rx-2026-0920-01',
+      diagnosis: 'Upper Respiratory Tract Infection (URTI) with Allergic Bronchospasm',
+      medications: [
+        { name: 'Azithromycin', dosage: '500 mg', frequency: '1-0-0 (Morning after breakfast)', duration: '3 Days', instructions: 'Take with warm water, complete full course' },
+        { name: 'Montelukast + Levocetirizine', dosage: '10 mg / 5 mg', frequency: '0-0-1 (Bedtime)', duration: '7 Days', instructions: 'Take before sleep to prevent night cough' },
+        { name: 'Salbutamol Inhaler', dosage: '100 mcg', frequency: '2 Puffs SOS', duration: 'As needed', instructions: 'Use when feeling breathlessness. Rinse mouth afterwards' }
+      ],
+      instructions: 'Steam inhalation twice daily. Drink warm water with honey. Avoid dust exposure, air pollutants, and cold drinks.',
+      advice: 'Strictly avoid Amoxicillin / Penicillin derivatives due to patient severe anaphylactic allergy registered in ABHA.',
+      issuedAt: '20 Sep 2026, 10:38 AM',
+      doctorSignature: 'Dr. Kavita Sharma, MBBS (Reg. NBE-94182)'
+    }
+  },
+  {
+    id: 'appt-call-completed-02',
+    patientId: 'user-rameshwar-singh',
+    patientName: 'Rameshwar Singh',
+    patientPhone: '+91 98765 43210',
+    patientAbhaId: '91-2849-5830-1092',
+    patientAge: 52,
+    patientGender: 'Male',
+    patientBloodGroup: 'O+ (Positive)',
+    doctorId: 'doc-3',
+    doctorName: 'Dr. Rajesh Mehta',
+    doctorSpecialty: 'Senior Emergency Physician • Critical Care',
+    hospitalId: 'hosp-bilaspur-chc',
+    hospitalName: 'Bilaspur Community Health Center (CHC)',
+    date: '12 Sep 2026',
+    timeSlot: '02:00 PM – 04:00 PM',
+    timeWindow: '02:00 PM – 04:00 PM',
+    tokenNumber: 'B-02',
+    tokenSequence: 2,
+    queueStatus: 'COMPLETED',
+    status: 'COMPLETED',
+    actualStartTime: '02:35 PM',
+    actualEndTime: '02:51 PM',
+    actualDurationMinutes: 16,
+    symptoms: 'Essential Hypertension review and intermittent light-headedness after morning field walking',
+    urgency: 'PRIORITY',
+    consultationType: 'VIDEO',
+    bookedAt: '12 Sep 2026, 01:15 PM',
+    bookedAtTimestamp: Date.now() - 13 * 86400000,
+    prescriptionIssued: true,
+    prescriptionId: 'rx-2026-0912-02',
+    clinicalNotes: 'Blood Pressure 154/96 mmHg on home cuff. Maintained cardiac stability. Titrated anti-hypertensive therapy.',
+    prescription: {
+      id: 'rx-2026-0912-02',
+      diagnosis: 'Essential Hypertension Stage 2 (Blood Pressure 154/96 mmHg)',
+      medications: [
+        { name: 'Telmisartan', dosage: '40 mg', frequency: '1-0-0 (Morning after breakfast)', duration: '30 Days', instructions: 'Take regularly at the same time each morning' },
+        { name: 'Amlodipine', dosage: '5 mg', frequency: '0-0-1 (Night at bedtime)', duration: '15 Days', instructions: 'Monitor for ankle swelling' },
+        { name: 'ORS Solution / Electrolytes', dosage: '1 Sachet in 1L water', frequency: 'SOS', duration: 'As needed', instructions: 'During hot afternoons to prevent dehydration' }
+      ],
+      instructions: 'Maintain low-sodium diet (< 3.5g salt per day). Avoid strenuous farm work during peak afternoon heat (12 PM - 3 PM).',
+      advice: 'Daily morning resting BP logs required. If SBP exceeds 180 mmHg or severe occipital headache occurs, call 108 immediately.',
+      issuedAt: '12 Sep 2026, 02:51 PM',
+      doctorSignature: 'Dr. Rajesh Mehta, MD (Reg. MCI-72109)'
+    }
   }
 ];
 
@@ -1302,7 +1394,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const saved = localStorage.getItem('medcatalyst_tele_appointments');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed: TeleAppointment[] = JSON.parse(saved);
+        // Ensure initial completed records with prescriptions exist if missing
+        const completedInitial = INITIAL_APPOINTMENTS.filter(a => a.status === 'COMPLETED');
+        const missingInitial = completedInitial.filter(init => !parsed.some(p => p.id === init.id));
+        if (missingInitial.length > 0) {
+          const merged = [...parsed, ...missingInitial];
+          localStorage.setItem('medcatalyst_tele_appointments', JSON.stringify(merged));
+          return merged;
+        }
+        return parsed;
       } catch (e) {
         console.error(e);
       }
@@ -1614,9 +1715,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('medcatalyst_tele_appointments', JSON.stringify(recalculated));
   };
 
-  const updateAppointmentStatus = (id: string, status: TeleAppointment['status']) => {
+  const updateAppointmentStatus = (id: string, status: TeleAppointment['status'], extra?: Partial<TeleAppointment>) => {
     setAppointments(prev => {
-      const updated = prev.map(a => a.id === id ? { ...a, status } : a);
+      const updated = prev.map(a => a.id === id ? { ...a, status, ...extra } : a);
       localStorage.setItem('medcatalyst_tele_appointments', JSON.stringify(updated));
       return updated;
     });
