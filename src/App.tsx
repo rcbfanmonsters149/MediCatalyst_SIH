@@ -18,6 +18,7 @@ import { PatientRecordViewPage } from './pages/PatientRecordViewPage';
 import { Building2, ArrowRight, Truck, ShieldCheck, Stethoscope } from './components/icons';
 
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 /**
  * Public Citizen Healthcare Portal (Route: /)
@@ -183,42 +184,44 @@ const DoctorPortal: React.FC = () => {
 
 export default function App() {
   return (
-    <LanguageProvider>
-      <AppProvider>
-        <Router>
-          <Routes>
-            {/* Public Citizen Portal */}
-            <Route path="/" element={<CitizenPortal />} />
-            <Route path="/teleconsult" element={<CitizenPortal defaultTab="teleconsult" />} />
+    <ErrorBoundary>
+      <LanguageProvider>
+        <AppProvider>
+          <Router>
+            <Routes>
+              {/* Public Citizen Portal */}
+              <Route path="/" element={<CitizenPortal />} />
+              <Route path="/teleconsult" element={<CitizenPortal defaultTab="teleconsult" />} />
 
-            {/* Doctor Clinical & Tele-OPD Portal */}
-            <Route path="/doctor" element={<DoctorPortal />} />
-            <Route path="/doctor/login" element={<DoctorLoginPage />} />
+              {/* Doctor Clinical & Tele-OPD Portal */}
+              <Route path="/doctor" element={<DoctorPortal />} />
+              <Route path="/doctor/login" element={<DoctorLoginPage />} />
 
-            {/* Hospital Staff Portal */}
-            <Route path="/hospital" element={<HospitalPortal />} />
+              {/* Hospital Staff Portal */}
+              <Route path="/hospital" element={<HospitalPortal />} />
 
-            {/* Ambulance Crew Portal */}
-            <Route path="/ambulance" element={<AmbulancePortal />} />
+              {/* Ambulance Crew Portal */}
+              <Route path="/ambulance" element={<AmbulancePortal />} />
 
-            {/* Traffic Police Signal Post Dashboard */}
-            <Route path="/police" element={<TrafficPolicePortal />} />
-            <Route path="/traffic" element={<Navigate to="/police" replace />} />
+              {/* Traffic Police Signal Post Dashboard */}
+              <Route path="/police" element={<TrafficPolicePortal />} />
+              <Route path="/traffic" element={<Navigate to="/police" replace />} />
 
-            {/* Frontline Healthcare Workers & ASHA Portal */}
-            <Route path="/workers" element={<PublicWorkersPage />} />
-            <Route path="/asha" element={<Navigate to="/workers" replace />} />
-            <Route path="/frontline" element={<Navigate to="/workers" replace />} />
+              {/* Frontline Healthcare Workers & ASHA Portal */}
+              <Route path="/workers" element={<PublicWorkersPage />} />
+              <Route path="/asha" element={<Navigate to="/workers" replace />} />
+              <Route path="/frontline" element={<Navigate to="/workers" replace />} />
 
-            {/* Doctor Clinical EHR & Patient QR Scan Route */}
-            <Route path="/records" element={<PatientRecordViewPage />} />
-            <Route path="/doctor/records" element={<Navigate to="/records" replace />} />
+              {/* Doctor Clinical EHR & Patient QR Scan Route */}
+              <Route path="/records" element={<PatientRecordViewPage />} />
+              <Route path="/doctor/records" element={<Navigate to="/records" replace />} />
 
-            {/* Fallback */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Router>
-      </AppProvider>
-    </LanguageProvider>
+              {/* Fallback */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Router>
+        </AppProvider>
+      </LanguageProvider>
+    </ErrorBoundary>
   );
 }
