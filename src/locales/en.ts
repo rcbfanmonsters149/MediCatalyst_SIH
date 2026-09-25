@@ -445,6 +445,48 @@ export const en = {
     neurologist: "Neurologist",
     generalSurgeon: "General Surgeon",
     pulmonologist: "Pulmonologist"
+  },
+  handover: {
+    title: "Midway Ambulance Handover",
+    subtitle: "Meet-Me Emergency Mode for Rural & Remote Response",
+    meetHalfway: "Meet Ambulance Halfway",
+    comeToMe: "Request Ambulance to My Location",
+    travelTowardAmbulance: "I can travel toward the ambulance",
+    handoverPoint: "Suggested Handover Point",
+    safeLandmark: "Safe Roadside Landmark",
+    patientVehicle: "Your Local Vehicle",
+    ambulance: "108 Emergency Ambulance",
+    approachingMeeting: "Ambulance and patient are approaching the meeting point.",
+    arrivedAtMeeting: "Ambulance has arrived at the meeting point.",
+    patientHandedOver: "PATIENT HANDED OVER (CONFIRM)",
+    directPickupRecommended: "For this emergency, direct ambulance pickup is recommended.",
+    timeSaved: "Time Saved",
+    recalculate: "Recalculate Point",
+    stopLocationSharing: "Stop Location Sharing",
+    resumeLocationSharing: "Resume Location Sharing"
+  },
+  enRouteStabilization: {
+    title: "Dynamic En-Route Emergency Stabilization",
+    subtitle: "Interim stabilization facility along highway route",
+    nearbySupportAvailable: "Nearby Emergency Support Available",
+    detourNotice: "is 300m from route (+2 min detour). Stop for interim stabilization before continuing?",
+    stabilizeEnRoute: "STABILIZE EN-ROUTE (+2m)",
+    continueDirect: "CONTINUE DIRECT",
+    coordinateStabilization: "Coordinate Stabilization",
+    interimBay: "Interim Stabilization Bay",
+    definitiveCenter: "Definitive Treatment Destination",
+    detourDistance: "Detour Distance",
+    detourTime: "Detour Time",
+    statusSearching: "Searching for En-Route Facility...",
+    statusAvailable: "Stabilization Bay Available",
+    statusRequested: "Interim Stabilization Requested",
+    statusCoordinating: "Doctors Actively Coordinating",
+    statusArrived: "Patient Admitted for Stabilization",
+    statusComplete: "Stabilization Complete (Cleared)",
+    statusResuming: "Resuming Transit to Parent Hospital",
+    startDemo: "START DEMO",
+    pauseDemo: "PAUSE DEMO",
+    resetDemo: "Reset Demo"
   }
 };
 

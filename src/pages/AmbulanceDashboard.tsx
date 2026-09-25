@@ -21,7 +21,8 @@ import {
   FileText,
   Clock,
   Sparkles,
-  ChevronRight
+  ChevronRight,
+  RotateCcw
 } from '../components/icons';
 import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -31,7 +32,7 @@ import { HospitalAmbulancePortalTab } from '../components/hospital/HospitalAmbul
 import { EmergencyTrackerCard } from '../components/EmergencyTrackerCard';
 import { LeafletMap } from '../components/LeafletMap';
 
-export type AmbulanceSubTab = 'assessment' | 'dispatch' | 'radio';
+export type AmbulanceSubTab = 'assessment' | 'dispatch' | 'handover' | 'radio';
 
 export const AmbulanceDashboard: React.FC = () => {
   const { tr } = useLanguage();
@@ -46,7 +47,13 @@ export const AmbulanceDashboard: React.FC = () => {
     greenCorridorActive,
     setGreenCorridorActive,
     updateDispatchStep,
-    sendDispatchMessage
+    sendDispatchMessage,
+    activeHandover,
+    caretakerTelemetry,
+    recalculateMeetingPointManual,
+    confirmPatientHandover,
+    setTransportMode,
+    liveAmbulance
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<AmbulanceSubTab>('assessment');
@@ -282,6 +289,25 @@ export const AmbulanceDashboard: React.FC = () => {
                 Step {activeDispatch.currentStep || 4}/10
               </span>
             )}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('handover')}
+            className={`px-4 py-2.5 rounded-xl font-bold text-xs transition flex items-center gap-2 cursor-pointer ${
+              activeTab === 'handover'
+                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
+                : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+            }`}
+          >
+            <span>🤝</span>
+            <span>Midway Handover</span>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold ${
+              activeDispatch?.transportMode === 'MEET_HALFWAY'
+                ? (activeTab === 'handover' ? 'bg-amber-400 text-amber-950 animate-pulse' : 'bg-amber-100 text-amber-900 border border-amber-300 animate-pulse')
+                : (activeTab === 'handover' ? 'bg-emerald-700 text-white' : 'bg-slate-100 text-slate-600')
+            }`}>
+              {activeDispatch?.transportMode === 'MEET_HALFWAY' ? 'MEET-ME ACTIVE' : 'READY'}
+            </span>
           </button>
 
           <button
@@ -538,6 +564,219 @@ export const AmbulanceDashboard: React.FC = () => {
               </div>
             )}
 
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* TAB: MIDWAY AMBULANCE HANDOVER / MEET-ME RENDEZVOUS       */}
+        {/* ========================================================= */}
+        {activeTab === 'handover' && (
+          <div className="space-y-5 animate-in fade-in">
+            {activeDispatch ? (
+              <div className="space-y-5">
+                
+                {/* Paramedic Emergency Severity Banner */}
+                <div className="bg-slate-900 text-white rounded-3xl p-5 sm:p-6 border border-slate-800 shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold text-xl shrink-0">
+                      🤝
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono">
+                          PARAMEDIC HANDOVER COCKPIT
+                        </span>
+                        <span className="text-xs text-slate-400">
+                          CALL #{activeDispatch.id} • {activeDispatch.callerName}
+                        </span>
+                      </div>
+                      <h3 className="font-extrabold text-base sm:text-lg text-white font-heading mt-0.5">
+                        {activeDispatch.callerIssue}
+                      </h3>
+                      <p className="text-xs text-slate-300 mt-1">
+                        Severity Urgency: <strong className="text-amber-400">{activeDispatch.urgencyLevel}</strong> • Triage Acuity: <strong className="text-emerald-400">{activeDispatch.mlAcuity || 'ESI-2 (Emergent)'}</strong>
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Paramedic Handover Action Buttons */}
+                  <div className="flex items-center gap-2.5 flex-wrap self-end md:self-center">
+                    {activeDispatch.transportMode === 'MEET_HALFWAY' ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => recalculateMeetingPointManual()}
+                          className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 border border-slate-700 shadow-xs cursor-pointer"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
+                          <span>Recalculate Point</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={confirmPatientHandover}
+                          className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black transition flex items-center gap-2 shadow-md cursor-pointer transform active:scale-98"
+                        >
+                          <span>🤝</span>
+                          <span>CONFIRM PATIENT HANDOVER</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setTransportMode('DIRECT_AMBULANCE')}
+                          className="px-3 py-2.5 bg-red-950/80 hover:bg-red-900/90 text-red-200 border border-red-800 rounded-xl text-xs font-bold transition cursor-pointer"
+                          title="Revert to Direct Pickup"
+                        >
+                          Revert Direct
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setTransportMode('MEET_HALFWAY')}
+                        className="px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-xs font-black transition flex items-center gap-2 shadow-md cursor-pointer"
+                      >
+                        <span>🤝</span>
+                        <span>Activate Midway Handover Mode</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Handover Telemetry Grid */}
+                {activeHandover && activeDispatch.transportMode === 'MEET_HALFWAY' ? (
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                    
+                    {/* Left 5 Cols: Handover Landmark & Caretaker Live Metrics */}
+                    <div className="lg:col-span-5 space-y-4">
+                      
+                      {/* Landmark Card */}
+                      <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-3">
+                        <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                          <span className="text-xs font-black uppercase text-emerald-800 font-mono tracking-wider">
+                            📍 DESIGNATED SAFE RENDEZVOUS SPOT
+                          </span>
+                          <span className="text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 font-mono">
+                            {activeHandover.landmark.safetyRating.replace('_', ' ')}
+                          </span>
+                        </div>
+
+                        <div>
+                          <h4 className="font-extrabold text-slate-900 text-base">
+                            {activeHandover.landmark.name}
+                          </h4>
+                          <p className="text-xs text-slate-600 mt-1">
+                            {activeHandover.landmark.address}
+                          </p>
+                        </div>
+
+                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 grid grid-cols-2 gap-2 text-xs font-mono">
+                          <div>
+                            <span className="text-[10px] text-slate-400 uppercase block">Caretaker ETA</span>
+                            <span className="text-base font-black text-amber-700">~{caretakerTelemetry?.etaToMeetingMinutes ?? activeHandover.caretakerEtaMinutes} mins</span>
+                            <span className="text-[10px] text-slate-500 block">({caretakerTelemetry?.distanceToMeetingKm ?? activeHandover.caretakerDistanceKm} km)</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-400 uppercase block">Ambulance ETA</span>
+                            <span className="text-base font-black text-emerald-700">~{activeHandover.ambulanceEtaMinutes} mins</span>
+                            <span className="text-[10px] text-slate-500 block">({activeHandover.ambulanceDistanceKm} km)</span>
+                          </div>
+                        </div>
+
+                        <div className="pt-1 flex flex-wrap gap-1.5 text-[10px]">
+                          {activeHandover.landmark.features.map((f, idx) => (
+                            <span key={idx} className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold">
+                              ✓ {f}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Caretaker Vehicle Telemetry Card */}
+                      <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-3">
+                        <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                          <span className="text-xs font-black uppercase text-amber-800 font-mono tracking-wider">
+                            🚗 CARETAKER VEHICLE TELEMETRY
+                          </span>
+                          <span className="text-[10px] uppercase font-mono font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-200">
+                            {caretakerTelemetry?.vehicleType || 'LOCAL TRANSPORT'}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 text-xs">
+                          <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                            <span className="text-[10px] text-slate-400 uppercase block">Speed</span>
+                            <span className="font-mono font-bold text-slate-800 text-sm">{caretakerTelemetry?.speedKmH || 35} km/h</span>
+                          </div>
+                          <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                            <span className="text-[10px] text-slate-400 uppercase block">Live GPS Accuracy</span>
+                            <span className="font-mono font-bold text-slate-800 text-sm">±{caretakerTelemetry?.accuracyMeters || 8} meters</span>
+                          </div>
+                        </div>
+
+                        <p className="text-xs text-slate-500">
+                          Driver & Paramedic Crew: The patient is actively traveling toward the highlighted rendezvous point using local transport. Rendezvous convergence saves ~{activeHandover.timeSavedMinutes} minutes of critical response time.
+                        </p>
+                      </div>
+
+                    </div>
+
+                    {/* Right 7 Cols: Live Route Map */}
+                    <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-3">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                        <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 font-mono">
+                          <MapPin className="w-4 h-4 text-emerald-600" />
+                          <span>DUAL-APPROACH RENDEZVOUS MAP</span>
+                        </span>
+                        <span className="text-[10px] font-mono font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-full">
+                          Live OSRM Geometry
+                        </span>
+                      </div>
+
+                      <div className="rounded-2xl overflow-hidden border border-slate-200">
+                        <LeafletMap
+                          hospitals={hospitals}
+                          ambulances={ambulances}
+                          pickupLocation={{ lat: activeHandover.meetingLat, lng: activeHandover.meetingLng, label: activeHandover.landmark.name }}
+                          selectedHospitalId={currentHospital.id}
+                          height="420px"
+                          showRouteLine={true}
+                        />
+                      </div>
+                    </div>
+
+                  </div>
+                ) : (
+                  <div className="p-8 bg-white border border-slate-200 rounded-3xl shadow-xs text-center space-y-3">
+                    <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto text-xl">
+                      🤝
+                    </div>
+                    <h3 className="font-bold text-base text-slate-900">Direct Ambulance Pickup Currently Active</h3>
+                    <p className="text-xs text-slate-500 max-w-md mx-auto">
+                      The emergency is currently configured for direct pickup at the patient's home coordinates. If the caller or ASHA worker confirms local transport is available, tap below to activate Midway Rendezvous.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setTransportMode('MEET_HALFWAY')}
+                      className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
+                    >
+                      Activate Midway Handover (Meet-Me Mode)
+                    </button>
+                  </div>
+                )}
+
+              </div>
+            ) : (
+              <div className="p-8 bg-white border border-slate-200 rounded-3xl shadow-xs text-center space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center mx-auto text-xl">
+                  🤝
+                </div>
+                <h3 className="font-bold text-base text-slate-900">No Active Emergency Handover</h3>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                  When a citizen requests an emergency ambulance and selects "Meet Ambulance Halfway", live dual tracking and the rendezvous cockpit will appear here.
+                </p>
+              </div>
+            )}
           </div>
         )}
 

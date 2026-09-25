@@ -29,8 +29,13 @@ import {
   InHospitalEmergencyType,
   DoctorStatusType,
   DoctorProfileData,
-  DoctorPatientReview
-} from '../types';
+  DoctorPatientReview,
+  TransportMode,
+  HandoverStatus,
+  HandoverLandmark,
+  CaretakerTelemetry,
+  MeetingPointCoordination
+} from '../types';
 import { 
   calculateRollingAverage, 
   generateNextToken, 
@@ -38,6 +43,7 @@ import {
   formatTimeAmPm 
 } from '../utils/queueEngine';
 import { evaluateAmbulanceAssessment, evaluateAmbulanceTelemetry, checkHospitalCapabilities } from '../utils/mlTriage';
+import { calculateDynamicMeetingPoint, VERIFIED_SAFE_LANDMARKS } from '../utils/handoverEngine';
 import { 
   createInitialTrafficEmergency, 
   identifyRouteSignals 
@@ -176,6 +182,22 @@ interface AppContextType {
   endPatientConsultation: (appointmentId: string, consultationSummary?: string) => void;
   markPatientNoShow: (appointmentId: string) => void;
   cancelQueueAppointment: (appointmentId: string, reason?: string) => void;
+
+  // Midway Ambulance Handover / Meet-Me Emergency Mode
+  activeHandover: MeetingPointCoordination | null;
+  caretakerTelemetry: CaretakerTelemetry | null;
+  setTransportMode: (mode: TransportMode) => void;
+  startCaretakerTracking: () => void;
+  stopCaretakerTracking: () => void;
+  updateCaretakerLocationManual: (lat: number, lng: number) => void;
+  recalculateMeetingPointManual: () => Promise<void>;
+  confirmPatientHandover: () => void;
+  isHandoverSimulating: boolean;
+  handoverSimSpeed: number;
+  toggleHandoverSimulation: (playing?: boolean) => void;
+  setHandoverSimulationSpeed: (speed: number) => void;
+  resetHandoverSimulation: () => void;
+  simulateHandoverDetour: () => void;
 }
 
 export const DEFAULT_DOCTOR_SLOTS: string[] = [
@@ -2149,7 +2171,212 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [relocateToUserLocation]);
 
-  // Uber/Rapido-Style Live Moving Ambulance State (Only active during an ongoing emergency dispatch)
+  // ============================================================================
+  // MIDWAY AMBULANCE HANDOVER / MEET-ME EMERGENCY MODE
+  // ============================================================================
+  const [activeHandover, setActiveHandover] = useState<MeetingPointCoordination | null>(null);
+  const [caretakerTelemetry, setCaretakerTelemetry] = useState<CaretakerTelemetry | null>(null);
+  const [isHandoverSimulating, setIsHandoverSimulating] = useState<boolean>(true);
+  const [handoverSimSpeed, setHandoverSimSpeed] = useState<number>(1);
+  const [handoverProgress, setHandoverProgress] = useState<number>(0.05);
+  const caretakerWatchIdRef = useRef<number | null>(null);
+
+  const startCaretakerTracking = useCallback(() => {
+    if (typeof window !== 'undefined' && navigator.geolocation) {
+      try {
+        const id = navigator.geolocation.watchPosition(
+          (pos) => {
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            setCaretakerTelemetry(prev => prev ? {
+              ...prev,
+              lat,
+              lng,
+              accuracyMeters: Math.round(pos.coords.accuracy || 8),
+              isLiveTracking: true,
+              lastUpdated: new Date().toLocaleTimeString()
+            } : {
+              lat,
+              lng,
+              speedKmH: 30,
+              heading: 45,
+              vehicleType: 'BIKE',
+              isLiveTracking: true,
+              accuracyMeters: Math.round(pos.coords.accuracy || 8),
+              lastUpdated: new Date().toLocaleTimeString(),
+              distanceToMeetingKm: 4.5,
+              etaToMeetingMinutes: 8
+            });
+          },
+          (err) => {
+            console.log('Caretaker GPS fallback to simulated coords:', err.message);
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
+        );
+        caretakerWatchIdRef.current = id;
+      } catch (e) {}
+    }
+  }, []);
+
+  const stopCaretakerTracking = useCallback(() => {
+    if (caretakerWatchIdRef.current !== null && typeof window !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.clearWatch(caretakerWatchIdRef.current);
+      caretakerWatchIdRef.current = null;
+    }
+    setCaretakerTelemetry(prev => prev ? { ...prev, isLiveTracking: false } : null);
+  }, []);
+
+  const updateCaretakerLocationManual = useCallback((lat: number, lng: number) => {
+    setCaretakerTelemetry(prev => prev ? {
+      ...prev,
+      lat,
+      lng,
+      lastUpdated: new Date().toLocaleTimeString(),
+      isSimulated: true
+    } : {
+      lat,
+      lng,
+      speedKmH: 35,
+      heading: 45,
+      vehicleType: 'BIKE',
+      isLiveTracking: true,
+      accuracyMeters: 5,
+      lastUpdated: new Date().toLocaleTimeString(),
+      distanceToMeetingKm: 5,
+      etaToMeetingMinutes: 9,
+      isSimulated: true
+    });
+  }, []);
+
+  const recalculateMeetingPointManual = useCallback(async () => {
+    if (!activeDispatch) return;
+    const patientLat = caretakerTelemetry?.lat || activeDispatch.pickupLat || userLocation?.lat || 28.7080;
+    const patientLng = caretakerTelemetry?.lng || activeDispatch.pickupLng || userLocation?.lng || 77.0980;
+    const targetHosp = hospitals.find(h => h.id === activeDispatch.currentHospitalId) || hospitals[0] || INITIAL_HOSPITALS[0];
+    const assignedAmb = ambulances.find(a => a.id === activeDispatch.assignedAmbulanceId) || ambulances[0];
+    const ambLat = assignedAmb.currentLat;
+    const ambLng = assignedAmb.currentLng;
+
+    try {
+      const coordination = await calculateDynamicMeetingPoint({
+        caretakerLat: patientLat,
+        caretakerLng: patientLng,
+        ambulanceLat: ambLat,
+        ambulanceLng: ambLng,
+        hospitalLat: targetHosp.lat,
+        hospitalLng: targetHosp.lng,
+        caretakerSpeedKmH: 35,
+        ambulanceSpeedKmH: 55,
+        triageAssessment: activeDispatch.ambulanceAssessment || ambulanceAssessment
+      });
+
+      setActiveHandover(coordination);
+      setActiveDispatch(prev => prev ? {
+        ...prev,
+        transportMode: 'MEET_HALFWAY',
+        handoverStatus: coordination.status,
+        meetingPointCoordination: coordination
+      } : null);
+
+      setCaretakerTelemetry({
+        lat: patientLat,
+        lng: patientLng,
+        speedKmH: 32,
+        heading: 65,
+        vehicleType: 'BIKE',
+        isLiveTracking: true,
+        accuracyMeters: 8,
+        lastUpdated: new Date().toLocaleTimeString(),
+        distanceToMeetingKm: coordination.caretakerDistanceKm,
+        etaToMeetingMinutes: coordination.caretakerEtaMinutes,
+        isSimulated: true
+      });
+    } catch (err) {
+      console.warn('Error calculating dynamic meeting point:', err);
+    }
+  }, [activeDispatch, caretakerTelemetry?.lat, caretakerTelemetry?.lng, userLocation, hospitals, ambulances, ambulanceAssessment]);
+
+  const setTransportMode = useCallback((mode: TransportMode) => {
+    if (!activeDispatch) return;
+    setActiveDispatch(prev => prev ? {
+      ...prev,
+      transportMode: mode,
+      handoverStatus: mode === 'MEET_HALFWAY' ? 'COORDINATING' : 'NOT_ACTIVE'
+    } : null);
+
+    if (mode === 'MEET_HALFWAY') {
+      recalculateMeetingPointManual();
+      startCaretakerTracking();
+    } else {
+      stopCaretakerTracking();
+      setActiveHandover(null);
+    }
+  }, [activeDispatch, recalculateMeetingPointManual, startCaretakerTracking, stopCaretakerTracking]);
+
+  const confirmPatientHandover = useCallback(() => {
+    setActiveHandover(prev => prev ? {
+      ...prev,
+      status: 'HANDOVER_COMPLETED',
+      confirmedByParamedic: true,
+      confirmedAt: new Date().toLocaleTimeString()
+    } : null);
+
+    setActiveDispatch(prev => prev ? {
+      ...prev,
+      status: 'PATIENT_ONBOARD',
+      currentStep: 6,
+      handoverStatus: 'HANDOVER_COMPLETED',
+      messages: [
+        ...prev.messages,
+        {
+          sender: 'PARAMEDIC',
+          text: '🤝 PATIENT HANDED OVER: Patient transferred to 108 ALS Ambulance at designated meeting point. Commencing rapid transport to Hospital trauma facility under active telemetry.',
+          timestamp: new Date().toLocaleTimeString(),
+          type: 'TEXT'
+        }
+      ]
+    } : null);
+
+    stopCaretakerTracking();
+  }, [stopCaretakerTracking]);
+
+  const toggleHandoverSimulation = useCallback((playing?: boolean) => {
+    setIsHandoverSimulating(prev => playing !== undefined ? playing : !prev);
+  }, []);
+
+  const setHandoverSimulationSpeed = useCallback((speed: number) => {
+    setHandoverSimSpeed(speed);
+  }, []);
+
+  const resetHandoverSimulation = useCallback(() => {
+    setHandoverProgress(0.05);
+    setIsHandoverSimulating(true);
+    recalculateMeetingPointManual();
+  }, [recalculateMeetingPointManual]);
+
+  const simulateHandoverDetour = useCallback(() => {
+    if (!caretakerTelemetry || !activeHandover) return;
+    const detouredLat = caretakerTelemetry.lat + 0.008;
+    const detouredLng = caretakerTelemetry.lng - 0.006;
+    setCaretakerTelemetry(prev => prev ? {
+      ...prev,
+      lat: detouredLat,
+      lng: detouredLng,
+      speedKmH: 15,
+      lastUpdated: new Date().toLocaleTimeString()
+    } : null);
+
+    setActiveHandover(prev => prev ? {
+      ...prev,
+      isDivergingOrBlocked: true,
+      divergenceAlertMessage: '⚠️ Caretaker vehicle took alternate detour. Dynamically recalculating rendezvous point along new trajectory...'
+    } : null);
+
+    setTimeout(() => {
+      recalculateMeetingPointManual();
+    }, 1500);
+  }, [caretakerTelemetry, activeHandover, recalculateMeetingPointManual]);
+
   const [liveAmbulance, setLiveAmbulance] = useState<LiveMovingAmbulance | null>(null);
 
   // Cached road mission routes for active emergency dispatch (OSRM turn-by-turn road geometries)
@@ -2237,6 +2464,126 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const originLat = assignedAmb?.currentLat ?? (patientLat + 0.0075);
         const originLng = assignedAmb?.currentLng ?? (patientLng + 0.0065);
 
+        const isHalfway = activeDispatch.transportMode === 'MEET_HALFWAY' && !!activeHandover;
+
+        // If in Meet-Me Emergency Mode
+        if (isHalfway && activeHandover) {
+          const isCompleted = activeHandover.status === 'HANDOVER_COMPLETED';
+
+          if (!isCompleted) {
+            // PHASE 1: Caretaker & Ambulance simultaneously converge toward Safe Meeting Point
+            let nextHProg = handoverProgress;
+            if (isHandoverSimulating) {
+              nextHProg = Math.min(0.99, handoverProgress + 0.004 * handoverSimSpeed);
+              setHandoverProgress(nextHProg);
+            }
+
+            // Move Caretaker
+            if (activeHandover.caretakerRouteCoordinates && activeHandover.caretakerRouteCoordinates.length > 0) {
+              const cPt = getPointAlongPolyline(activeHandover.caretakerRouteCoordinates, nextHProg);
+              setCaretakerTelemetry(ct => ct ? {
+                ...ct,
+                lat: cPt.lat,
+                lng: cPt.lng,
+                heading: cPt.heading,
+                distanceToMeetingKm: cPt.remainingDistanceKm,
+                etaToMeetingMinutes: Math.max(1, Math.round((cPt.remainingDistanceKm / 35) * 60)),
+                lastUpdated: new Date().toLocaleTimeString()
+              } : null);
+            }
+
+            // Move Ambulance
+            const aPt = activeHandover.ambulanceRouteCoordinates && activeHandover.ambulanceRouteCoordinates.length > 0
+              ? getPointAlongPolyline(activeHandover.ambulanceRouteCoordinates, nextHProg)
+              : { lat: activeHandover.meetingLat, lng: activeHandover.meetingLng, heading: 45, remainingDistanceKm: 0, totalDistanceKm: 0 };
+
+            // Check convergence milestones
+            if (nextHProg >= 0.98 || aPt.remainingDistanceKm <= 0.15) {
+              if (activeHandover.status !== 'ARRIVED_AT_MEETING_POINT') {
+                setActiveHandover(h => h ? { ...h, status: 'ARRIVED_AT_MEETING_POINT' } : null);
+                setActiveDispatch(d => d ? { ...d, handoverStatus: 'ARRIVED_AT_MEETING_POINT' } : null);
+              }
+            } else if (nextHProg >= 0.85 || aPt.remainingDistanceKm <= 0.6) {
+              if (activeHandover.status !== 'APPROACHING_MEETING_POINT') {
+                setActiveHandover(h => h ? { ...h, status: 'APPROACHING_MEETING_POINT' } : null);
+                setActiveDispatch(d => d ? { ...d, handoverStatus: 'APPROACHING_MEETING_POINT' } : null);
+              }
+            }
+
+            const speed = nextHProg >= 0.98 ? 0 : Math.round(52 + Math.sin(Date.now() / 1500) * 4);
+
+            return {
+              lat: aPt.lat,
+              lng: aPt.lng,
+              speedKmH: speed,
+              heading: aPt.heading,
+              progress: nextHProg,
+              phase: 'EN_ROUTE_TO_PATIENT',
+              distanceToPatientKm: aPt.remainingDistanceKm,
+              distancePatientToHospitalKm: activeHandover.hospitalRouteCoordinates ? getPointAlongPolyline(activeHandover.hospitalRouteCoordinates, 0).totalDistanceKm : calculateHaversineKm(activeHandover.meetingLat, activeHandover.meetingLng, hospLat, hospLng),
+              etaToPatientMinutes: Math.max(1, Math.round((aPt.remainingDistanceKm / 55) * 60)),
+              etaToHospitalMinutes: Math.max(1, Math.round(((aPt.remainingDistanceKm + calculateHaversineKm(activeHandover.meetingLat, activeHandover.meetingLng, hospLat, hospLng)) / 55) * 60)),
+              vehicleNumber: assignedAmb?.vehicleNumber || 'HR-10-EM-1081',
+              driverName: assignedAmb?.driverName || 'Jagdish Kumar',
+              driverPhone: assignedAmb?.driverPhone || '+91 98765 43210',
+              originLat,
+              originLng,
+              pickupLat: activeHandover.meetingLat,
+              pickupLng: activeHandover.meetingLng,
+              hospLat,
+              hospLng,
+              isMeetHalfway: true,
+              meetingLat: activeHandover.meetingLat,
+              meetingLng: activeHandover.meetingLng,
+              distanceToMeetingKm: aPt.remainingDistanceKm,
+              etaToMeetingMinutes: Math.max(1, Math.round((aPt.remainingDistanceKm / 55) * 60)),
+              handoverStatus: activeHandover.status,
+              roadRouteCoordinates: activeHandover.ambulanceRouteCoordinates
+            };
+          } else {
+            // PHASE 2: Post-handover transit from Meeting Point to Hospital
+            let curProgress = prev?.progress ?? 0.05;
+            let nextProgress = curProgress + (0.005 * handoverSimSpeed);
+            if (nextProgress >= 1.0) nextProgress = 1.0;
+
+            const hPt = activeHandover.hospitalRouteCoordinates && activeHandover.hospitalRouteCoordinates.length > 0
+              ? getPointAlongPolyline(activeHandover.hospitalRouteCoordinates, nextProgress)
+              : { lat: hospLat, lng: hospLng, heading: 45, remainingDistanceKm: 0, totalDistanceKm: 0 };
+
+            const speed = nextProgress >= 1.0 ? 0 : Math.round(56 + Math.sin(Date.now() / 1500) * 4);
+
+            return {
+              lat: hPt.lat,
+              lng: hPt.lng,
+              speedKmH: speed,
+              heading: hPt.heading,
+              progress: nextProgress,
+              phase: 'TRANSPORTING_TO_HOSPITAL',
+              distanceToPatientKm: 0,
+              distancePatientToHospitalKm: hPt.remainingDistanceKm,
+              etaToPatientMinutes: 0,
+              etaToHospitalMinutes: Math.max(1, Math.round((hPt.remainingDistanceKm / 55) * 60)),
+              vehicleNumber: assignedAmb?.vehicleNumber || 'HR-10-EM-1081',
+              driverName: assignedAmb?.driverName || 'Jagdish Kumar',
+              driverPhone: assignedAmb?.driverPhone || '+91 98765 43210',
+              originLat,
+              originLng,
+              pickupLat: activeHandover.meetingLat,
+              pickupLng: activeHandover.meetingLng,
+              hospLat,
+              hospLng,
+              isMeetHalfway: true,
+              meetingLat: activeHandover.meetingLat,
+              meetingLng: activeHandover.meetingLng,
+              distanceToMeetingKm: 0,
+              etaToMeetingMinutes: 0,
+              handoverStatus: 'HANDOVER_COMPLETED',
+              roadRouteCoordinates: activeHandover.hospitalRouteCoordinates
+            };
+          }
+        }
+
+        // Standard direct ambulance dispatch flow
         let curProgress = prev?.progress ?? 0.02;
         let nextProgress = curProgress + 0.006;
         if (nextProgress >= 1.0) nextProgress = 0.0;
@@ -2333,7 +2680,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [activeDispatch?.id, activeDispatch?.status, activeDispatch?.pickupLat, activeDispatch?.pickupLng, activeDispatch?.currentHospitalId, activeDispatch?.assignedAmbulanceId, hospitals, ambulances, userLocation]);
+  }, [activeDispatch?.id, activeDispatch?.status, activeDispatch?.transportMode, activeDispatch?.pickupLat, activeDispatch?.pickupLng, activeDispatch?.currentHospitalId, activeDispatch?.assignedAmbulanceId, activeHandover, isHandoverSimulating, handoverSimSpeed, handoverProgress, hospitals, ambulances, userLocation]);
+
+  
 
   // Keep logged-in police signal in sync with live corridor progress
   useEffect(() => {
@@ -2977,6 +3326,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (e) {}
     setActiveDispatch(null);
     setLiveAmbulance(null);
+    setActiveHandover(null);
+    setCaretakerTelemetry(null);
+    setHandoverProgress(0.05);
   };
 
   const updateDispatchStep = (step: number) => {
@@ -3544,8 +3896,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       logoutDoctor,
       toggleDoctorTeleConsultStatus,
       updateDoctorScheduleSettings,
-      submitDoctorReview
-    }), [
+      submitDoctorReview,
+      activeHandover,
+      caretakerTelemetry,
+      setTransportMode,
+      startCaretakerTracking,
+      stopCaretakerTracking,
+      updateCaretakerLocationManual,
+      recalculateMeetingPointManual,
+      confirmPatientHandover,
+      isHandoverSimulating,
+      handoverSimSpeed,
+      toggleHandoverSimulation,
+      setHandoverSimulationSpeed,
+      resetHandoverSimulation,
+      simulateHandoverDetour
+        }), [
       hospitals,
       selectedHospitalId,
       hospitalUser,
@@ -3571,7 +3937,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       blockchainNetwork,
       appointments,
       doctorQueues,
-      doctorUser
+      doctorUser,
+      activeHandover,
+      caretakerTelemetry,
+      isHandoverSimulating,
+      handoverSimSpeed
     ]);
 
   return (

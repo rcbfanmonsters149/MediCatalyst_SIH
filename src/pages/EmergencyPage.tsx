@@ -23,6 +23,9 @@ import { EmergencyTrackerCard } from '../components/EmergencyTrackerCard';
 import { VoiceSOSRecognitionModal } from '../components/VoiceSOSRecognitionModal';
 import { LeafletMap } from '../components/LeafletMap';
 import { LiveAmbulanceTrackerCard } from '../components/LiveAmbulanceTrackerCard';
+import { HandoverModeSelector } from '../components/HandoverModeSelector';
+import { HandoverETAComparisonCard } from '../components/HandoverETAComparisonCard';
+import { HandoverSimulationBar } from '../components/HandoverSimulationBar';
 import { Link } from 'react-router-dom';
 
 interface EmergencyPageProps {
@@ -269,6 +272,17 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
             <span>{language === 'mr' ? '🎙️ आवाजाने मदत मागा (Tap to Speak)' : language === 'hi' ? '🎙️ बोलकर सहायता लें (Tap to Speak)' : '🎙️ Tap to Speak (Voice SOS)'}</span>
           </button>
         </div>
+
+        {/* HACKATHON DEMO SIMULATION CONTROLLER */}
+        <HandoverSimulationBar />
+
+        {/* MIDWAY AMBULANCE HANDOVER MODE SELECTOR ("I can travel toward the ambulance") */}
+        <HandoverModeSelector />
+
+        {/* 3-WAY REAL-TIME ETA COMPARISON (When Meet Halfway Mode is Active) */}
+        {dispatch.transportMode === 'MEET_HALFWAY' && (
+          <HandoverETAComparisonCard />
+        )}
 
         {/* ACTIVE EMERGENCY DISPATCH DISPLAY: SIMULTANEOUS SIDE-BY-SIDE SPLIT VIEW */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">

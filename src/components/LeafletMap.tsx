@@ -70,7 +70,14 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
   showLegend = true,
   showRouteLine = false
 }) => {
-  const { userLocation: contextUserLocation, relocateToUserLocation, liveAmbulance } = useApp();
+  const { 
+    userLocation: contextUserLocation, 
+    relocateToUserLocation, 
+    liveAmbulance, 
+    activeHandover, 
+    caretakerTelemetry, 
+    activeDispatch
+  } = useApp();
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -249,6 +256,13 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
       points.push([liveAmbulance.lat, liveAmbulance.lng]);
     }
 
+    if (activeHandover) {
+      points.push([activeHandover.meetingLat, activeHandover.meetingLng]);
+      if (caretakerTelemetry) {
+        points.push([caretakerTelemetry.lat, caretakerTelemetry.lng]);
+      }
+    }
+
     try {
       map.flyToBounds(L.latLngBounds(points), {
         padding: [60, 60],
@@ -256,7 +270,7 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
         duration: 1.2
       });
     } catch (e) {}
-  }, [corridorRoute, showReroutePath, rerouteDestination, targetHospital, effectiveUserCoords, liveAmbulance, roadRouteData]);
+  }, [corridorRoute, showReroutePath, rerouteDestination, targetHospital, effectiveUserCoords, liveAmbulance, roadRouteData, activeHandover, caretakerTelemetry]);
 
   // When user actively switches hospital selection, smoothly glide to frame the new destination
   useEffect(() => {
@@ -1152,7 +1166,182 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
       lineJoin: 'round'
     });
     liveGroup.addLayer(ambRouteLine);
-  }, [liveAmbulance]);
+
+    // =========================================================================
+    // MIDWAY AMBULANCE HANDOVER / MEET-ME EMERGENCY MODE OVERLAYS
+    // =========================================================================
+    if (activeHandover && activeDispatch?.transportMode === 'MEET_HALFWAY') {
+      const isArrived = activeHandover.status === 'ARRIVED_AT_MEETING_POINT';
+      const isApproachingMeeting = activeHandover.status === 'APPROACHING_MEETING_POINT';
+
+      // 1. Suggested Handover Landmark Meeting Point Marker
+      const meetingHtml = `
+        <div style="position: relative; width: 52px; height: 52px; display: flex; align-items: center; justify-content: center;">
+          <span style="
+            position: absolute;
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            background-color: ${isArrived ? 'rgba(16, 185, 129, 0.65)' : 'rgba(245, 158, 11, 0.45)'};
+            animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+          "></span>
+          <div style="
+            position: relative;
+            z-index: 10;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #059669, #047857);
+            border: 3px solid #ffffff;
+            box-shadow: 0 4px 12px rgba(4, 120, 87, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: #ffffff;
+          ">
+            🤝
+          </div>
+          <div style="
+            position: absolute;
+            bottom: -18px;
+            left: 50%;
+            transform: translateX(-50%);
+            white-space: nowrap;
+            background: #064e3b;
+            color: #ecfdf5;
+            font-size: 9px;
+            font-weight: 800;
+            padding: 1.5px 7px;
+            border-radius: 6px;
+            border: 1px solid #10b981;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+            letter-spacing: 0.5px;
+          ">
+            ${isArrived ? 'MEETING POINT (ARRIVED)' : 'HANDOVER POINT'}
+          </div>
+        </div>
+      `;
+      const meetingIcon = L.divIcon({ html: meetingHtml, className: 'meeting-point-icon', iconSize: [52, 52], iconAnchor: [26, 26] });
+      const meetingMarker = L.marker([activeHandover.meetingLat, activeHandover.meetingLng], { icon: meetingIcon, zIndexOffset: 1300 });
+      meetingMarker.bindPopup(`
+        <div style="font-family: 'Inter', system-ui, sans-serif; min-width: 250px; padding: 2px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 5px;">
+            <strong style="color: #047857; font-size: 13px;">🤝 Suggested Ambulance Handover Point</strong>
+            <span style="background: #d1fae5; color: #065f46; font-size: 9px; font-weight: 800; padding: 1px 6px; border-radius: 4px;">SAFE LANDMARK</span>
+          </div>
+          <div style="font-size: 11px; font-weight: 700; color: #0f172a; margin-bottom: 2px;">
+            ${activeHandover.landmark.name}
+          </div>
+          <div style="font-size: 10px; color: #475569; margin-bottom: 6px;">
+            📍 ${activeHandover.landmark.address}
+          </div>
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px; font-size: 11px; margin-bottom: 6px; display: flex; flex-direction: column; gap: 3px;">
+            <div>🚗 <b>Your Vehicle:</b> <span style="color: #d97706; font-weight: 800;">${activeHandover.caretakerDistanceKm} km</span> (~${activeHandover.caretakerEtaMinutes} mins)</div>
+            <div>🚑 <b>108 Ambulance:</b> <span style="color: #059669; font-weight: 800;">${activeHandover.ambulanceDistanceKm} km</span> (~${activeHandover.ambulanceEtaMinutes} mins)</div>
+            <div style="color: #059669; font-weight: 800; margin-top: 2px;">⚡ Time Saved: ~${activeHandover.timeSavedMinutes} minutes</div>
+          </div>
+          <div style="font-size: 9px; color: #64748b; font-style: italic;">
+            ⚠️ Suggested handover point. Final meeting spot may be adjusted by emergency paramedic.
+          </div>
+        </div>
+      `);
+      liveGroup.addLayer(meetingMarker);
+
+      // 2. Caretaker Moving Vehicle Marker
+      if (caretakerTelemetry && activeHandover.status !== 'HANDOVER_COMPLETED') {
+        const caretakerHtml = `
+          <div style="position: relative; width: 46px; height: 46px; display: flex; align-items: center; justify-content: center;">
+            <span style="
+              position: absolute;
+              width: 46px;
+              height: 46px;
+              border-radius: 50%;
+              background-color: rgba(245, 158, 11, 0.4);
+              animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+            "></span>
+            <div style="
+              position: relative;
+              z-index: 10;
+              width: 34px;
+              height: 34px;
+              border-radius: 50%;
+              background: linear-gradient(135deg, #d97706, #b45309);
+              border: 2.5px solid #ffffff;
+              box-shadow: 0 4px 10px rgba(180, 83, 9, 0.5);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 16px;
+              color: #ffffff;
+            ">
+              🛵
+            </div>
+            <div style="
+              position: absolute;
+              bottom: -16px;
+              left: 50%;
+              transform: translateX(-50%);
+              white-space: nowrap;
+              background: #78350f;
+              color: #fef3c7;
+              font-size: 9px;
+              font-weight: 800;
+              padding: 1px 6px;
+              border-radius: 6px;
+              border: 1px solid #f59e0b;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+            ">
+              YOU • ${caretakerTelemetry.speedKmH} km/h
+            </div>
+          </div>
+        `;
+        const caretakerIcon = L.divIcon({ html: caretakerHtml, className: 'caretaker-vehicle-icon', iconSize: [46, 46], iconAnchor: [23, 23] });
+        const caretakerMarker = L.marker([caretakerTelemetry.lat, caretakerTelemetry.lng], { icon: caretakerIcon, zIndexOffset: 1250 });
+        caretakerMarker.bindPopup(`
+          <div style="font-family: 'Inter', system-ui, sans-serif; min-width: 220px; padding: 2px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+              <strong style="color: #b45309; font-size: 13px;">🚗 Your Vehicle (En Route)</strong>
+              <span style="background: #fef3c7; color: #92400e; font-size: 10px; font-weight: 800; padding: 1px 6px; border-radius: 4px;">${caretakerTelemetry.vehicleType}</span>
+            </div>
+            <div style="font-size: 11px; color: #334155; margin-bottom: 6px;">
+              Current Speed: <b>${caretakerTelemetry.speedKmH} km/h</b> • GPS Accuracy: ±${caretakerTelemetry.accuracyMeters}m
+            </div>
+            <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 6px; font-size: 11px;">
+              <div>🤝 <b>To Meeting Point:</b> <span style="color: #b45309; font-weight: 800;">${caretakerTelemetry.distanceToMeetingKm} km</span> (~${caretakerTelemetry.etaToMeetingMinutes} mins)</div>
+            </div>
+          </div>
+        `);
+        liveGroup.addLayer(caretakerMarker);
+      }
+
+      // 3. Render Caretaker Approach Polyline (Amber)
+      if (activeHandover.caretakerRouteCoordinates && activeHandover.caretakerRouteCoordinates.length > 1) {
+        const caretakerRouteLine = L.polyline(activeHandover.caretakerRouteCoordinates, {
+          color: '#d97706',
+          weight: 4,
+          opacity: 0.9,
+          dashArray: '6, 6',
+          lineCap: 'round',
+          lineJoin: 'round'
+        });
+        liveGroup.addLayer(caretakerRouteLine);
+      }
+
+      // 4. Render Onward Hospital Transit Route (Blue)
+      if (activeHandover.hospitalRouteCoordinates && activeHandover.hospitalRouteCoordinates.length > 1) {
+        const hospitalTransitLine = L.polyline(activeHandover.hospitalRouteCoordinates, {
+          color: '#2563eb',
+          weight: 3.5,
+          opacity: 0.7,
+          dashArray: '4, 8',
+          lineCap: 'round',
+          lineJoin: 'round'
+        });
+        liveGroup.addLayer(hospitalTransitLine);
+      }
+    }
+  }, [liveAmbulance, activeHandover, caretakerTelemetry, activeDispatch?.transportMode, hospitals]);
 
   return (
     <div className="w-full space-y-2.5">

@@ -376,6 +376,13 @@ export interface EmergencyDispatch {
     timestamp: string;
     type?: 'TEXT' | 'VOICE';
   }[];
+
+  // Midway Ambulance Handover / Meet-Me Emergency Mode
+  transportMode?: TransportMode;
+  handoverStatus?: HandoverStatus;
+  meetingPointCoordination?: MeetingPointCoordination;
+  caretakerTelemetry?: CaretakerTelemetry;
+  updatedAt?: string;
 }
 
 export interface PublicWorkerReport {
@@ -453,6 +460,13 @@ export interface LiveMovingAmbulance {
   roadRouteCoordinates?: [number, number][];
   phase1Route?: [number, number][];
   phase2Route?: [number, number][];
+  // Midway Handover Fields
+  isMeetHalfway?: boolean;
+  meetingLat?: number;
+  meetingLng?: number;
+  distanceToMeetingKm?: number;
+  etaToMeetingMinutes?: number;
+  handoverStatus?: HandoverStatus;
 }
 
 export type AppointmentStatus = 'SCHEDULED' | 'IN_CALL' | 'COMPLETED' | 'CANCELLED';
@@ -617,6 +631,79 @@ export interface DoctorUser {
   scheduleSettings?: DoctorScheduleSettings;
   profile?: DoctorProfileData;
 }
+
+// ============================================================================
+// MIDWAY AMBULANCE HANDOVER / MEET-ME EMERGENCY MODE TYPES
+// ============================================================================
+
+export type TransportMode = 'DIRECT_AMBULANCE' | 'MEET_HALFWAY';
+
+export type HandoverStatus = 
+  | 'NOT_ACTIVE'
+  | 'COORDINATING'
+  | 'APPROACHING_MEETING_POINT'
+  | 'ARRIVED_AT_MEETING_POINT'
+  | 'HANDOVER_COMPLETED';
+
+export type LandmarkType = 
+  | 'PETROL_PUMP'
+  | 'ROAD_JUNCTION'
+  | 'PRIMARY_HEALTH_SUB_CENTER'
+  | 'POLICE_OUTPOST'
+  | 'VILLAGE_CHAURAHA'
+  | 'TOLL_PLAZA';
+
+export interface HandoverLandmark {
+  id: string;
+  name: string;
+  type: LandmarkType;
+  lat: number;
+  lng: number;
+  address: string;
+  safetyRating: 'HIGH_SAFE_PULLOVER' | 'MODERATE_ROAD_SHOULDER';
+  features: string[]; // e.g. ["24x7 Lit", "Wide Parking", "First Aid Kit", "Water Facility"]
+  contactPhone?: string;
+}
+
+export interface CaretakerTelemetry {
+  lat: number;
+  lng: number;
+  speedKmH: number;
+  heading: number;
+  vehicleType: 'BIKE' | 'AUTO_RICKSHAW' | 'TRACTOR' | 'CAR';
+  isLiveTracking: boolean;
+  accuracyMeters: number;
+  lastUpdated: string;
+  distanceToMeetingKm: number;
+  etaToMeetingMinutes: number;
+  isSimulated?: boolean;
+}
+
+export interface MeetingPointCoordination {
+  active: boolean;
+  transportMode: TransportMode;
+  status: HandoverStatus;
+  landmark: HandoverLandmark;
+  meetingLat: number;
+  meetingLng: number;
+  ambulanceEtaMinutes: number;
+  ambulanceDistanceKm: number;
+  caretakerEtaMinutes: number;
+  caretakerDistanceKm: number;
+  timeSavedMinutes: number;
+  distanceSavedKm: number;
+  isDivergingOrBlocked: boolean;
+  divergenceAlertMessage?: string;
+  confirmedByParamedic: boolean;
+  confirmedAt?: string;
+  caretakerRouteCoordinates: [number, number][];
+  ambulanceRouteCoordinates: [number, number][];
+  hospitalRouteCoordinates: [number, number][];
+  directPickupRecommended?: boolean;
+  safetyRecommendationReason?: string;
+  lastRecalculatedAt: string;
+}
+
 
 
 
