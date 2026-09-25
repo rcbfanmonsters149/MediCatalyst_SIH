@@ -10,22 +10,15 @@ import {
   Truck, 
   Building2, 
   ArrowRight,
-  MessageSquare,
-  Sparkles,
-  Info,
-  Mic,
-  Languages
+  MessageSquare
 } from '../components/icons';
 import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
 import { TollFreeBanner } from '../components/TollFreeBanner';
-import { EmergencyTrackerCard } from '../components/EmergencyTrackerCard';
-import { VoiceSOSRecognitionModal } from '../components/VoiceSOSRecognitionModal';
 import { LeafletMap } from '../components/LeafletMap';
 import { LiveAmbulanceTrackerCard } from '../components/LiveAmbulanceTrackerCard';
 import { HandoverModeSelector } from '../components/HandoverModeSelector';
 import { HandoverETAComparisonCard } from '../components/HandoverETAComparisonCard';
-import { HandoverSimulationBar } from '../components/HandoverSimulationBar';
 import { Link } from 'react-router-dom';
 
 interface EmergencyPageProps {
@@ -38,7 +31,6 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
     activeDispatch, 
     ambulances,
     sendDispatchMessage,
-    updateDispatchStep,
     cancelDispatch,
     createEmergencyDispatch,
     user
@@ -46,7 +38,6 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
   const { tr, language } = useLanguage();
 
   const [chatMessage, setChatMessage] = useState('');
-  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
 
   const dispatch = activeDispatch;
 
@@ -76,7 +67,6 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
 
   // Qualified hospitals with 24/7 ambulance service
   const eligibleEmergencyHospitals = hospitals.filter(h => h.hasAmbulanceService);
-  const assignedAmb = (dispatch ? ambulances.find(a => a.id === dispatch.assignedAmbulanceId) : null) || ambulances[0];
 
   if (!dispatch) {
     return (
@@ -115,19 +105,10 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
                     'CRITICAL'
                   );
                 }}
-                className="flex-1 sm:flex-initial px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full sm:w-auto px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
               >
                 <AlertTriangle className="w-4 h-4" />
                 <span>{tr.emergency.triggerEmergency}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setIsVoiceModalOpen(true)}
-                className="flex-1 sm:flex-initial px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
-              >
-                <Mic className="w-4 h-4 text-red-600" />
-                <span>{language === 'mr' ? 'आवाजी SOS' : language === 'hi' ? 'वॉइस SOS' : 'Voice SOS'}</span>
               </button>
             </div>
           </div>
@@ -208,11 +189,6 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
             />
           </div>
         </div>
-
-        <VoiceSOSRecognitionModal
-          isOpen={isVoiceModalOpen}
-          onClose={() => setIsVoiceModalOpen(false)}
-        />
       </div>
     );
   }
@@ -238,44 +214,6 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
           </span>
         </div>
 
-        {/* Elderly & Hands-free Voice SOS Recognition Banner */}
-        <div className="bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 text-white rounded-2xl p-4 sm:p-5 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5 text-center sm:text-left">
-            <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white shrink-0 shadow-inner">
-              <Mic className="w-6 h-6 animate-pulse" />
-            </div>
-            <div>
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                <span className="font-extrabold text-base sm:text-lg font-heading tracking-tight">
-                  {language === 'mr' ? 'ज्येष्ठ नागरिकांसाठी आवाजी SOS मदत' : language === 'hi' ? 'बुजुर्गों के लिए वॉइस SOS सहायता' : 'Elderly Voice Recognition SOS'}
-                </span>
-                <span className="text-[10px] uppercase font-black tracking-wider px-2 py-0.5 rounded-full bg-white/25 text-white border border-white/30">
-                  🇮🇳 हिन्दी • 🚩 मराठी • 🌐 English
-                </span>
-              </div>
-              <p className="text-xs text-red-100 mt-0.5">
-                {language === 'mr' 
-                  ? 'टाईप करू शकत नाही? मायक्रोफोनवर टॅप करा आणि मराठी, हिंदी किंवा इंग्रजीत बोला.' 
-                  : language === 'hi' 
-                  ? 'टाइप नहीं कर सकते? माइक पर टैप करें और सीधे हिन्दी, मराठी या अंग्रेजी में बोलें।' 
-                  : "Can't type? Tap the microphone and speak naturally in Hindi, Marathi, or English."}
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setIsVoiceModalOpen(true)}
-            className="w-full sm:w-auto px-5 py-3 bg-white text-red-700 hover:bg-red-50 rounded-xl font-extrabold text-sm shadow-md transition flex items-center justify-center gap-2 shrink-0 cursor-pointer"
-          >
-            <Mic className="w-4 h-4 text-red-600" />
-            <span>{language === 'mr' ? '🎙️ आवाजाने मदत मागा (Tap to Speak)' : language === 'hi' ? '🎙️ बोलकर सहायता लें (Tap to Speak)' : '🎙️ Tap to Speak (Voice SOS)'}</span>
-          </button>
-        </div>
-
-        {/* HACKATHON DEMO SIMULATION CONTROLLER */}
-        <HandoverSimulationBar />
-
         {/* MIDWAY AMBULANCE HANDOVER MODE SELECTOR ("I can travel toward the ambulance") */}
         <HandoverModeSelector />
 
@@ -284,116 +222,44 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
           <HandoverETAComparisonCard />
         )}
 
-        {/* ACTIVE EMERGENCY DISPATCH DISPLAY: SIMULTANEOUS SIDE-BY-SIDE SPLIT VIEW */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-
-          {/* LEFT COLUMN (5 Cols): The Process of Requests (10-Stage Stepper & Ambulance Info) */}
-          <div className="lg:col-span-5 space-y-4">
-            {/* Nearest Ambulance Live Response Banner */}
-            <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white rounded-2xl p-4 sm:p-5 border border-slate-700 shadow-md">
-              <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-700/80">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
-                    <Truck className="w-5 h-5 animate-pulse" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-base font-extrabold text-white tracking-wide font-mono">
-                        {assignedAmb.vehicleNumber}
-                      </span>
-                      <span className="text-[9px] uppercase font-black tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-                        ⚡ {language === 'mr' ? 'नियुक्त' : language === 'hi' ? 'सौंपी गई' : 'Assigned First'}
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-300 mt-0.5 truncate max-w-[220px]">
-                      {assignedAmb.type} • <strong className="text-slate-100">{assignedAmb.hospitalName}</strong>
-                    </p>
-                  </div>
-                </div>
-
-                <div className="text-right bg-slate-950/70 border border-slate-700 px-3 py-1.5 rounded-xl shrink-0">
-                  <div className="text-[9px] uppercase tracking-wider text-slate-400 font-semibold">
-                    {tr.citizen.estArrival}
-                  </div>
-                  <div className="text-xl font-mono font-black text-emerald-400">
-                    ~{assignedAmb.etaMinutes || 3} {tr.common.unitMin}
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
-                <div className="text-slate-300 text-[11px] truncate">
-                  {tr.emergency.driverName}: <b className="text-white">{assignedAmb.driverName}</b> • <a href={`tel:${assignedAmb.driverPhone}`} className="text-emerald-400 underline font-mono">{assignedAmb.driverPhone}</a>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {onNavigateToAmbulance && (
-                    <button
-                      type="button"
-                      onClick={onNavigateToAmbulance}
-                      className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition flex items-center gap-1 shadow-xs cursor-pointer"
-                    >
-                      <span>{tr.nav.ambulance}</span>
-                      <ArrowRight className="w-3 h-3" />
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={cancelDispatch}
-                    className="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg transition shadow-xs cursor-pointer"
-                    title="Cancel emergency dispatch"
-                  >
-                    <span>{language === 'mr' ? 'रद्द करा' : language === 'hi' ? 'रद्द करें' : 'Cancel SOS'}</span>
-                  </button>
-                </div>
-              </div>
+        {/* LIVE INTERACTIVE GPS RADAR & TRACKING MAP */}
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping"></span>
+              <h3 className="font-bold text-slate-900 text-base font-heading">
+                {language === 'mr' ? 'थेट रवानगी रडार व रुग्णवाहिका ट्रॅकिंग' : language === 'hi' ? 'लाइव प्रेषण रडार एवं एम्बुलेंस ट्रैकिंग' : 'Live Dispatch Radar & Moving Ambulance Tracking'}
+              </h3>
+              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 font-mono">
+                {tr.common.live}
+              </span>
             </div>
-
-            {/* Clean 10-Stage Incident Progress Stepper Card */}
-            <EmergencyTrackerCard
-              incidentId={dispatch.id}
-              title={dispatch.callerIssue}
-              urgency={dispatch.urgencyLevel === 'CRITICAL' ? 'Critical' : (dispatch.urgencyLevel === 'HIGH' ? 'High' : 'Moderate')}
-              patientCount={dispatch.patientCount || 1}
-              currentStep={dispatch.currentStep || 4}
-              onStepChange={(step) => updateDispatchStep(step)}
-              showControls={false}
-              className="w-full shadow-xs"
-            />
-          </div>
-
-          {/* RIGHT COLUMN (7 Cols): Live Interactive GPS Radar & Tracking Map (Simultaneous) */}
-          <div className="lg:col-span-7 space-y-4 lg:sticky lg:top-4">
-            <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping"></span>
-                  <h3 className="font-bold text-slate-900 text-base font-heading">
-                    {language === 'mr' ? 'थेट रवानगी रडार व रुग्णवाहिका ट्रॅकिंग' : language === 'hi' ? 'लाइव प्रेषण रडार एवं एम्बुलेंस ट्रैकिंग' : 'Live Dispatch Radar & Moving Ambulance Tracking'}
-                  </h3>
-                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 font-mono">
-                    {tr.common.live}
-                  </span>
-                </div>
-                <span className="text-xs text-slate-500 font-medium">
-                  {language === 'mr' ? 'रुग्णवाहिका प्रवासानुसार थेट अंतर सतत अद्यतनित होते' : language === 'hi' ? 'एम्बुलेंस यात्रा के दौरान वास्तविक दूरी निरंतर अद्यतन होती है' : 'Live distances update continuously as ambulance travels'}
-                </span>
-              </div>
-
-              <LeafletMap
-                hospitals={hospitals}
-                ambulances={ambulances}
-                selectedHospitalId={dispatch.currentHospitalId}
-                pickupLocation={memoizedPickup}
-                height="460px"
-                showRouteLine={true}
-              />
-
-              {/* DEDICATED SEPARATE LIVE AMBULANCE TELEMETRY & ROUTE TRACKER CARD */}
-              <LiveAmbulanceTrackerCard />
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-500 font-medium hidden sm:inline">
+                {language === 'mr' ? 'रुग्णवाहिका प्रवासानुसार थेट अंतर सतत अद्यतनित होते' : language === 'hi' ? 'एम्बुलेंस यात्रा के दौरान वास्तविक दूरी निरंतर अद्यतन होती है' : 'Live distances update continuously as ambulance travels'}
+              </span>
+              <button
+                type="button"
+                onClick={cancelDispatch}
+                className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg transition shadow-xs cursor-pointer shrink-0"
+                title="Cancel emergency dispatch"
+              >
+                <span>{language === 'mr' ? 'रद्द करा' : language === 'hi' ? 'रद्द करें' : 'Cancel SOS'}</span>
+              </button>
             </div>
           </div>
 
+          <LeafletMap
+            hospitals={hospitals}
+            ambulances={ambulances}
+            selectedHospitalId={dispatch.currentHospitalId}
+            pickupLocation={memoizedPickup}
+            height="460px"
+            showRouteLine={true}
+          />
+
+          {/* DEDICATED SEPARATE LIVE AMBULANCE TELEMETRY & ROUTE TRACKER CARD */}
+          <LiveAmbulanceTrackerCard />
         </div>
 
           {/* TWO-COLUMN LIVE COORDINATION & AUDIT GRID */}
@@ -527,14 +393,6 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
 
                 {/* Send Update Input */}
                 <form onSubmit={handleSendMessage} className="flex items-center gap-2 pt-2 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => setIsVoiceModalOpen(true)}
-                    className="p-2.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl transition flex items-center justify-center shrink-0 cursor-pointer shadow-2xs"
-                    title={tr.citizen.voiceSOSTitle}
-                  >
-                    <Mic className="w-4 h-4 text-red-600 animate-pulse" />
-                  </button>
                   <input
                     type="text"
                     value={chatMessage}
@@ -601,13 +459,6 @@ export const EmergencyPage: React.FC<EmergencyPageProps> = ({ onNavigateToAmbula
           </div>
 
         </div>
-
-      {/* 3-Language Elderly Speech Recognition Voice SOS Modal */}
-      <VoiceSOSRecognitionModal
-        isOpen={isVoiceModalOpen}
-        onClose={() => setIsVoiceModalOpen(false)}
-        initialLanguage="hi-IN"
-      />
 
     </div>
   );
