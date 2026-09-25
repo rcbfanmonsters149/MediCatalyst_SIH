@@ -27,7 +27,9 @@ import {
   Layers,
   FileCheck,
   Check,
-  QrCode
+  QrCode,
+  FlaskConical,
+  TestTube
 } from '../components/icons';
 import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -201,6 +203,41 @@ export const BioDataPage: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          ${rec.labRecords && rec.labRecords.length > 0 ? `
+            <div style="margin-bottom: 20px;">
+              <div style="display: flex; align-items: baseline; gap: 6px; margin-bottom: 6px;">
+                <span style="font-size: 16px; font-weight: 900; color: #7c3aed;">🧪</span>
+                <span style="font-size: 14px; font-weight: 700; color: #0f172a;">Diagnostic Laboratory Investigations (${rec.labRecords.length} Tests)</span>
+              </div>
+              <table class="meds">
+                <thead>
+                  <tr style="background: #faf5ff;">
+                    <th style="width: 5%; text-align: center;">#</th>
+                    <th style="width: 25%;">Test Name</th>
+                    <th style="width: 18%;">Department</th>
+                    <th style="width: 15%;">Result Finding</th>
+                    <th style="width: 15%;">Ref Range</th>
+                    <th style="width: 10%;">Status</th>
+                    <th style="width: 12%;">Remarks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${rec.labRecords.map((l, idx) => `
+                    <tr style="border-bottom: 1px solid #e2e8f0;">
+                      <td style="padding: 8px; font-weight: bold; color: #1e293b; text-align: center;">${idx + 1}</td>
+                      <td style="padding: 8px; font-weight: bold; color: #0f172a;">${l.testName}</td>
+                      <td style="padding: 8px; color: #6b21a8; font-size: 11px;">${l.category}</td>
+                      <td style="padding: 8px; font-weight: bold; color: #0f172a;">${l.resultValue} <span style="font-weight: normal; color: #64748b;">${l.unit}</span></td>
+                      <td style="padding: 8px; color: #64748b; font-size: 11px;">${l.referenceRange}</td>
+                      <td style="padding: 8px; font-weight: bold; font-size: 11px; color: ${l.status === 'NORMAL' ? '#15803d' : l.status === 'CRITICAL' ? '#b91c1c' : '#c2410c'};">${l.status}</td>
+                      <td style="padding: 8px; color: #475569; font-size: 11px;">${l.notes || 'Normal'}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          ` : ''}
 
           ${rec.clinicalAdvice ? `
             <div style="margin-bottom: 24px; background: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px; padding: 12px;">
@@ -635,6 +672,38 @@ export const BioDataPage: React.FC = () => {
                       <p className="text-slate-600 leading-relaxed">{rec.prescriptionSummary}</p>
                     )}
 
+                    {/* Laboratory & Diagnostic Tests */}
+                    {rec.labRecords && rec.labRecords.length > 0 && (
+                      <div className="pt-1 border-t border-slate-100">
+                        <span className="text-[10px] uppercase font-bold text-purple-700 flex items-center gap-1">
+                          <FlaskConical className="w-3 h-3 text-purple-600" />
+                          <span>Diagnostic Lab Investigations ({rec.labRecords.length}):</span>
+                        </span>
+                        <div className="flex flex-wrap gap-1.5 mt-1.5">
+                          {rec.labRecords.map((lab, lIdx) => {
+                            const isCritical = lab.status === 'CRITICAL';
+                            const isAbnormal = lab.status === 'ABNORMAL';
+                            const isBorderline = lab.status === 'BORDERLINE';
+                            const badgeBg = isCritical
+                              ? 'bg-rose-50 border-rose-300 text-rose-800'
+                              : isAbnormal
+                              ? 'bg-amber-50 border-amber-300 text-amber-800'
+                              : isBorderline
+                              ? 'bg-yellow-50 border-yellow-300 text-yellow-800'
+                              : 'bg-emerald-50 border-emerald-300 text-emerald-800';
+
+                            return (
+                              <span key={lIdx} className={`px-2 py-0.5 rounded-md text-[11px] font-semibold border ${badgeBg} flex items-center gap-1`}>
+                                <span className="font-bold">{lab.testName}:</span>
+                                <span className="font-mono">{lab.resultValue} {lab.unit}</span>
+                                <span className="text-[9px] uppercase font-extrabold px-1 py-0.2 rounded bg-white/80 border border-current">{lab.status}</span>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     {rec.clinicalAdvice && (
                       <div className="p-2 bg-amber-50 rounded-lg border border-amber-200 text-[11px] text-amber-900">
                         <span className="font-bold">{language === 'mr' ? 'सल्ला: ' : language === 'hi' ? 'सलाह: ' : 'Advice: '}</span>
@@ -1037,6 +1106,60 @@ export const BioDataPage: React.FC = () => {
                   </p>
                 )}
               </div>
+
+              {/* Lab Records Table */}
+              {selectedRecordForPreview.labRecords && selectedRecordForPreview.labRecords.length > 0 && (
+                <div className="space-y-2">
+                  <span className="text-xs font-bold text-purple-900 flex items-center gap-1.5">
+                    <FlaskConical className="w-3.5 h-3.5 text-purple-600" />
+                    <span>Diagnostic Lab & Pathology Records:</span>
+                  </span>
+
+                  <div className="border border-purple-200 rounded-xl overflow-hidden shadow-2xs">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-purple-50/80 border-b border-purple-200 text-purple-900 font-bold">
+                        <tr>
+                          <th className="p-2.5">Investigation / Test</th>
+                          <th className="p-2.5">Category</th>
+                          <th className="p-2.5">Observed Finding</th>
+                          <th className="p-2.5">Reference Range</th>
+                          <th className="p-2.5 text-center">Status</th>
+                          <th className="p-2.5">Clinical Remarks</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-purple-100 bg-white">
+                        {selectedRecordForPreview.labRecords.map((lab, idx) => {
+                          const isCritical = lab.status === 'CRITICAL';
+                          const isAbnormal = lab.status === 'ABNORMAL';
+                          const isBorderline = lab.status === 'BORDERLINE';
+                          const statusClass = isCritical
+                            ? 'bg-rose-100 text-rose-800 border-rose-300 font-black'
+                            : isAbnormal
+                            ? 'bg-amber-100 text-amber-800 border-amber-300 font-bold'
+                            : isBorderline
+                            ? 'bg-yellow-100 text-yellow-800 border-yellow-300 font-bold'
+                            : 'bg-emerald-100 text-emerald-800 border-emerald-300 font-bold';
+
+                          return (
+                            <tr key={idx} className="hover:bg-purple-50/30 transition">
+                              <td className="p-2.5 font-bold text-slate-900">{lab.testName}</td>
+                              <td className="p-2.5 text-slate-500 font-mono text-[11px]">{lab.category}</td>
+                              <td className="p-2.5 font-bold font-mono text-purple-900">{lab.resultValue} {lab.unit}</td>
+                              <td className="p-2.5 text-slate-500 text-[11px]">{lab.referenceRange || 'N/A'}</td>
+                              <td className="p-2.5 text-center">
+                                <span className={`px-2 py-0.5 rounded text-[10px] border uppercase ${statusClass}`}>
+                                  {lab.status}
+                                </span>
+                              </td>
+                              <td className="p-2.5 text-slate-600 text-[11px] max-w-xs">{lab.notes || 'Routine limits observed'}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
 
               {/* Advice */}
               {selectedRecordForPreview.clinicalAdvice && (

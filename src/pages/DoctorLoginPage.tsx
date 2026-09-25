@@ -11,7 +11,8 @@ import {
   Video,
   Clock,
   Sparkles,
-  UserCheck
+  UserCheck,
+  Star
 } from '../components/icons';
 import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -106,25 +107,28 @@ export const DoctorLoginPage: React.FC<DoctorLoginPageProps> = ({ onSuccess }) =
     {
       id: 'doc-1',
       name: 'Dr. Kavita Sharma',
-      designation: 'Medical Officer (MBBS)',
+      designation: 'Medical Officer (MBBS, MD)',
       hospital: 'Rampur Primary Health Center (PHC)',
       badge: 'Active Appointments (Rameshwar Singh)',
+      rating: '4.9 (148 reviews)',
       highlight: true
     },
     {
       id: 'doc-3',
       name: 'Dr. Rajesh Mehta',
-      designation: 'Senior Emergency Physician',
+      designation: 'Senior Emergency Physician (MBBS, MD, FACEM)',
       hospital: 'Bilaspur Community Health Center',
       badge: 'Trauma & Emergency Unit',
+      rating: '4.8 (210 reviews)',
       highlight: false
     },
     {
       id: 'doc-7',
       name: 'Dr. Arvind Singhal',
-      designation: 'Interventional Cardiologist',
+      designation: 'Interventional Cardiologist (MD, DM)',
       hospital: 'Apex Multi-Specialty Hospital',
       badge: 'Cath Lab & Cardiac Tele-OPD',
+      rating: '4.9 (92 reviews)',
       highlight: false
     }
   ];
@@ -283,11 +287,19 @@ export const DoctorLoginPage: React.FC<DoctorLoginPageProps> = ({ onSuccess }) =
                     <p className="text-[11px] text-slate-600">
                       {doc.designation} • {doc.hospital}
                     </p>
-                    {doc.badge && (
-                      <span className="inline-block text-[10px] font-bold text-teal-700 bg-teal-100/80 px-2 py-0.5 rounded-full mt-1">
-                        ✨ {doc.badge}
-                      </span>
-                    )}
+                    <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                      {doc.rating && (
+                        <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-amber-900 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded-md">
+                          <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
+                          <span>{doc.rating}</span>
+                        </span>
+                      )}
+                      {doc.badge && (
+                        <span className="inline-block text-[10px] font-bold text-teal-700 bg-teal-100/80 px-2 py-0.5 rounded-full">
+                          ✨ {doc.badge}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <span className="text-xs font-bold text-teal-700 group-hover:translate-x-0.5 transition-transform flex items-center gap-1">

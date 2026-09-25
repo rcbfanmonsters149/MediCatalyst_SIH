@@ -14,7 +14,9 @@ import {
   Clock,
   Sparkles,
   Building2,
-  Lock
+  Lock,
+  Star,
+  Check
 } from '../icons';
 import { TeleAppointment, UserBioData } from '../../types';
 import { useApp } from '../../context/AppContext';
@@ -36,7 +38,7 @@ export const VideoConsultModal: React.FC<VideoConsultModalProps> = ({
   userRole = 'CITIZEN',
   onConsultationCompleted
 }) => {
-  const { user, hospitals, updateAppointmentStatus } = useApp();
+  const { user, hospitals, updateAppointmentStatus, submitDoctorReview } = useApp();
   const { language } = useLanguage();
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -49,6 +51,12 @@ export const VideoConsultModal: React.FC<VideoConsultModalProps> = ({
   const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
   const [doctorNotes, setDoctorNotes] = useState('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Post-Consultation Rating State (Patient Feedback)
+  const [showRatingPrompt, setShowRatingPrompt] = useState(false);
+  const [postCallRating, setPostCallRating] = useState(5);
+  const [postCallComment, setPostCallComment] = useState('');
+  const [postCallTags, setPostCallTags] = useState<string[]>(['Clear Advice', 'Punctual & Polite']);
 
   const activeHospital = hospitals.find(h => h.id === appointment?.hospitalId) || hospitals[0];
 
@@ -113,6 +121,27 @@ export const VideoConsultModal: React.FC<VideoConsultModalProps> = ({
       updateAppointmentStatus(appointment.id, 'COMPLETED');
       if (onConsultationCompleted) onConsultationCompleted(appointment.id);
     }
+    if (userRole === 'CITIZEN') {
+      setShowRatingPrompt(true);
+    } else {
+      onClose();
+    }
+  };
+
+  const handlePostCallRatingSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (appointment) {
+      submitDoctorReview(appointment.doctorId, {
+        patientName: user.fullName || appointment.patientName,
+        patientAbhaMasked: appointment.patientAbhaId ? `ABHA: ${appointment.patientAbhaId.slice(0, 7)}****` : 'ABHA: Verified',
+        rating: postCallRating,
+        consultationType: appointment.consultationType || 'VIDEO',
+        tags: postCallTags,
+        comment: postCallComment.trim() || 'Consultation completed successfully. Very helpful advice and prescription.',
+        isVerifiedPatient: true
+      });
+    }
+    setShowRatingPrompt(false);
     onClose();
   };
 
@@ -384,6 +413,79 @@ export const VideoConsultModal: React.FC<VideoConsultModalProps> = ({
         hospital={activeHospital}
         onNotify={(msg) => setToastMessage(msg)}
       />
+
+      {/* Patient Post-Consultation Rating Modal */}
+      {showRatingPrompt && (
+        <div className="fixed inset-0 z-60 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white text-slate-900 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="text-center space-y-1">
+              <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-500 border border-amber-200 flex items-center justify-center mx-auto mb-2">
+                <Star className="w-6 h-6 fill-amber-400 text-amber-400" />
+              </div>
+              <h3 className="font-extrabold text-base text-slate-900 tracking-tight font-heading">
+                Rate Your Consultation
+              </h3>
+              <p className="text-xs text-slate-600 font-semibold">
+                {appointment.doctorName}
+              </p>
+              <p className="text-[11px] text-slate-500">
+                Your feedback is collected to update the doctor's verified rating profile.
+              </p>
+            </div>
+
+            <form onSubmit={handlePostCallRatingSubmit} className="space-y-4 text-xs">
+              <div className="flex items-center justify-center gap-2 py-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setPostCallRating(star)}
+                    className="p-1.5 transition transform hover:scale-110 cursor-pointer"
+                  >
+                    <Star 
+                      className={`w-7 h-7 ${
+                        postCallRating >= star ? 'fill-amber-400 text-amber-400' : 'text-slate-200'
+                      }`} 
+                    />
+                  </button>
+                ))}
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
+                  How was your experience?
+                </label>
+                <textarea
+                  rows={2}
+                  value={postCallComment}
+                  onChange={(e) => setPostCallComment(e.target.value)}
+                  placeholder="Doctor gave clear explanations and prescribed medicines..."
+                  className="w-full p-2.5 rounded-xl border border-slate-300 text-xs text-slate-800 focus:ring-2 focus:ring-teal-500 focus:outline-hidden"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowRatingPrompt(false);
+                    onClose();
+                  }}
+                  className="px-3.5 py-2 text-slate-500 hover:text-slate-800 text-xs font-semibold cursor-pointer"
+                >
+                  Skip
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold shadow-md transition cursor-pointer"
+                >
+                  Submit Rating
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );

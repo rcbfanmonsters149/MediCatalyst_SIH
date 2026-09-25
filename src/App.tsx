@@ -15,7 +15,8 @@ import { DoctorDashboard } from './pages/DoctorDashboard';
 import { DoctorLoginPage } from './pages/DoctorLoginPage';
 import { PublicWorkersPage } from './pages/PublicWorkersPage';
 import { PatientRecordViewPage } from './pages/PatientRecordViewPage';
-import { Building2, ArrowRight, Truck, ShieldCheck, Stethoscope } from './components/icons';
+import { ArchitectureAuditPage } from './pages/ArchitectureAuditPage';
+import { Building2, ArrowRight, Truck, ShieldCheck, Stethoscope, Cpu } from './components/icons';
 
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 
@@ -128,6 +129,15 @@ const CitizenPortal: React.FC<{ defaultTab?: ActiveTab }> = ({ defaultTab }) => 
             <span>{tr.nav.ashaPortal}</span>
             <ArrowRight className="w-3 h-3" />
           </Link>
+
+          <Link
+            to="/architecture"
+            className="text-emerald-400 hover:text-emerald-300 transition inline-flex items-center gap-1.5 py-1 px-3 rounded-lg border border-emerald-800 hover:border-emerald-600 bg-emerald-950/50 font-bold"
+          >
+            <Cpu className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Technical Audit & Architecture</span>
+            <ArrowRight className="w-3 h-3" />
+          </Link>
         </div>
       </footer>
     </div>
@@ -213,6 +223,10 @@ export default function App() {
             {/* Doctor Clinical EHR & Patient QR Scan Route */}
             <Route path="/records" element={<PatientRecordViewPage />} />
             <Route path="/doctor/records" element={<Navigate to="/records" replace />} />
+
+            {/* Complete Technical Audit & Architecture Specification */}
+            <Route path="/architecture" element={<ArchitectureAuditPage />} />
+            <Route path="/audit" element={<ArchitectureAuditPage />} />
 
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />

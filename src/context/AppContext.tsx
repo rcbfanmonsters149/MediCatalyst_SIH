@@ -20,12 +20,23 @@ import {
   ConsentGrant,
   BlockchainNetworkStatus,
   TeleAppointment,
+  UrgencyType,
+  QueueStatus,
+  DoctorQueueState,
   DoctorUser,
   DoctorScheduleSettings,
   DoctorDutyMode,
   InHospitalEmergencyType,
-  DoctorStatusType
+  DoctorStatusType,
+  DoctorProfileData,
+  DoctorPatientReview
 } from '../types';
+import { 
+  calculateRollingAverage, 
+  generateNextToken, 
+  recalculateDoctorQueue, 
+  formatTimeAmPm 
+} from '../utils/queueEngine';
 import { evaluateAmbulanceAssessment, evaluateAmbulanceTelemetry, checkHospitalCapabilities } from '../utils/mlTriage';
 import { 
   createInitialTrafficEmergency, 
@@ -146,9 +157,9 @@ interface AppContextType {
   // Uber/Rapido-Style Live Moving Ambulance Tracking Telemetry
   liveAmbulance: LiveMovingAmbulance | null;
 
-  // Scheduled & Instant Tele-Consultations & Doctor Portal Desk
+  // Scheduled & Instant Tele-Consultations & Virtual Queue Desk
   appointments: TeleAppointment[];
-  bookAppointment: (appt: Omit<TeleAppointment, 'id' | 'bookedAt' | 'status'>) => TeleAppointment;
+  bookAppointment: (appt: Omit<TeleAppointment, 'id' | 'bookedAt' | 'status' | 'tokenNumber' | 'tokenSequence' | 'queueStatus'> & { timeWindow?: string }) => TeleAppointment;
   initiateInstantConsultation: (doctorId: string, symptomText?: string) => TeleAppointment;
   updateAppointmentStatus: (id: string, status: TeleAppointment['status']) => void;
   doctorUser: DoctorUser | null;
@@ -156,6 +167,15 @@ interface AppContextType {
   logoutDoctor: () => void;
   toggleDoctorTeleConsultStatus: (isOnline: boolean) => void;
   updateDoctorScheduleSettings: (settings: Partial<DoctorScheduleSettings>) => void;
+  submitDoctorReview: (doctorId: string, review: Omit<DoctorPatientReview, 'id' | 'date'>) => void;
+
+  // Virtual Queue & Time Window OPD Management
+  doctorQueues: Record<string, DoctorQueueState>;
+  callNextQueuePatient: (doctorId: string) => TeleAppointment | null;
+  startPatientConsultation: (appointmentId: string) => void;
+  endPatientConsultation: (appointmentId: string, consultationSummary?: string) => void;
+  markPatientNoShow: (appointmentId: string) => void;
+  cancelQueueAppointment: (appointmentId: string, reason?: string) => void;
 }
 
 export const DEFAULT_DOCTOR_SLOTS: string[] = [
@@ -178,6 +198,211 @@ export const createDefaultScheduleSettings = (): DoctorScheduleSettings => ({
   customOPDHours: '09:00 AM - 01:00 PM & 02:00 PM - 05:00 PM'
 });
 
+export const getDoctorProfileForDoctor = (id: string, name: string, department?: string): DoctorProfileData => {
+  if (id === 'doc-1' || name.toLowerCase().includes('kavita')) {
+    return {
+      degrees: [
+        'MBBS (Gold Medalist) — AIIMS New Delhi',
+        'MD (General Medicine) — PGIMER Chandigarh',
+        'DNB (Internal Medicine) — National Board of Examinations',
+        'Fellowship in Clinical Tele-Medicine & ABDM Protocols'
+      ],
+      primaryDegree: 'MBBS, MD (General Medicine)',
+      medicalCouncilRegNo: 'NMC-2016-084920',
+      abhaHprId: 'HPR-2026-99210@abdm',
+      experienceYears: 12,
+      department: department || 'General OPD & Emergency',
+      specializations: [
+        'Internal Medicine',
+        'Preventive Family Healthcare',
+        'Acute Respiratory Triage',
+        'Hypertension & Diabetic Care',
+        'e-Sanjeevani Digital Tele-Consultations'
+      ],
+      languagesSpoken: ['English', 'हिंदी (Hindi)', 'मराठी (Marathi)'],
+      bio: 'Senior Clinical Medical Officer and clinical lead at Rampur PHC. Dedicated to accessible primary care, community epidemiology, and rapid tele-triage for rural and semi-urban patients under the Ayushman Bharat Digital Mission.',
+      consultationFee: 'Free (Govt. ABHA Tele-OPD Service)',
+      averageRating: 4.9,
+      totalReviews: 148,
+      recommendationRate: 98,
+      ratingDistribution: {
+        5: 130,
+        4: 14,
+        3: 3,
+        2: 1,
+        1: 0
+      },
+      reviews: [
+        {
+          id: 'rev-101',
+          patientName: 'Rameshwar Singh',
+          patientAbhaMasked: 'ABHA: 91-****-1092',
+          rating: 5,
+          consultationType: 'VIDEO',
+          date: '22 Sep 2026',
+          tags: ['Clear Advice', 'Punctual & Polite', 'Prescription Clarity'],
+          comment: 'Dr. Kavita Sharma was extremely attentive to my persistent cough. She reviewed my oxygen saturation and prescribed the exact medicines. I feel much better within two days.',
+          isVerifiedPatient: true
+        },
+        {
+          id: 'rev-102',
+          patientName: 'Anita Devi',
+          patientAbhaMasked: 'ABHA: 91-****-7712',
+          rating: 5,
+          consultationType: 'VIDEO',
+          date: '19 Sep 2026',
+          tags: ['Compassionate', 'Fast Response', 'Explained in Hindi'],
+          comment: 'Joined the video room immediately when I had high evening fever. She explained the medication schedule in simple Hindi for my family. Very reassuring doctor!',
+          isVerifiedPatient: true
+        },
+        {
+          id: 'rev-103',
+          patientName: 'Vikas Patel',
+          patientAbhaMasked: 'ABHA: 91-****-3319',
+          rating: 4,
+          consultationType: 'IN_PERSON',
+          date: '14 Sep 2026',
+          tags: ['Accurate Diagnosis', 'Good Follow-up'],
+          comment: 'Very thorough checkup at the PHC desk. Recommended dietary changes that eliminated my chronic heartburn. Saved me from unnecessary scans.',
+          isVerifiedPatient: true
+        },
+        {
+          id: 'rev-104',
+          patientName: 'Sunita Bai',
+          patientAbhaMasked: 'ABHA: 91-****-6502',
+          rating: 5,
+          consultationType: 'VIDEO',
+          date: '08 Sep 2026',
+          tags: ['Patient Listener', 'Elderly Care Specialist'],
+          comment: 'Doctor took 20 full minutes to explain my mother’s diabetes insulin schedule. The digitally signed prescription arrived in our ABHA PHR immediately.',
+          isVerifiedPatient: true
+        },
+        {
+          id: 'rev-105',
+          patientName: 'Harish Chandra',
+          patientAbhaMasked: 'ABHA: 91-****-9014',
+          rating: 5,
+          consultationType: 'VIDEO',
+          date: '01 Sep 2026',
+          tags: ['Life-Saving Advice', 'Quick Call'],
+          comment: 'Identified that my brother’s breathing distress required immediate oxygen support and coordinated with the local ambulance dispatch. Exceptional clinical care.',
+          isVerifiedPatient: true
+        }
+      ]
+    };
+  }
+
+  if (id === 'doc-3' || name.toLowerCase().includes('rajesh mehta')) {
+    return {
+      degrees: [
+        'MBBS — Maulana Azad Medical College, New Delhi',
+        'MD (Emergency Medicine) — AIIMS New Delhi',
+        'FACEM — Fellowship in Emergency & Trauma Care'
+      ],
+      primaryDegree: 'MBBS, MD (Emergency Medicine)',
+      medicalCouncilRegNo: 'DMC-2012-049182',
+      abhaHprId: 'HPR-2026-44109@abdm',
+      experienceYears: 16,
+      department: department || '24x7 Emergency & Trauma',
+      specializations: [
+        'Emergency Resuscitation & Trauma',
+        'Advanced Cardiac Life Support (ACLS)',
+        'Point-of-Care Ultrasound (POCUS)',
+        'Disaster Triage Protocols'
+      ],
+      languagesSpoken: ['English', 'हिंदी (Hindi)'],
+      bio: 'Senior Emergency Physician and Trauma Care Director at Bilaspur CHC with over 16 years leading high-acuity resuscitation units and acute emergency telemedicine responses.',
+      consultationFee: 'Free (Emergency Triage / ABHA)',
+      averageRating: 4.8,
+      totalReviews: 210,
+      recommendationRate: 97,
+      ratingDistribution: {
+        5: 180,
+        4: 22,
+        3: 6,
+        2: 2,
+        1: 0
+      },
+      reviews: [
+        {
+          id: 'rev-301',
+          patientName: 'Mohd. Imran',
+          patientAbhaMasked: 'ABHA: 91-****-4102',
+          rating: 5,
+          consultationType: 'EMERGENCY',
+          date: '20 Sep 2026',
+          tags: ['Life Saving', 'Fast Triage', 'Calm Under Pressure'],
+          comment: 'Dr. Rajesh Mehta guided the paramedic crew while we rushed my father to the hospital. His rapid instructions made all the difference.',
+          isVerifiedPatient: true
+        },
+        {
+          id: 'rev-302',
+          patientName: 'Pooja Rawat',
+          patientAbhaMasked: 'ABHA: 91-****-8812',
+          rating: 5,
+          consultationType: 'VIDEO',
+          date: '16 Sep 2026',
+          tags: ['Expert Advice', 'Punctual'],
+          comment: 'Very experienced trauma doctor. Reassured us and advised appropriate immediate wound dressing.',
+          isVerifiedPatient: true
+        }
+      ]
+    };
+  }
+
+  // Default fallback for any other doctor
+  return {
+    degrees: [
+      'MBBS — Govt. Medical College',
+      'MD / DNB — National Medical Commission Certified',
+      'Fellowship in Emergency Critical Care'
+    ],
+    primaryDegree: 'MBBS, MD',
+    medicalCouncilRegNo: `NMC-2018-0${id.replace(/[^0-9]/g, '492') || '8841'}`,
+    abhaHprId: `HPR-2026-${id.replace(/[^0-9]/g, '9910') || '1029'}@abdm`,
+    experienceYears: 10,
+    department: department || 'Clinical OPD',
+    specializations: ['General Medicine', 'Emergency Triage', 'Tele-Consultation'],
+    languagesSpoken: ['English', 'हिंदी (Hindi)'],
+    bio: `${name} is an experienced medical specialist providing compassionate, evidence-based outpatient consultations and tele-health triage.`,
+    consultationFee: 'Free (ABHA Tele-OPD)',
+    averageRating: 4.8,
+    totalReviews: 86,
+    recommendationRate: 96,
+    ratingDistribution: {
+      5: 70,
+      4: 12,
+      3: 3,
+      2: 1,
+      1: 0
+    },
+    reviews: [
+      {
+        id: `rev-${id}-1`,
+        patientName: 'Priya Sharma',
+        patientAbhaMasked: 'ABHA: 91-****-8821',
+        rating: 5,
+        consultationType: 'VIDEO',
+        date: '20 Sep 2026',
+        tags: ['Clear Advice', 'Punctual'],
+        comment: `Excellent consultation with ${name}. All queries answered thoroughly.`,
+        isVerifiedPatient: true
+      },
+      {
+        id: `rev-${id}-2`,
+        patientName: 'Deepak Verma',
+        patientAbhaMasked: 'ABHA: 91-****-2209',
+        rating: 5,
+        consultationType: 'VIDEO',
+        date: '15 Sep 2026',
+        tags: ['Patient Listener', 'Accurate Diagnosis'],
+        comment: 'Very helpful diagnosis and clear instructions on prescription.',
+        isVerifiedPatient: true
+      }
+    ]
+  };
+};
+
 const INITIAL_APPOINTMENTS: TeleAppointment[] = [
   {
     id: 'appt-2026-101',
@@ -194,12 +419,20 @@ const INITIAL_APPOINTMENTS: TeleAppointment[] = [
     hospitalId: 'hosp-rampur-phc',
     hospitalName: 'Rampur Primary Health Center (PHC)',
     date: 'Today',
-    timeSlot: '10:00 AM - 10:30 AM',
+    timeSlot: '10:00 AM – 12:00 PM',
+    timeWindow: '10:00 AM – 12:00 PM',
+    tokenNumber: 'A-01',
+    tokenSequence: 1,
+    queueStatus: 'WAITING',
+    estimatedConsultationTime: '10:05 AM',
+    estimatedWaitMinutes: 5,
+    patientsAhead: 0,
     symptoms: 'Persistent dry cough, mild chest tightness and evening fever for 3 days',
     urgency: 'PRIORITY',
     consultationType: 'VIDEO',
     status: 'SCHEDULED',
-    bookedAt: 'Today, 08:30 AM'
+    bookedAt: 'Today, 08:30 AM',
+    bookedAtTimestamp: Date.now() - 45 * 60000
   },
   {
     id: 'appt-2026-102',
@@ -210,20 +443,109 @@ const INITIAL_APPOINTMENTS: TeleAppointment[] = [
     patientAge: 38,
     patientGender: 'Female',
     patientBloodGroup: 'B+ (Positive)',
+    doctorId: 'doc-1',
+    doctorName: 'Dr. Kavita Sharma',
+    doctorSpecialty: 'Medical Officer (MBBS) • General OPD',
+    hospitalId: 'hosp-rampur-phc',
+    hospitalName: 'Rampur Primary Health Center (PHC)',
+    date: 'Today',
+    timeSlot: '10:00 AM – 12:00 PM',
+    timeWindow: '10:00 AM – 12:00 PM',
+    tokenNumber: 'A-02',
+    tokenSequence: 2,
+    queueStatus: 'WAITING',
+    estimatedConsultationTime: '10:19 AM',
+    estimatedWaitMinutes: 19,
+    patientsAhead: 1,
+    symptoms: 'Hypertension follow-up and review of blood pressure records',
+    urgency: 'ROUTINE',
+    consultationType: 'VIDEO',
+    status: 'SCHEDULED',
+    bookedAt: 'Today, 08:45 AM',
+    bookedAtTimestamp: Date.now() - 30 * 60000
+  },
+  {
+    id: 'appt-2026-103',
+    patientId: 'user-vikas-patel',
+    patientName: 'Vikas Patel',
+    patientPhone: '+91 98333 11223',
+    patientAbhaId: '91-3319-8822-4411',
+    patientAge: 44,
+    patientGender: 'Male',
+    patientBloodGroup: 'A+ (Positive)',
+    doctorId: 'doc-1',
+    doctorName: 'Dr. Kavita Sharma',
+    doctorSpecialty: 'Medical Officer (MBBS) • General OPD',
+    hospitalId: 'hosp-rampur-phc',
+    hospitalName: 'Rampur Primary Health Center (PHC)',
+    date: 'Today',
+    timeSlot: '10:00 AM – 12:00 PM',
+    timeWindow: '10:00 AM – 12:00 PM',
+    tokenNumber: 'A-03',
+    tokenSequence: 3,
+    queueStatus: 'WAITING',
+    estimatedConsultationTime: '10:33 AM',
+    estimatedWaitMinutes: 33,
+    patientsAhead: 2,
+    symptoms: 'Recurring acid reflux and stomach cramps after meals',
+    urgency: 'ROUTINE',
+    consultationType: 'VIDEO',
+    status: 'SCHEDULED',
+    bookedAt: 'Today, 09:10 AM',
+    bookedAtTimestamp: Date.now() - 15 * 60000
+  },
+  {
+    id: 'appt-2026-104',
+    patientId: 'user-priya-singh',
+    patientName: 'Priya Singh',
+    patientPhone: '+91 98777 55443',
+    patientAbhaId: '91-6655-4433-2211',
+    patientAge: 29,
+    patientGender: 'Female',
+    patientBloodGroup: 'B+ (Positive)',
     doctorId: 'doc-3',
     doctorName: 'Dr. Rajesh Mehta',
     doctorSpecialty: 'Senior Emergency Physician',
     hospitalId: 'hosp-bilaspur-chc',
     hospitalName: 'Bilaspur Community Health Center (CHC)',
-    date: 'Tomorrow',
-    timeSlot: '11:30 AM - 12:00 PM',
-    symptoms: 'Hypertension follow-up and review of blood pressure records',
-    urgency: 'ROUTINE',
+    date: 'Today',
+    timeSlot: '12:00 PM – 02:00 PM',
+    timeWindow: '12:00 PM – 02:00 PM',
+    tokenNumber: 'A-01',
+    tokenSequence: 1,
+    queueStatus: 'WAITING',
+    estimatedConsultationTime: '12:10 PM',
+    estimatedWaitMinutes: 10,
+    patientsAhead: 0,
+    symptoms: 'Acute sprained ankle from household fall with swelling',
+    urgency: 'PRIORITY',
     consultationType: 'VIDEO',
     status: 'SCHEDULED',
-    bookedAt: 'Yesterday, 04:15 PM'
+    bookedAt: 'Yesterday, 04:15 PM',
+    bookedAtTimestamp: Date.now() - 120 * 60000
   }
 ];
+
+export const INITIAL_DOCTOR_QUEUES: Record<string, DoctorQueueState> = {
+  'doc-1': {
+    doctorId: 'doc-1',
+    defaultDurationMinutes: 15,
+    rollingWindowSize: 5,
+    completedDurations: [14, 16, 12, 15, 13],
+    currentRollingAvgMinutes: 14.0,
+    activePatientId: undefined,
+    activeTokenNumber: undefined
+  },
+  'doc-3': {
+    doctorId: 'doc-3',
+    defaultDurationMinutes: 15,
+    rollingWindowSize: 5,
+    completedDurations: [15, 18, 14, 16, 15],
+    currentRollingAvgMinutes: 15.6,
+    activePatientId: undefined,
+    activeTokenNumber: undefined
+  }
+};
 
 const INITIAL_HOSPITALS: Hospital[] = [
   {
@@ -491,6 +813,56 @@ const INITIAL_USER: UserBioData = {
         { name: 'Ciprofloxacin', dosage: '500 mg', frequency: '1-0-1', duration: '7 Days', instructions: 'Take after food' },
         { name: 'Clindamycin', dosage: '300 mg', frequency: '1-1-1', duration: '5 Days', instructions: 'Complete full course' }
       ],
+      labRecords: [
+        {
+          id: 'lab-101',
+          testName: 'Fasting Blood Sugar (FBS)',
+          category: 'Diabetic Profile',
+          sampleCollectedAt: '14 Nov 2025, 08:30 AM',
+          resultValue: '198',
+          unit: 'mg/dL',
+          referenceRange: '70 - 100 mg/dL',
+          status: 'ABNORMAL',
+          notes: 'Uncontrolled glycemic level aggravating diabetic foot wound.',
+          labTechnicianOrDoctor: 'Pathology Lab, Sonipat Civil Hosp'
+        },
+        {
+          id: 'lab-102',
+          testName: 'HbA1c (Glycated Hemoglobin)',
+          category: 'Diabetic Profile',
+          sampleCollectedAt: '14 Nov 2025, 08:30 AM',
+          resultValue: '9.2',
+          unit: '%',
+          referenceRange: '< 5.7 %',
+          status: 'CRITICAL',
+          notes: 'Severe chronic hyperglycemia over past 90 days.',
+          labTechnicianOrDoctor: 'Dr. A. Verma, Biochemist'
+        },
+        {
+          id: 'lab-103',
+          testName: 'Total Leukocyte Count (TLC)',
+          category: 'Hematology (Blood Count)',
+          sampleCollectedAt: '14 Nov 2025, 08:30 AM',
+          resultValue: '13,800',
+          unit: '/mcL',
+          referenceRange: '4,000 - 11,000 /mcL',
+          status: 'ABNORMAL',
+          notes: 'Leukocytosis secondary to active cellulitis infection.',
+          labTechnicianOrDoctor: 'Pathology Lab, Sonipat Civil Hosp'
+        },
+        {
+          id: 'lab-104',
+          testName: 'Wound Pus Culture & Sensitivity',
+          category: 'Microbiology & Serology',
+          sampleCollectedAt: '14 Nov 2025, 10:15 AM',
+          resultValue: 'Staphylococcus aureus (Sensitive to Ciprofloxacin & Clindamycin, Resistant to Penicillin)',
+          unit: 'Qualitative',
+          referenceRange: 'Sterile / No Pathogen',
+          status: 'ABNORMAL',
+          notes: 'Confirmed Penicillin resistance matching patient allergy profile.',
+          labTechnicianOrDoctor: 'Dr. M. Sanyal, Microbiologist'
+        }
+      ],
       clinicalAdvice: 'Daily wound dressing with sterile saline. Strict glycemic monitoring.',
       abhaId: '91-2849-5830-1092',
       blockchainTxHash: '0x8f2de41098bca4192837bc901e1273948bf823901a842b10923e87123984ca3b',
@@ -512,6 +884,44 @@ const INITIAL_USER: UserBioData = {
       medications: [
         { name: 'Telmisartan', dosage: '40 mg', frequency: '1-0-0', duration: '30 Days', instructions: 'Morning after breakfast' },
         { name: 'Amlodipine', dosage: '5 mg', frequency: '0-0-1', duration: '15 Days', instructions: 'Bedtime' }
+      ],
+      labRecords: [
+        {
+          id: 'lab-201',
+          testName: '12-Lead Electrocardiogram (ECG)',
+          category: 'Cardiology & ECG',
+          sampleCollectedAt: '22 Jan 2026, 11:15 AM',
+          resultValue: 'Sinus rhythm, Left Ventricular Hypertrophy (LVH), No acute ST-T elevation',
+          unit: 'Diagnostic Tracing',
+          referenceRange: 'Normal Sinus Rhythm',
+          status: 'ABNORMAL',
+          notes: 'Hypertensive cardiac strain pattern noted. No acute myocardial infarction.',
+          labTechnicianOrDoctor: 'Dr. Rajesh Mehta'
+        },
+        {
+          id: 'lab-202',
+          testName: 'Serum Creatinine (KFT)',
+          category: 'Renal / Kidney (KFT)',
+          sampleCollectedAt: '22 Jan 2026, 11:30 AM',
+          resultValue: '1.1',
+          unit: 'mg/dL',
+          referenceRange: '0.7 - 1.3 mg/dL',
+          status: 'NORMAL',
+          notes: 'Renal filtration capacity intact despite hypertensive surge.',
+          labTechnicianOrDoctor: 'Bilaspur CHC Clinical Lab'
+        },
+        {
+          id: 'lab-203',
+          testName: 'Serum Potassium (K+)',
+          category: 'Biochemistry & Enzymes',
+          sampleCollectedAt: '22 Jan 2026, 11:30 AM',
+          resultValue: '4.4',
+          unit: 'mmol/L',
+          referenceRange: '3.5 - 5.0 mmol/L',
+          status: 'NORMAL',
+          notes: 'Electrolyte balance normal.',
+          labTechnicianOrDoctor: 'Bilaspur CHC Clinical Lab'
+        }
       ],
       clinicalAdvice: 'Low sodium diet, review BP charts weekly at nearest PHC.',
       abhaId: '91-2849-5830-1092',
@@ -904,7 +1314,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const saved = localStorage.getItem('medcatalyst_doctor_user');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed: DoctorUser = JSON.parse(saved);
+        if (parsed && !parsed.profile) {
+          parsed.profile = getDoctorProfileForDoctor(parsed.id, parsed.name, parsed.department);
+        }
+        return parsed;
       } catch (e) {
         console.error(e);
       }
@@ -912,19 +1326,292 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return null;
   });
 
-  const bookAppointment = (data: Omit<TeleAppointment, 'id' | 'bookedAt' | 'status'>): TeleAppointment => {
+  const [doctorQueues, setDoctorQueues] = useState<Record<string, DoctorQueueState>>(() => {
+    const saved = localStorage.getItem('medcatalyst_doctor_queues');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return INITIAL_DOCTOR_QUEUES;
+  });
+
+  const getOrCreateDocQueue = (doctorId: string): DoctorQueueState => {
+    return doctorQueues[doctorId] || {
+      doctorId,
+      defaultDurationMinutes: 15,
+      rollingWindowSize: 5,
+      completedDurations: [15],
+      currentRollingAvgMinutes: 15.0
+    };
+  };
+
+  const bookAppointment = (data: Omit<TeleAppointment, 'id' | 'bookedAt' | 'status' | 'tokenNumber' | 'tokenSequence' | 'queueStatus'> & { timeWindow?: string }): TeleAppointment => {
+    const docId = data.doctorId;
+    const docQueue = getOrCreateDocQueue(docId);
+    const timeWindow = data.timeWindow || data.timeSlot || '10:00 AM – 12:00 PM';
+    const { tokenNumber, tokenSequence } = generateNextToken(appointments, docId, timeWindow);
+
+    const now = new Date();
     const newAppt: TeleAppointment = {
       ...data,
-      id: `appt-2026-${Math.floor(100 + Math.random() * 900)}`,
+      id: `appt-2026-${Date.now().toString().slice(-4)}${Math.floor(10 + Math.random() * 90)}`,
       status: 'SCHEDULED',
-      bookedAt: 'Today, ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      queueStatus: 'WAITING',
+      timeSlot: timeWindow,
+      timeWindow: timeWindow,
+      tokenNumber,
+      tokenSequence,
+      bookedAt: 'Today, ' + formatTimeAmPm(now),
+      bookedAtTimestamp: now.getTime()
     };
-    setAppointments(prev => {
-      const updated = [newAppt, ...prev];
-      localStorage.setItem('medcatalyst_tele_appointments', JSON.stringify(updated));
-      return updated;
-    });
-    return newAppt;
+
+    const combined = [newAppt, ...appointments];
+    const recalculated = recalculateDoctorQueue(
+      combined,
+      docId,
+      docQueue.currentRollingAvgMinutes,
+      docQueue.activeConsultationStartTime
+    );
+
+    const finalizedAppt = recalculated.find(a => a.id === newAppt.id) || newAppt;
+
+    setAppointments(recalculated);
+    localStorage.setItem('medcatalyst_tele_appointments', JSON.stringify(recalculated));
+
+    return finalizedAppt;
+  };
+
+  const callNextQueuePatient = (doctorId: string): TeleAppointment | null => {
+    const docAppts = appointments
+      .filter(a => a.doctorId === doctorId && a.queueStatus === 'WAITING')
+      .sort((a, b) => (a.tokenSequence || 0) - (b.tokenSequence || 0));
+
+    if (docAppts.length === 0) return null;
+    const nextPatient = docAppts[0];
+    const docQueue = getOrCreateDocQueue(doctorId);
+
+    const updatedQueues: Record<string, DoctorQueueState> = {
+      ...doctorQueues,
+      [doctorId]: {
+        ...docQueue,
+        activePatientId: nextPatient.id,
+        activeTokenNumber: nextPatient.tokenNumber
+      }
+    };
+    setDoctorQueues(updatedQueues);
+    localStorage.setItem('medcatalyst_doctor_queues', JSON.stringify(updatedQueues));
+
+    const updatedAppts = appointments.map(a => 
+      a.id === nextPatient.id 
+        ? { ...a, queueStatus: 'CALLED' as QueueStatus } 
+        : a
+    );
+
+    const recalculated = recalculateDoctorQueue(
+      updatedAppts,
+      doctorId,
+      docQueue.currentRollingAvgMinutes,
+      docQueue.activeConsultationStartTime
+    );
+
+    setAppointments(recalculated);
+    localStorage.setItem('medcatalyst_tele_appointments', JSON.stringify(recalculated));
+
+    return recalculated.find(a => a.id === nextPatient.id) || null;
+  };
+
+  const startPatientConsultation = (appointmentId: string) => {
+    const target = appointments.find(a => a.id === appointmentId);
+    if (!target) return;
+
+    const docId = target.doctorId;
+    const nowMs = Date.now();
+    const nowStr = new Date().toISOString();
+    const docQueue = getOrCreateDocQueue(docId);
+
+    const updatedQueues: Record<string, DoctorQueueState> = {
+      ...doctorQueues,
+      [docId]: {
+        ...docQueue,
+        activePatientId: target.id,
+        activeTokenNumber: target.tokenNumber,
+        activeConsultationStartTime: nowMs
+      }
+    };
+    setDoctorQueues(updatedQueues);
+    localStorage.setItem('medcatalyst_doctor_queues', JSON.stringify(updatedQueues));
+
+    const updatedAppts = appointments.map(a => 
+      a.id === appointmentId 
+        ? { 
+            ...a, 
+            queueStatus: 'IN_CONSULTATION' as QueueStatus, 
+            status: 'IN_CALL' as const,
+            actualStartTime: nowStr,
+            patientsAhead: 0,
+            estimatedWaitMinutes: 0,
+            estimatedConsultationTime: 'In Consultation Now'
+          }
+        : a
+    );
+
+    const recalculated = recalculateDoctorQueue(
+      updatedAppts,
+      docId,
+      docQueue.currentRollingAvgMinutes,
+      nowMs
+    );
+
+    setAppointments(recalculated);
+    localStorage.setItem('medcatalyst_tele_appointments', JSON.stringify(recalculated));
+  };
+
+  const endPatientConsultation = (appointmentId: string, consultationSummary?: string) => {
+    const target = appointments.find(a => a.id === appointmentId);
+    if (!target) return;
+
+    const docId = target.doctorId;
+    const nowMs = Date.now();
+    const nowStr = new Date().toISOString();
+
+    let durationMins = 14;
+    if (target.actualStartTime) {
+      const startMs = new Date(target.actualStartTime).getTime();
+      const elapsed = Math.round((nowMs - startMs) / 60000);
+      durationMins = Math.max(1, elapsed);
+    } else {
+      durationMins = Math.floor(11 + Math.random() * 6);
+    }
+
+    const docQueue = getOrCreateDocQueue(docId);
+    const newDurations = [...docQueue.completedDurations, durationMins];
+    const newRollingAvg = calculateRollingAverage(newDurations, docQueue.rollingWindowSize, docQueue.defaultDurationMinutes);
+
+    const updatedQueues: Record<string, DoctorQueueState> = {
+      ...doctorQueues,
+      [docId]: {
+        ...docQueue,
+        completedDurations: newDurations,
+        currentRollingAvgMinutes: newRollingAvg,
+        activePatientId: undefined,
+        activeTokenNumber: undefined,
+        activeConsultationStartTime: undefined
+      }
+    };
+    setDoctorQueues(updatedQueues);
+    localStorage.setItem('medcatalyst_doctor_queues', JSON.stringify(updatedQueues));
+
+    const updatedAppts = appointments.map(a => 
+      a.id === appointmentId 
+        ? {
+            ...a,
+            queueStatus: 'COMPLETED' as QueueStatus,
+            status: 'COMPLETED' as const,
+            actualEndTime: nowStr,
+            actualDurationMinutes: durationMins,
+            clinicalNotes: consultationSummary || a.clinicalNotes || 'Tele-consultation completed and digitally signed.'
+          }
+        : a
+    );
+
+    const recalculated = recalculateDoctorQueue(
+      updatedAppts,
+      docId,
+      newRollingAvg,
+      undefined
+    );
+
+    setAppointments(recalculated);
+    localStorage.setItem('medcatalyst_tele_appointments', JSON.stringify(recalculated));
+  };
+
+  const markPatientNoShow = (appointmentId: string) => {
+    const target = appointments.find(a => a.id === appointmentId);
+    if (!target) return;
+
+    const docId = target.doctorId;
+    const docQueue = getOrCreateDocQueue(docId);
+
+    if (docQueue.activePatientId === appointmentId) {
+      const updatedQueues: Record<string, DoctorQueueState> = {
+        ...doctorQueues,
+        [docId]: {
+          ...docQueue,
+          activePatientId: undefined,
+          activeTokenNumber: undefined,
+          activeConsultationStartTime: undefined
+        }
+      };
+      setDoctorQueues(updatedQueues);
+      localStorage.setItem('medcatalyst_doctor_queues', JSON.stringify(updatedQueues));
+    }
+
+    const updatedAppts = appointments.map(a => 
+      a.id === appointmentId 
+        ? {
+            ...a,
+            queueStatus: 'NO_SHOW' as QueueStatus,
+            status: 'CANCELLED' as const,
+            clinicalNotes: 'Patient marked as No-Show after queue summons.'
+          }
+        : a
+    );
+
+    const recalculated = recalculateDoctorQueue(
+      updatedAppts,
+      docId,
+      docQueue.currentRollingAvgMinutes,
+      docQueue.activeConsultationStartTime
+    );
+
+    setAppointments(recalculated);
+    localStorage.setItem('medcatalyst_tele_appointments', JSON.stringify(recalculated));
+  };
+
+  const cancelQueueAppointment = (appointmentId: string, reason?: string) => {
+    const target = appointments.find(a => a.id === appointmentId);
+    if (!target) return;
+
+    const docId = target.doctorId;
+    const docQueue = getOrCreateDocQueue(docId);
+
+    if (docQueue.activePatientId === appointmentId) {
+      const updatedQueues: Record<string, DoctorQueueState> = {
+        ...doctorQueues,
+        [docId]: {
+          ...docQueue,
+          activePatientId: undefined,
+          activeTokenNumber: undefined,
+          activeConsultationStartTime: undefined
+        }
+      };
+      setDoctorQueues(updatedQueues);
+      localStorage.setItem('medcatalyst_doctor_queues', JSON.stringify(updatedQueues));
+    }
+
+    const updatedAppts = appointments.map(a => 
+      a.id === appointmentId 
+        ? {
+            ...a,
+            queueStatus: 'CANCELLED' as QueueStatus,
+            status: 'CANCELLED' as const,
+            clinicalNotes: reason ? `Cancelled: ${reason}` : 'Cancelled by patient.'
+          }
+        : a
+    );
+
+    const recalculated = recalculateDoctorQueue(
+      updatedAppts,
+      docId,
+      docQueue.currentRollingAvgMinutes,
+      docQueue.activeConsultationStartTime
+    );
+
+    setAppointments(recalculated);
+    localStorage.setItem('medcatalyst_tele_appointments', JSON.stringify(recalculated));
   };
 
   const updateAppointmentStatus = (id: string, status: TeleAppointment['status']) => {
@@ -968,12 +1655,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       hospitalName: hospName,
       date: 'Today',
       timeSlot: 'Instant (Right Now)',
+      timeWindow: 'Instant Priority Room',
+      tokenNumber: 'URGENT',
+      tokenSequence: 0,
+      queueStatus: 'IN_CONSULTATION',
       symptoms: symptomText || 'Instant Tele-OPD Video Consultation Request',
       urgency: 'PRIORITY',
       consultationType: 'VIDEO',
       status: 'IN_CALL',
       isInstantConsult: true,
-      bookedAt: 'Just now'
+      actualStartTime: new Date().toISOString(),
+      patientsAhead: 0,
+      estimatedWaitMinutes: 0,
+      estimatedConsultationTime: 'In Consultation Now',
+      bookedAt: 'Just now',
+      bookedAtTimestamp: Date.now()
     };
 
     setAppointments(prev => {
@@ -995,6 +1691,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       );
       if (doc) {
         const defaultSettings = doc.scheduleSettings || createDefaultScheduleSettings();
+        const docProfile = doc.profile || getDoctorProfileForDoctor(doc.id, doc.name, doc.department);
         const docUser: DoctorUser = {
           id: doc.id,
           name: doc.name,
@@ -1005,7 +1702,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           hospitalName: h.name,
           roomNumber: doc.roomNumber,
           isOnlineForTeleConsult: defaultSettings.dutyMode === 'AVAILABLE' && defaultSettings.readyForInstantConsult,
-          scheduleSettings: defaultSettings
+          scheduleSettings: defaultSettings,
+          profile: docProfile
         };
         setDoctorUser(docUser);
         localStorage.setItem('medcatalyst_doctor_user', JSON.stringify(docUser));
@@ -1080,6 +1778,82 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           })
         };
       });
+      localStorage.setItem('medcatalyst_hospitals', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const submitDoctorReview = (doctorId: string, review: Omit<DoctorPatientReview, 'id' | 'date'>) => {
+    const newReview: DoctorPatientReview = {
+      ...review,
+      id: `rev-${Date.now()}`,
+      date: 'Today'
+    };
+
+    // Update in doctorUser if it matches the current logged-in doctor
+    setDoctorUser(prev => {
+      if (!prev) return null;
+      if (prev.id === doctorId || prev.name.toLowerCase().includes(doctorId.toLowerCase())) {
+        const currentProfile = prev.profile || getDoctorProfileForDoctor(prev.id, prev.name, prev.department);
+        const updatedReviews = [newReview, ...currentProfile.reviews];
+        const newTotal = updatedReviews.length;
+        const sumRatings = updatedReviews.reduce((acc, r) => acc + r.rating, 0);
+        const avg = Number((sumRatings / newTotal).toFixed(1));
+        const dist = { ...currentProfile.ratingDistribution };
+        const star = review.rating as 1 | 2 | 3 | 4 | 5;
+        dist[star] = (dist[star] || 0) + 1;
+        const positiveReviews = updatedReviews.filter(r => r.rating >= 4).length;
+        const recRate = Math.round((positiveReviews / newTotal) * 100);
+
+        const updatedProfile: DoctorProfileData = {
+          ...currentProfile,
+          averageRating: avg,
+          totalReviews: newTotal,
+          recommendationRate: recRate,
+          ratingDistribution: dist,
+          reviews: updatedReviews
+        };
+
+        const updatedDoctorUser = {
+          ...prev,
+          profile: updatedProfile
+        };
+        localStorage.setItem('medcatalyst_doctor_user', JSON.stringify(updatedDoctorUser));
+        return updatedDoctorUser;
+      }
+      return prev;
+    });
+
+    // Also update in hospitals state
+    setHospitals(prev => {
+      const updated = prev.map(h => ({
+        ...h,
+        doctorsOnDuty: h.doctorsOnDuty.map(d => {
+          if (d.id === doctorId || d.name.toLowerCase().includes(doctorId.toLowerCase())) {
+            const currentProfile = d.profile || getDoctorProfileForDoctor(d.id, d.name, d.department);
+            const updatedReviews = [newReview, ...currentProfile.reviews];
+            const newTotal = updatedReviews.length;
+            const sumRatings = updatedReviews.reduce((acc, r) => acc + r.rating, 0);
+            const avg = Number((sumRatings / newTotal).toFixed(1));
+            const dist = { ...currentProfile.ratingDistribution };
+            const star = review.rating as 1 | 2 | 3 | 4 | 5;
+            dist[star] = (dist[star] || 0) + 1;
+
+            return {
+              ...d,
+              profile: {
+                ...currentProfile,
+                averageRating: avg,
+                totalReviews: newTotal,
+                recommendationRate: Math.round((updatedReviews.filter(r => r.rating >= 4).length / newTotal) * 100),
+                ratingDistribution: dist,
+                reviews: updatedReviews
+              }
+            };
+          }
+          return d;
+        })
+      }));
       localStorage.setItem('medcatalyst_hospitals', JSON.stringify(updated));
       return updated;
     });
@@ -1681,7 +2455,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const verifyPatientRecord = useCallback(async (record: PatientRecord) => {
-    const plainString = JSON.stringify({
+    const plainPayload: Record<string, any> = {
       id: record.id,
       date: record.date,
       hospitalName: record.hospitalName,
@@ -1691,7 +2465,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prescriptionSummary: record.prescriptionSummary,
       clinicalAdvice: record.clinicalAdvice,
       abhaId: record.abhaId || user.healthId
-    });
+    };
+    if (record.labRecords && record.labRecords.length > 0) {
+      plainPayload.labRecords = record.labRecords;
+    }
+    const plainString = JSON.stringify(plainPayload);
     const currentChecksum = await computeSHA256(plainString);
     const res = await verifyRecordOnChain({
       patientAbhaId: record.abhaId || user.healthId,
@@ -1706,7 +2484,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const recordId = `rx-${Date.now()}`;
     const abhaId = record.abhaId || user.healthId;
 
-    const plainString = JSON.stringify({
+    const plainPayload: Record<string, any> = {
       id: recordId,
       date: record.date,
       hospitalName: record.hospitalName,
@@ -1716,7 +2494,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prescriptionSummary: record.prescriptionSummary,
       clinicalAdvice: record.clinicalAdvice,
       abhaId
-    });
+    };
+    if (record.labRecords && record.labRecords.length > 0) {
+      plainPayload.labRecords = record.labRecords;
+    }
+    const plainString = JSON.stringify(plainPayload);
     const integrityHash = await computeSHA256(plainString);
 
     // 1. Client-Side Encryption with AES-GCM-256 and IPFS upload
@@ -2647,14 +3429,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       revokeProviderConsent,
       blockchainNetwork,
       appointments,
+      doctorQueues,
       bookAppointment,
       initiateInstantConsultation,
       updateAppointmentStatus,
+      callNextQueuePatient,
+      startPatientConsultation,
+      endPatientConsultation,
+      markPatientNoShow,
+      cancelQueueAppointment,
       doctorUser,
       loginDoctor,
       logoutDoctor,
       toggleDoctorTeleConsultStatus,
-      updateDoctorScheduleSettings
+      updateDoctorScheduleSettings,
+      submitDoctorReview
     }), [
       hospitals,
       selectedHospitalId,
@@ -2680,6 +3469,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       revokeProviderConsent,
       blockchainNetwork,
       appointments,
+      doctorQueues,
       doctorUser
     ]);
 

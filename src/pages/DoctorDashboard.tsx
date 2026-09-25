@@ -26,7 +26,9 @@ import {
   ChevronRight,
   Plus,
   Trash2,
-  Check
+  Check,
+  FlaskConical,
+  TestTube
 } from '../components/icons';
 import { useApp, createDefaultScheduleSettings, DEFAULT_DOCTOR_SLOTS } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -40,9 +42,12 @@ import {
 } from '../types';
 import { VideoConsultModal } from '../components/teleconsult/VideoConsultModal';
 import { HospitalPrescriptionModal } from '../components/hospital/HospitalPrescriptionModal';
+import { DoctorNavbar, DoctorTabType } from '../components/doctor/DoctorNavbar';
+import { DoctorProfileTab } from '../components/doctor/DoctorProfileTab';
+import { DoctorQueueHUD } from '../components/doctor/DoctorQueueHUD';
 import { Link, useNavigate } from 'react-router-dom';
 
-type DoctorTab = 'appointments' | 'schedule' | 'ehr' | 'hospital';
+type DoctorTab = DoctorTabType;
 
 export const DoctorDashboard: React.FC = () => {
   const { 
@@ -51,6 +56,9 @@ export const DoctorDashboard: React.FC = () => {
     toggleDoctorTeleConsultStatus, 
     appointments, 
     updateAppointmentStatus,
+    startPatientConsultation,
+    endPatientConsultation,
+    markPatientNoShow,
     hospitals,
     user,
     updateDoctorScheduleSettings
@@ -65,6 +73,8 @@ export const DoctorDashboard: React.FC = () => {
   // Modals state
   const [selectedAppointmentForCall, setSelectedAppointmentForCall] = useState<TeleAppointment | null>(null);
   const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
+  const [prescriptionModalSection, setPrescriptionModalSection] = useState<'all' | 'prescription' | 'labs'>('all');
+  const [ehrRecordFilter, setEhrRecordFilter] = useState<'ALL' | 'PRESCRIPTIONS' | 'LABS'>('ALL');
   const [prescriptionAppt, setPrescriptionAppt] = useState<TeleAppointment | null>(null);
   const [inspectPatientModal, setInspectPatientModal] = useState<TeleAppointment | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -284,90 +294,18 @@ export const DoctorDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Top Clinical Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-2xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            
-            {/* Branding & Doctor Info */}
-            <div className="flex items-center gap-3.5">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-600 to-emerald-700 flex items-center justify-center text-white shadow-md shadow-teal-500/20">
-                <Stethoscope className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="font-extrabold text-base sm:text-lg text-slate-900 tracking-tight font-heading">
-                    {doctorUser.name}
-                  </h1>
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-teal-100 text-teal-800 border border-teal-200">
-                    Clinical Desk
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-500 hidden sm:flex items-center gap-2">
-                  <span>{doctorUser.designation}</span>
-                  <span>•</span>
-                  <span className="font-medium text-slate-700">{doctorUser.hospitalName}</span>
-                  {doctorUser.roomNumber && (
-                    <>
-                      <span>•</span>
-                      <span className="font-mono text-teal-700 bg-teal-50 px-1.5 py-0.2 rounded border border-teal-200">
-                        {doctorUser.roomNumber}
-                      </span>
-                    </>
-                  )}
-                </p>
-              </div>
-            </div>
-
-            {/* Actions: Duty Status Chip & Controls */}
-            <div className="flex items-center gap-2.5">
-              {/* Duty Status Badge */}
-              <div className="hidden md:flex items-center">
-                {currentSchedule.dutyMode === 'AVAILABLE' && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-300">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <span>🟢 Available & Ready</span>
-                  </span>
-                )}
-                {currentSchedule.dutyMode === 'HOSPITAL_EMERGENCY' && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-800 border border-rose-300 animate-pulse">
-                    <span className="w-2.5 h-2.5 rounded-full bg-rose-600" />
-                    <span>🚨 In Emergency OT ({currentSchedule.emergencyEstimatedResume || '~45m'})</span>
-                  </span>
-                )}
-                {currentSchedule.dutyMode === 'ON_LEAVE' && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-800 border border-purple-300">
-                    <span>🏖️ On Leave</span>
-                  </span>
-                )}
-                {currentSchedule.dutyMode === 'OFF_DUTY' && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-300">
-                    <span>⚪ Off Duty</span>
-                  </span>
-                )}
-              </div>
-
-              <LanguageSelector variant="light" />
-
-              <Link
-                to="/"
-                className="text-xs text-slate-600 hover:text-slate-900 px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition hidden sm:flex items-center gap-1 font-semibold"
-              >
-                Citizen Portal
-              </Link>
-
-              <button
-                onClick={handleLogout}
-                className="text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-3 py-1.5 rounded-xl border border-rose-200 transition flex items-center gap-1.5 font-bold cursor-pointer"
-                title="Logout from clinical desk"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Logout</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+      {/* Top Clinical Header with Distinct Segmented Boundaries */}
+      <DoctorNavbar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onOpenPrescriptionModal={(sec) => {
+          setPrescriptionAppt(null);
+          setPrescriptionModalSection(sec);
+          setShowPrescriptionModal(true);
+        }}
+        appointmentsCount={doctorAppointments.length}
+        scheduledCount={stats.scheduled}
+      />
 
       {/* Active Incoming Instant Consultation Call Banner */}
       {incomingInstantCall && (
@@ -521,6 +459,22 @@ export const DoctorDashboard: React.FC = () => {
               <Building2 className="w-3.5 h-3.5" />
               <span>Facility Telemetry</span>
             </button>
+
+            {/* TAB: Doctor Profile & Ratings */}
+            <button
+              onClick={() => setActiveTab('profile')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                activeTab === 'profile'
+                  ? 'bg-teal-600 text-white shadow-sm'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <User className="w-3.5 h-3.5" />
+              <span>🩺 Doctor Profile & Ratings</span>
+              <span className="px-1.5 py-0.2 rounded-md bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-black">
+                ★ {doctorUser?.profile?.averageRating || 4.9}
+              </span>
+            </button>
           </div>
 
           <div className="hidden lg:flex items-center gap-2">
@@ -534,6 +488,20 @@ export const DoctorDashboard: React.FC = () => {
         {activeTab === 'appointments' && (
           <div className="space-y-4">
             
+            {/* Live OPD Virtual Queue Command HUD */}
+            <DoctorQueueHUD
+              doctorId={doctorUser.id}
+              onOpenVideoCall={(appt) => {
+                setSelectedAppointmentForCall(appt);
+                updateAppointmentStatus(appt.id, 'IN_CALL');
+              }}
+              onOpenPrescriptionModal={(appt) => {
+                setPrescriptionAppt(appt);
+                setPrescriptionModalSection('all');
+                setShowPrescriptionModal(true);
+              }}
+            />
+
             {/* Filter and Search Bar */}
             <div className="bg-white p-3 rounded-2xl border border-slate-200 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
               <div className="flex items-center gap-2">
@@ -617,6 +585,11 @@ export const DoctorDashboard: React.FC = () => {
 
                           <div>
                             <div className="flex flex-wrap items-center gap-2">
+                              {/* Sequential Token Badge */}
+                              <span className="px-2 py-0.5 rounded font-mono font-black text-xs bg-teal-700 text-white shadow-xs">
+                                #{appt.tokenNumber || `A-${appt.tokenSequence || 1}`}
+                              </span>
+
                               <h3 className="font-bold text-base text-slate-900">{appt.patientName}</h3>
                               <span className="text-xs text-slate-500">
                                 ({appt.patientAge}y, {appt.patientGender})
@@ -628,7 +601,7 @@ export const DoctorDashboard: React.FC = () => {
                               )}
                               {isInstant && (
                                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300">
-                                  ⚡ Instant Call Request
+                                  ⚡ Instant Call
                                 </span>
                               )}
                               {isPriority && !isInstant && (
@@ -641,7 +614,13 @@ export const DoctorDashboard: React.FC = () => {
                             <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mt-1">
                               <span className="flex items-center gap-1">
                                 <Clock className="w-3.5 h-3.5 text-teal-600" />
-                                <strong className="text-slate-800">{appt.timeSlot}</strong> ({appt.date})
+                                <span className="text-[10px] font-bold text-slate-400 uppercase">Window:</span>
+                                <strong className="text-slate-800 font-mono">{appt.timeWindow || appt.timeSlot}</strong>
+                              </span>
+                              <span>•</span>
+                              <span className="flex items-center gap-1">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase">Dynamic ETA:</span>
+                                <strong className="text-teal-700 font-mono">{appt.estimatedConsultationTime || 'Calculating...'}</strong>
                               </span>
                               <span>•</span>
                               <span className="font-mono text-slate-600">
@@ -654,20 +633,35 @@ export const DoctorDashboard: React.FC = () => {
                         </div>
 
                         {/* Status Chip */}
-                        <div className="shrink-0">
-                          {isScheduled && (
+                        <div className="shrink-0 flex items-center gap-2">
+                          {appt.queueStatus === 'IN_CONSULTATION' && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 animate-pulse">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                              <span>In Consultation Now</span>
+                            </span>
+                          )}
+                          {appt.queueStatus === 'CALLED' && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 animate-pulse">
+                              <span>Summoned to Desk</span>
+                            </span>
+                          )}
+                          {appt.queueStatus === 'WAITING' && (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-teal-50 text-teal-800 border border-teal-200">
-                              <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
-                              <span>{isInstant ? 'Waiting in Call Room' : 'Ready for Consult'}</span>
+                              <span>Waiting ({appt.patientsAhead ?? 0} ahead)</span>
                             </span>
                           )}
                           {isCompleted && (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
                               <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
-                              <span>Completed</span>
+                              <span>Completed ({appt.actualDurationMinutes || 14}m)</span>
                             </span>
                           )}
-                          {appt.status === 'CANCELLED' && (
+                          {appt.queueStatus === 'NO_SHOW' && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300">
+                              <span>No-Show</span>
+                            </span>
+                          )}
+                          {appt.queueStatus === 'CANCELLED' && (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-300">
                               <span>Cancelled</span>
                             </span>
@@ -688,19 +682,64 @@ export const DoctorDashboard: React.FC = () => {
                       {/* Bottom Row: Actions */}
                       <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
                         <div className="flex flex-wrap items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedAppointmentForCall(appt);
-                              updateAppointmentStatus(appt.id, 'IN_CALL');
-                            }}
-                            className={`px-4 py-2 rounded-xl text-white font-bold text-xs flex items-center gap-2 shadow-xs transition cursor-pointer ${
-                              isInstant ? 'bg-rose-600 hover:bg-rose-700' : 'bg-teal-600 hover:bg-teal-700'
-                            }`}
-                          >
-                            <Video className="w-4 h-4" />
-                            <span>{isInstant ? 'Join Instant Call' : 'Start Video Consult'}</span>
-                          </button>
+                          {/* If Waiting or Called */}
+                          {(appt.queueStatus === 'WAITING' || appt.queueStatus === 'CALLED') && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  startPatientConsultation(appt.id);
+                                  setSelectedAppointmentForCall(appt);
+                                }}
+                                className="px-4 py-2 rounded-xl text-white font-bold text-xs flex items-center gap-2 shadow-xs transition cursor-pointer bg-teal-600 hover:bg-teal-700"
+                              >
+                                <Video className="w-4 h-4" />
+                                <span>Start Consultation</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  markPatientNoShow(appt.id);
+                                  showToast(`Marked ${appt.patientName} as No-Show. Queue advanced.`);
+                                }}
+                                className="px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs flex items-center gap-1.5 border border-rose-200 transition cursor-pointer"
+                              >
+                                <span>Mark No-Show</span>
+                              </button>
+                            </>
+                          )}
+
+                          {/* If Active Consultation */}
+                          {appt.queueStatus === 'IN_CONSULTATION' && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedAppointmentForCall(appt);
+                                }}
+                                className="px-4 py-2 rounded-xl text-white font-bold text-xs flex items-center gap-2 shadow-xs transition cursor-pointer bg-emerald-600 hover:bg-emerald-700"
+                              >
+                                <Video className="w-4 h-4" />
+                                <span>Join Active Call</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  endPatientConsultation(appt.id);
+                                  setPrescriptionAppt(appt);
+                                  setPrescriptionModalSection('all');
+                                  setShowPrescriptionModal(true);
+                                  showToast(`Consultation with ${appt.patientName} ended. Duration recorded & queue recalculated.`);
+                                }}
+                                className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shadow-md"
+                              >
+                                <CheckCircle className="w-3.5 h-3.5" />
+                                <span>End & Issue Rx</span>
+                              </button>
+                            </>
+                          )}
 
                           <button
                             type="button"
@@ -715,17 +754,18 @@ export const DoctorDashboard: React.FC = () => {
                             type="button"
                             onClick={() => {
                               setPrescriptionAppt(appt);
+                              setPrescriptionModalSection('all');
                               setShowPrescriptionModal(true);
                             }}
                             className="px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center gap-1.5 border border-emerald-200 transition cursor-pointer"
                           >
                             <Pill className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>Issue Digital Rx</span>
+                            <span>Issue Rx & Labs</span>
                           </button>
                         </div>
 
                         <div className="flex items-center gap-2 text-xs">
-                          {isScheduled && (
+                          {isScheduled && !appt.queueStatus && (
                             <button
                               type="button"
                               onClick={() => {
@@ -1406,30 +1446,175 @@ export const DoctorDashboard: React.FC = () => {
                 </div>
 
                 {/* Past Medical Records & Blockchain Hashes */}
-                <div className="pt-2 space-y-2">
-                  <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                    Verified Blockchain EHR History ({user.pastRecords.length} Records):
-                  </span>
+                <div className="pt-2 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/80 pb-2">
+                    <div>
+                      <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+                        Verified Blockchain EHR History ({user.pastRecords.length} Visits)
+                      </span>
+                      <p className="text-[11px] text-slate-500">
+                        Cryptographically linked prescriptions and diagnostic investigations on Polygon Amoy.
+                      </p>
+                    </div>
 
-                  <div className="space-y-2">
-                    {user.pastRecords.map((rec) => (
-                      <div key={rec.id} className="p-3 bg-white rounded-xl border border-slate-200 text-xs space-y-1.5 shadow-2xs">
-                        <div className="flex flex-wrap items-center justify-between gap-1">
-                          <span className="font-bold text-slate-900">{rec.diagnosis}</span>
-                          <span className="text-[10px] font-semibold text-slate-500">{rec.date} • {rec.hospitalName}</span>
-                        </div>
-                        <p className="text-slate-600 text-[11px]">
-                          <strong>Rx / Treatment:</strong> {rec.prescriptionSummary}
-                        </p>
-                        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100 text-[10px] text-slate-500 font-mono">
-                          <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                            ✓ Polygon Amoy Verified
-                          </span>
-                          <span>Tx: {rec.blockchainTxHash ? `${rec.blockchainTxHash.slice(0, 16)}...` : '0x4f82905...'}</span>
-                          <span>Doctor: {rec.doctorName}</span>
-                        </div>
-                      </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPrescriptionAppt(null);
+                          setPrescriptionModalSection('all');
+                          setShowPrescriptionModal(true);
+                        }}
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-2xs transition flex items-center gap-1 cursor-pointer active:scale-95"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Issue Rx & Labs</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPrescriptionAppt(null);
+                          setPrescriptionModalSection('labs');
+                          setShowPrescriptionModal(true);
+                        }}
+                        className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold shadow-2xs transition flex items-center gap-1 cursor-pointer active:scale-95"
+                      >
+                        <FlaskConical className="w-3.5 h-3.5" />
+                        <span>Add Lab Records</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Filter chips */}
+                  <div className="flex items-center gap-1.5 text-xs">
+                    {(['ALL', 'PRESCRIPTIONS', 'LABS'] as const).map((flt) => (
+                      <button
+                        key={flt}
+                        type="button"
+                        onClick={() => setEhrRecordFilter(flt)}
+                        className={`px-3 py-1 rounded-lg font-bold text-[11px] transition cursor-pointer ${
+                          ehrRecordFilter === flt
+                            ? 'bg-slate-900 text-white shadow-2xs'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        {flt === 'ALL' ? `All Records (${user.pastRecords.length})` : flt === 'PRESCRIPTIONS' ? 'Prescriptions (Rx)' : 'Diagnostic Lab Reports'}
+                      </button>
                     ))}
+                  </div>
+
+                  <div className="space-y-3">
+                    {user.pastRecords
+                      .filter(rec => {
+                        if (ehrRecordFilter === 'PRESCRIPTIONS') return (rec.medications && rec.medications.length > 0) || !rec.labRecords?.length;
+                        if (ehrRecordFilter === 'LABS') return rec.labRecords && rec.labRecords.length > 0;
+                        return true;
+                      })
+                      .map((rec) => (
+                        <div key={rec.id} className="p-4 bg-white rounded-2xl border border-slate-200 text-xs space-y-3 shadow-2xs hover:border-slate-300 transition">
+                          {/* Visit Header */}
+                          <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-slate-100 pb-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-extrabold text-sm text-slate-900">{rec.diagnosis}</span>
+                              <span className="text-[10px] font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                                {rec.id}
+                              </span>
+                            </div>
+                            <span className="text-[11px] font-semibold text-slate-500">
+                              {rec.date} • {rec.hospitalName}
+                            </span>
+                          </div>
+
+                          {/* Prescribed Medications */}
+                          {rec.medications && rec.medications.length > 0 && (
+                            <div className="space-y-1.5 bg-rose-50/30 p-2.5 rounded-xl border border-rose-100">
+                              <span className="text-[10px] uppercase font-bold text-rose-800 flex items-center gap-1">
+                                <Pill className="w-3 h-3 text-rose-600" />
+                                <span>Prescribed Medications ({rec.medications.length})</span>
+                              </span>
+                              <div className="flex flex-wrap gap-1.5">
+                                {rec.medications.map((m, mIdx) => (
+                                  <span key={mIdx} className="px-2.5 py-1 bg-white text-slate-800 rounded-lg text-[11px] font-semibold border border-rose-200 shadow-2xs">
+                                    {m.name} <strong className="text-blue-700">({m.dosage})</strong> • {m.frequency} • {m.duration}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Lab Diagnostic Investigations */}
+                          {rec.labRecords && rec.labRecords.length > 0 && (
+                            <div className="space-y-2 bg-purple-50/30 p-2.5 rounded-xl border border-purple-100">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] uppercase font-bold text-purple-800 flex items-center gap-1">
+                                  <FlaskConical className="w-3 h-3 text-purple-600" />
+                                  <span>Laboratory & Diagnostic Findings ({rec.labRecords.length} Tests)</span>
+                                </span>
+                                <span className="text-[10px] text-purple-700 font-semibold">
+                                  ABDM Diagnostic Ledger
+                                </span>
+                              </div>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {rec.labRecords.map((lab, lIdx) => (
+                                  <div key={lIdx} className="p-2.5 bg-white rounded-xl border border-purple-150 space-y-1 shadow-2xs">
+                                    <div className="flex items-start justify-between gap-1">
+                                      <div>
+                                        <span className="text-[9px] uppercase font-bold text-purple-600 tracking-wider block">
+                                          {lab.category}
+                                        </span>
+                                        <span className="font-bold text-slate-900 text-xs block leading-tight">
+                                          {lab.testName}
+                                        </span>
+                                      </div>
+                                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                                        lab.status === 'NORMAL' 
+                                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' 
+                                          : lab.status === 'BORDERLINE' 
+                                            ? 'bg-amber-50 text-amber-800 border border-amber-200' 
+                                            : lab.status === 'CRITICAL' 
+                                              ? 'bg-rose-100 text-rose-800 border border-rose-300 font-black animate-pulse' 
+                                              : 'bg-orange-50 text-orange-800 border border-orange-200'
+                                      }`}>
+                                        {lab.status}
+                                      </span>
+                                    </div>
+
+                                    <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-100">
+                                      <span className="text-slate-500">Result: <strong className="text-slate-900">{lab.resultValue} {lab.unit}</strong></span>
+                                      <span className="text-[10px] text-slate-400">Ref: {lab.referenceRange}</span>
+                                    </div>
+
+                                    {lab.notes && (
+                                      <p className="text-[10px] text-slate-600 italic bg-slate-50 p-1 rounded border border-slate-100">
+                                        Note: {lab.notes}
+                                      </p>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {rec.clinicalAdvice && (
+                            <p className="text-[11px] text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                              <strong>Advice:</strong> {rec.clinicalAdvice}
+                            </p>
+                          )}
+
+                          {/* Footer Blockchain & Physician Metadata */}
+                          <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100 text-[10px] text-slate-500 font-mono">
+                            <div className="flex items-center gap-2">
+                              <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                ✓ Polygon Amoy Verified (Block #{rec.blockNumber || 4182880})
+                              </span>
+                              <span>Tx: {rec.blockchainTxHash ? `${rec.blockchainTxHash.slice(0, 14)}...` : '0x4f82905...'}</span>
+                            </div>
+                            <span className="font-sans font-semibold text-slate-600">Attending: {rec.doctorName} ({rec.doctorSpecialty || 'Physician'})</span>
+                          </div>
+                        </div>
+                      ))}
                   </div>
                 </div>
               </div>
@@ -1503,6 +1688,11 @@ export const DoctorDashboard: React.FC = () => {
           </div>
         )}
 
+        {/* TAB 5: Doctor Profile, Credentials & Patient Ratings */}
+        {activeTab === 'profile' && (
+          <DoctorProfileTab />
+        )}
+
       </main>
 
       {/* Video Consultation Modal (DOCTOR MODE) */}
@@ -1527,8 +1717,12 @@ export const DoctorDashboard: React.FC = () => {
           onClose={() => {
             setShowPrescriptionModal(false);
             setPrescriptionAppt(null);
+            setPrescriptionModalSection('all');
           }}
           hospital={doctorHospital}
+          initialAbhaId={prescriptionAppt?.patientAbhaId || ''}
+          initialPatientName={prescriptionAppt?.patientName || ''}
+          defaultActiveSection={prescriptionModalSection}
           onNotify={(msg) => {
             if (prescriptionAppt) {
               updateAppointmentStatus(prescriptionAppt.id, 'COMPLETED');

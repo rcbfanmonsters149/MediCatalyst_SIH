@@ -614,6 +614,26 @@ export const X: React.FC<IconProps> = (props) => (
   </IconBase>
 );
 
+export const Star: React.FC<IconProps> = (props) => (
+  <IconBase {...props}>
+    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+  </IconBase>
+);
+
+export const Award: React.FC<IconProps> = (props) => (
+  <IconBase {...props}>
+    <circle cx="12" cy="8" r="7" />
+    <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88" />
+  </IconBase>
+);
+
+export const GraduationCap: React.FC<IconProps> = (props) => (
+  <IconBase {...props}>
+    <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+    <path d="M6 12v5c3 3 9 3 12 0v-5" />
+  </IconBase>
+);
+
 export const Zap: React.FC<IconProps> = (props) => (
   <IconBase {...props}>
     <path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z" />
@@ -686,4 +706,83 @@ export const Filter: React.FC<IconProps> = (props) => (
     <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
   </IconBase>
 );
+
+export const FlaskConical: React.FC<IconProps> = (props) => (
+  <IconBase {...props}>
+    <path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2" />
+    <path d="M8.5 2h7" />
+    <path d="M7 16h10" />
+  </IconBase>
+);
+
+export const TestTube: React.FC<IconProps> = (props) => (
+  <IconBase {...props}>
+    <path d="M14.5 2v17.5c0 1.4-1.1 2.5-2.5 2.5c-1.4 0-2.5-1.1-2.5-2.5V2" />
+    <path d="M8.5 2h7" />
+    <path d="M9.5 12h5" />
+  </IconBase>
+);
+
+export const Microscope: React.FC<IconProps> = (props) => (
+  <IconBase {...props}>
+    <path d="M6 18h8" />
+    <path d="M3 22h18" />
+    <path d="M14 22a7 7 0 1 0 0-14h-1" />
+    <path d="M9 14h2" />
+    <path d="M9 12a2 2 0 0 1-2-2V6h6v4a2 2 0 0 1-2 2Z" />
+    <path d="M12 6V3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3" />
+  </IconBase>
+);
+
+export const FileSpreadsheet: React.FC<IconProps> = (props) => (
+  <IconBase {...props}>
+    <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+    <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+    <path d="M8 13h2" />
+    <path d="M14 13h2" />
+    <path d="M8 17h2" />
+    <path d="M14 17h2" />
+  </IconBase>
+);
+
+export const Users: React.FC<IconProps> = (props) => (
+  <IconBase {...props}>
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </IconBase>
+);
+
+export const Square: React.FC<IconProps> = (props) => (
+  <IconBase {...props}>
+    <rect width="18" height="18" x="3" y="3" rx="2" />
+  </IconBase>
+);
+
+export const UserX: React.FC<IconProps> = (props) => (
+  <IconBase {...props}>
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <line x1="17" x2="22" y1="8" y2="13" />
+    <line x1="22" x2="17" y1="8" y2="13" />
+  </IconBase>
+);
+
+export const TrendingDown: React.FC<IconProps> = (props) => (
+  <IconBase {...props}>
+    <polyline points="22 17 13.5 8.5 8.5 13.5 2 7" />
+    <polyline points="16 17 22 17 22 11" />
+  </IconBase>
+);
+
+export const Timer: React.FC<IconProps> = (props) => (
+  <IconBase {...props}>
+    <line x1="10" x2="14" y1="2" y2="2" />
+    <line x1="12" x2="15" y1="14" y2="11" />
+    <circle cx="12" cy="14" r="8" />
+  </IconBase>
+);
+
+
 

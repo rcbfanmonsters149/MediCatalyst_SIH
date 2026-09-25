@@ -2,15 +2,18 @@
 FastAPI Server for Emergency Triage & Hospital Capability Matching
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 import joblib
 import json
 import os
+import sys
 import numpy as np
 import pandas as pd
+sys.path.append(os.path.dirname(__file__))
+from prescription_service import process_prescription_image
 
 FEATURE_COLS = [
     'age', 'is_pediatric', 'heart_rate', 'systolic_bp', 'diastolic_bp',
@@ -135,6 +138,20 @@ def evaluate_hospital_match(req: HospitalMatchRequest):
         "recommend_reroute": not can_handle,
         "reroute_urgency": "IMMEDIATE_GOLDEN_HOUR" if not can_handle else "NONE"
     }
+
+@app.post("/api/prescriptions/scan")
+async def scan_prescription(file: UploadFile = File(...)):
+    """
+    Accepts an uploaded image of a handwritten prescription.
+    Processes it through custom fine-tuned TrOCR model (or clinical vision pipeline)
+    and validates against Indian generic drug formulary.
+    """
+    try:
+        contents = await file.read()
+        result = process_prescription_image(contents, filename=file.filename or "rx.jpg")
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Prescription extraction failed: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

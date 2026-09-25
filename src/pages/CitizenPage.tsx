@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   MapPin, 
   Clock, 
@@ -15,7 +16,8 @@ import {
   Scan, 
   Disc, 
   Mic,
-  ArrowRight
+  ArrowRight,
+  Cpu
 } from '../components/icons';
 import { useApp, calculateHaversineKm } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -82,6 +84,14 @@ export const CitizenPage: React.FC<CitizenPageProps> = ({ onOpenEmergency, onOpe
               <span>🚑</span>
               <span>Nearest 108 Ambulance: <strong className="text-slate-900">2.1 km (~6 mins ETA)</strong></span>
             </div>
+            <Link
+              to="/architecture"
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition shadow-xs sm:ml-auto"
+            >
+              <Cpu className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Technical Architecture & Audit</span>
+              <ArrowRight className="w-3 h-3 text-emerald-400" />
+            </Link>
           </div>
 
           <div>

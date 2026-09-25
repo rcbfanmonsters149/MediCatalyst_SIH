@@ -12,7 +12,8 @@ import {
   Menu,
   X,
   ArrowRight,
-  Stethoscope
+  Stethoscope,
+  Cpu
 } from './icons';
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
@@ -79,6 +80,13 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
       desc: 'Village Field Reports & Maternal Care',
       icon: Heart,
       color: 'text-purple-600 bg-purple-50 border-purple-200'
+    },
+    {
+      to: '/architecture',
+      title: 'Technical Audit & Architecture',
+      desc: 'Complete Codebase Audit & System Specs',
+      icon: Cpu,
+      color: 'text-emerald-700 bg-emerald-50 border-emerald-300'
     }
   ];
 

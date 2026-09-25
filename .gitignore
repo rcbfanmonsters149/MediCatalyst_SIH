@@ -52,10 +52,9 @@ wheels/
 share/python-wheels/
 *.egg-info/
 .installed.cfg
-*.egg
-MANIFEST
-.venv
-venv/
-ENV/
-env.bak/
-venv.bak/
+# Large Model Weights (>100MB, excluded from GitHub 100MB limit)
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.onnx

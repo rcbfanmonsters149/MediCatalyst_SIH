@@ -19,7 +19,8 @@ import {
   Droplets,
   Disc,
   FileText,
-  QrCode
+  QrCode,
+  FlaskConical
 } from '../icons';
 import { useApp } from '../../context/AppContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -44,7 +45,10 @@ export const HospitalManagementTab: React.FC<HospitalManagementTabProps> = ({ ho
   // Add Doctor Form State
   const [showAddDoctorModal, setShowAddDoctorModal] = useState(false);
   const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
+  const [modalDefaultSection, setModalDefaultSection] = useState<'all' | 'prescription' | 'labs'>('all');
   const [showScannerModal, setShowScannerModal] = useState(false);
+  const [scannedPatientAbha, setScannedPatientAbha] = useState('');
+  const [scannedPatientName, setScannedPatientName] = useState('');
   const [docName, setDocName] = useState('');
   const [docDesignation, setDocDesignation] = useState('');
   const [docDepartment, setDocDepartment] = useState('');
@@ -147,11 +151,29 @@ export const HospitalManagementTab: React.FC<HospitalManagementTabProps> = ({ ho
             </button>
 
             <button
-              onClick={() => setShowPrescriptionModal(true)}
-              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-1.5 cursor-pointer active:scale-95"
+              onClick={() => {
+                setScannedPatientAbha('');
+                setScannedPatientName('');
+                setModalDefaultSection('all');
+                setShowPrescriptionModal(true);
+              }}
+              className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-1.5 cursor-pointer active:scale-95"
             >
               <FileText className="w-4 h-4" />
-              <span>{tr.hospital.issueDigitalPrescription}</span>
+              <span>Issue Rx & Records (ABHA)</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setScannedPatientAbha('');
+                setScannedPatientName('');
+                setModalDefaultSection('labs');
+                setShowPrescriptionModal(true);
+              }}
+              className="px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-1.5 cursor-pointer active:scale-95"
+            >
+              <FlaskConical className="w-4 h-4" />
+              <span>Add Lab Records</span>
             </button>
 
             <button
@@ -170,14 +192,29 @@ export const HospitalManagementTab: React.FC<HospitalManagementTabProps> = ({ ho
           onClose={() => setShowScannerModal(false)}
           hospital={hospital}
           onNotify={onNotify}
-          onOpenPrescriptionForUser={() => setShowPrescriptionModal(true)}
+          onOpenPrescriptionForUser={(scannedUser) => {
+            if (scannedUser) {
+              setScannedPatientAbha(scannedUser.healthId || '');
+              setScannedPatientName(scannedUser.fullName || '');
+            }
+            setModalDefaultSection('all');
+            setShowPrescriptionModal(true);
+          }}
         />
 
-        {/* Modal to Issue Clinical Prescription */}
+        {/* Modal to Issue Clinical Prescription & Lab Records */}
         <HospitalPrescriptionModal
           isOpen={showPrescriptionModal}
-          onClose={() => setShowPrescriptionModal(false)}
+          onClose={() => {
+            setShowPrescriptionModal(false);
+            setScannedPatientAbha('');
+            setScannedPatientName('');
+            setModalDefaultSection('all');
+          }}
           hospital={hospital}
+          initialAbhaId={scannedPatientAbha}
+          initialPatientName={scannedPatientName}
+          defaultActiveSection={modalDefaultSection}
           onNotify={onNotify}
         />
 

@@ -39,6 +39,7 @@ export interface DoctorOnDuty {
   roomNumber?: string;
   contactNumber?: string;
   scheduleSettings?: DoctorScheduleSettings;
+  profile?: DoctorProfileData;
 }
 
 export interface Hospital {
@@ -118,6 +119,37 @@ export interface PrescriptionMedication {
   instructions?: string;
 }
 
+export type LabTestStatus = 'NORMAL' | 'BORDERLINE' | 'ABNORMAL' | 'CRITICAL' | 'PENDING';
+
+export type LabTestCategory = 
+  | 'Hematology (Blood Count)' 
+  | 'Biochemistry & Enzymes' 
+  | 'Lipid Profile' 
+  | 'Diabetic Profile' 
+  | 'Renal / Kidney (KFT)' 
+  | 'Liver Function (LFT)' 
+  | 'Urine Analysis' 
+  | 'Microbiology & Serology' 
+  | 'Cardiology & ECG' 
+  | 'Radiology / Imaging' 
+  | 'Pathology' 
+  | 'Other Diagnostic';
+
+export interface LabRecordItem {
+  id?: string;
+  testName: string;
+  category: LabTestCategory | string;
+  sampleCollectedAt?: string;
+  resultValue: string;
+  unit: string;
+  referenceRange: string;
+  status: LabTestStatus;
+  notes?: string;
+  labTechnicianOrDoctor?: string;
+  reportAttachmentName?: string;
+  reportAttachmentUrl?: string;
+}
+
 export interface PatientRecord {
   id: string;
   date: string;
@@ -128,6 +160,7 @@ export interface PatientRecord {
   diagnosis: string;
   prescriptionSummary: string;
   medications?: PrescriptionMedication[];
+  labRecords?: LabRecordItem[];
   clinicalAdvice?: string;
   abhaId?: string;
 
@@ -425,6 +458,25 @@ export interface LiveMovingAmbulance {
 export type AppointmentStatus = 'SCHEDULED' | 'IN_CALL' | 'COMPLETED' | 'CANCELLED';
 export type UrgencyType = 'ROUTINE' | 'PRIORITY' | 'FOLLOW_UP';
 
+export type QueueStatus = 
+  | 'WAITING' 
+  | 'CALLED' 
+  | 'IN_CONSULTATION' 
+  | 'COMPLETED' 
+  | 'NO_SHOW' 
+  | 'CANCELLED';
+
+export interface DoctorQueueState {
+  doctorId: string;
+  defaultDurationMinutes: number; // default: 15
+  rollingWindowSize: number; // default: 5
+  completedDurations: number[]; // durations in minutes, e.g. [12, 15, 10, 18, 15]
+  currentRollingAvgMinutes: number; // rolling average in minutes, e.g. 14
+  activePatientId?: string;
+  activeTokenNumber?: string;
+  activeConsultationStartTime?: number; // epoch ms timestamp
+}
+
 export type DoctorDutyMode = 
   | 'AVAILABLE' 
   | 'HOSPITAL_EMERGENCY' 
@@ -477,6 +529,25 @@ export interface TeleAppointment {
   
   date: string;
   timeSlot: string;
+  timeWindow?: string; // e.g. "10:00 AM - 12:00 PM"
+  
+  // Virtual Queue & Token Data
+  tokenNumber: string; // e.g. "TK-01", "A-07"
+  tokenSequence: number; // 1, 2, 3...
+  queueStatus: QueueStatus;
+  
+  // Dynamic ETAs & Queue Metrics
+  estimatedConsultationTime?: string; // e.g. "10:42 AM"
+  estimatedWaitMinutes?: number; // e.g. 24
+  patientsAhead?: number; // e.g. 2
+  
+  // Timestamps for Actual Consultation Tracking
+  bookedAt: string;
+  bookedAtTimestamp?: number;
+  actualStartTime?: string;
+  actualEndTime?: string;
+  actualDurationMinutes?: number;
+  
   symptoms: string;
   urgency: UrgencyType;
   consultationType: 'VIDEO' | 'AUDIO';
@@ -486,7 +557,42 @@ export interface TeleAppointment {
   prescriptionIssued?: boolean;
   prescriptionId?: string;
   clinicalNotes?: string;
-  bookedAt: string;
+}
+
+export interface DoctorPatientReview {
+  id: string;
+  patientName: string;
+  patientAbhaMasked: string;
+  rating: number; // 1 to 5
+  consultationType: 'VIDEO' | 'AUDIO' | 'IN_PERSON' | 'EMERGENCY';
+  date: string;
+  tags: string[];
+  comment: string;
+  isVerifiedPatient: boolean;
+}
+
+export interface DoctorProfileData {
+  degrees: string[];
+  primaryDegree: string;
+  medicalCouncilRegNo: string;
+  abhaHprId: string;
+  experienceYears: number;
+  department: string;
+  specializations: string[];
+  languagesSpoken: string[];
+  bio: string;
+  consultationFee: string;
+  averageRating: number;
+  totalReviews: number;
+  recommendationRate: number;
+  ratingDistribution: {
+    5: number;
+    4: number;
+    3: number;
+    2: number;
+    1: number;
+  };
+  reviews: DoctorPatientReview[];
 }
 
 export interface DoctorUser {
@@ -500,6 +606,8 @@ export interface DoctorUser {
   roomNumber?: string;
   isOnlineForTeleConsult: boolean;
   scheduleSettings?: DoctorScheduleSettings;
+  profile?: DoctorProfileData;
 }
+
 
 

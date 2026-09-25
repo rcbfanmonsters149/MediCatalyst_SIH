@@ -21,7 +21,9 @@ import {
   Plus,
   Clock,
   Sparkles,
-  Database
+  Database,
+  FlaskConical,
+  TestTube
 } from '../components/icons';
 import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -42,6 +44,8 @@ export const PatientRecordViewPage: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'PRESCRIPTIONS' | 'BLOCKCHAIN'>('OVERVIEW');
   const [showPrescriptionModal, setShowPrescriptionModal] = useState<boolean>(false);
+  const [modalSection, setModalSection] = useState<'all' | 'prescription' | 'labs'>('all');
+  const [recordFilter, setRecordFilter] = useState<'ALL' | 'PRESCRIPTIONS' | 'LABS'>('ALL');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [auditLogged, setAuditLogged] = useState<boolean>(false);
   const [selectedRecord, setSelectedRecord] = useState<PatientRecord | null>(null);
@@ -180,11 +184,25 @@ export const PatientRecordViewPage: React.FC = () => {
           {/* Quick Doctor Actions */}
           <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto justify-start lg:justify-end">
             <button
-              onClick={() => setShowPrescriptionModal(true)}
+              onClick={() => {
+                setModalSection('all');
+                setShowPrescriptionModal(true);
+              }}
               className="flex-1 sm:flex-none px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
             >
               <Plus className="w-4 h-4" />
-              <span>Issue New Prescription</span>
+              <span>Issue Rx & Labs</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setModalSection('labs');
+                setShowPrescriptionModal(true);
+              }}
+              className="flex-1 sm:flex-none px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+            >
+              <FlaskConical className="w-4 h-4" />
+              <span>Add Lab Records</span>
             </button>
 
             <button
@@ -362,9 +380,37 @@ export const PatientRecordViewPage: React.FC = () => {
             </div>
           </div>
 
+          {/* Filter Chips for Clinical Records */}
+          <div className="flex items-center gap-2 text-xs">
+            {(['ALL', 'PRESCRIPTIONS', 'LABS'] as const).map((flt) => (
+              <button
+                key={flt}
+                type="button"
+                onClick={() => setRecordFilter(flt)}
+                className={`px-3 py-1.5 rounded-xl font-bold transition cursor-pointer ${
+                  recordFilter === flt
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {flt === 'ALL' 
+                  ? `All Records (${user.pastRecords.length})` 
+                  : flt === 'PRESCRIPTIONS' 
+                    ? 'Prescriptions (Rx)' 
+                    : 'Diagnostic Lab Reports'}
+              </button>
+            ))}
+          </div>
+
           {/* Records List */}
           <div className="space-y-4">
-            {user.pastRecords.map((rec) => (
+            {user.pastRecords
+              .filter(rec => {
+                if (recordFilter === 'PRESCRIPTIONS') return (rec.medications && rec.medications.length > 0) || !rec.labRecords?.length;
+                if (recordFilter === 'LABS') return rec.labRecords && rec.labRecords.length > 0;
+                return true;
+              })
+              .map((rec) => (
               <div 
                 key={rec.id}
                 className="p-5 sm:p-6 rounded-2xl bg-slate-50 border border-slate-200 hover:border-blue-300 transition space-y-4"
@@ -425,7 +471,7 @@ export const PatientRecordViewPage: React.FC = () => {
                   <div className="space-y-2 pt-2">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
                       <Pill className="w-3.5 h-3.5 text-indigo-600" />
-                      <span>Prescribed Medication Schedule</span>
+                      <span>Prescribed Medication Schedule ({rec.medications.length})</span>
                     </span>
                     
                     <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
@@ -457,6 +503,61 @@ export const PatientRecordViewPage: React.FC = () => {
                   </div>
                 )}
 
+                {/* Laboratory & Diagnostic Investigations Table */}
+                {rec.labRecords && rec.labRecords.length > 0 && (
+                  <div className="space-y-2 pt-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-purple-700 flex items-center gap-1.5">
+                      <FlaskConical className="w-3.5 h-3.5 text-purple-600" />
+                      <span>Laboratory & Diagnostic Test Findings ({rec.labRecords.length} Tests)</span>
+                    </span>
+                    
+                    <div className="overflow-x-auto rounded-xl border border-purple-200 bg-white">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-purple-50 text-purple-900 uppercase font-bold text-[10px]">
+                          <tr>
+                            <th className="p-2.5">#</th>
+                            <th className="p-2.5">Test Name</th>
+                            <th className="p-2.5">Category</th>
+                            <th className="p-2.5">Result Finding</th>
+                            <th className="p-2.5">Reference Range</th>
+                            <th className="p-2.5">Status</th>
+                            <th className="p-2.5">Pathologist / Clinical Notes</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-purple-100">
+                          {rec.labRecords.map((l, lIdx) => (
+                            <tr key={lIdx} className="hover:bg-purple-50/50">
+                              <td className="p-2.5 font-bold text-slate-400">{lIdx + 1}</td>
+                              <td className="p-2.5 font-bold text-slate-900">{l.testName}</td>
+                              <td className="p-2.5 text-purple-700 font-semibold text-[11px]">{l.category}</td>
+                              <td className="p-2.5 font-bold text-slate-900">
+                                {l.resultValue} <span className="font-normal text-slate-500 font-mono text-[11px]">{l.unit}</span>
+                              </td>
+                              <td className="p-2.5 text-slate-500 text-[11px] font-mono">{l.referenceRange}</td>
+                              <td className="p-2.5">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                  l.status === 'NORMAL'
+                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                    : l.status === 'BORDERLINE'
+                                      ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                      : l.status === 'CRITICAL'
+                                        ? 'bg-rose-100 text-rose-800 border border-rose-300 font-black animate-pulse'
+                                        : 'bg-orange-100 text-orange-800 border border-orange-300'
+                                }`}>
+                                  {l.status}
+                                </span>
+                              </td>
+                              <td className="p-2.5 text-slate-600 text-[11px]">
+                                {l.notes || (l.reportAttachmentName ? `Attachment: ${l.reportAttachmentName}` : 'Verified on ABDM grid')}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
                 {/* Blockchain Proof Chips */}
                 <div className="pt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500 font-mono border-t border-slate-200">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -479,11 +580,15 @@ export const PatientRecordViewPage: React.FC = () => {
 
       </main>
 
-      {/* Prescription Issue Modal */}
+      {/* Prescription & Lab Records Issue Modal */}
       <HospitalPrescriptionModal
         isOpen={showPrescriptionModal}
-        onClose={() => setShowPrescriptionModal(false)}
+        onClose={() => {
+          setShowPrescriptionModal(false);
+          setModalSection('all');
+        }}
         hospital={activeHospital}
+        defaultActiveSection={modalSection}
         onNotify={(msg) => setToastMessage(msg)}
       />
 
